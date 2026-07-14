@@ -274,6 +274,74 @@ const toUnexpectedExecutionFault = (error: unknown, message: string): ScriptFaul
     ? error
     : new ScriptFault('revo.script.execution.unexpected', message, { cause: error });
 
+const scheduleRetry = async <I, O, R extends ScriptResourceMap>(
+  definition: ScriptDefinition<I, O, R>,
+  request: ExecuteScriptRequest<R>,
+  clock: ScriptClock,
+  deadline: ScriptDeadline,
+  startedAt: number,
+  attempt: number,
+  backoffMs: number,
+  failure: ScriptFailure,
+): Promise<ScriptExecutionResult<O> | undefined> => {
+  if (backoffMs >= deadline.remainingMs()) {
+    const deadlineFailure = toFailure(
+      definition,
+      new ScriptFault(
+        'revo.script.timeout.deadline',
+        'Script wall-clock deadline expired before the next retry.',
+      ),
+    );
+    return emitTerminalFailure(
+      definition,
+      request,
+      clock,
+      deadline,
+      startedAt,
+      attempt,
+      deadlineFailure,
+    );
+  }
+
+  try {
+    await deadline.race(
+      emitScriptEvent(
+        request.eventSink,
+        createLifecycleEvent(
+          definition,
+          request.executionId,
+          'revo.script.retrying',
+          attempt,
+          clock.now(),
+          { nextAttempt: attempt + 1, backoffMs, error: failure },
+        ),
+      ),
+    );
+    await deadline.race(clock.sleep(backoffMs, deadline.signal));
+    return undefined;
+  } catch (retryError: unknown) {
+    const retryFault = toUnexpectedExecutionFault(
+      retryError,
+      'Script retry scheduling failed unexpectedly.',
+    );
+    const retryFailure = toFailure(definition, retryFault);
+
+    if (retryFailure.code === 'revo.script.execution.event_sink') {
+      return Object.freeze({ ok: false, error: retryFailure, attempts: attempt });
+    }
+
+    return emitTerminalFailure(
+      definition,
+      request,
+      clock,
+      deadline,
+      startedAt,
+      attempt,
+      retryFailure,
+    );
+  }
+};
+
 const runAttempt = async <I, O, R extends ScriptResourceMap>(
   definition: ScriptDefinition<I, O, R>,
   request: ExecuteScriptRequest<R>,
@@ -330,63 +398,21 @@ const runAttempt = async <I, O, R extends ScriptResourceMap>(
     }
 
     if (canRetry) {
-      if (backoffMs >= deadline.remainingMs()) {
-        const deadlineFailure = toFailure(
-          definition,
-          new ScriptFault(
-            'revo.script.timeout.deadline',
-            'Script wall-clock deadline expired before the next retry.',
-          ),
-        );
-        return emitTerminalFailure(
-          definition,
-          request,
-          clock,
-          deadline,
-          startedAt,
-          attempt,
-          deadlineFailure,
-        );
-      }
+      const retryResult = await scheduleRetry(
+        definition,
+        request,
+        clock,
+        deadline,
+        startedAt,
+        attempt,
+        backoffMs,
+        failure,
+      );
 
-      try {
-        await deadline.race(
-          emitScriptEvent(
-            request.eventSink,
-            createLifecycleEvent(
-              definition,
-              request.executionId,
-              'revo.script.retrying',
-              attempt,
-              clock.now(),
-              { nextAttempt: attempt + 1, backoffMs, error: failure },
-            ),
-          ),
-        );
-        await deadline.race(clock.sleep(backoffMs, deadline.signal));
-      } catch (retryError: unknown) {
-        const retryFault = toUnexpectedExecutionFault(
-          retryError,
-          'Script retry scheduling failed unexpectedly.',
-        );
-        const retryFailure = toFailure(definition, retryFault);
-
-        if (retryFailure.code === 'revo.script.execution.event_sink') {
-          return Object.freeze({ ok: false, error: retryFailure, attempts: attempt });
-        }
-
-        return emitTerminalFailure(
-          definition,
-          request,
-          clock,
-          deadline,
-          startedAt,
-          attempt,
-          retryFailure,
-        );
-      }
-
-      return runAttempt(definition, request, input, clock, deadline, startedAt, attempt + 1);
+      return (
+        retryResult ??
+        runAttempt(definition, request, input, clock, deadline, startedAt, attempt + 1)
+      );
     }
 
     return emitTerminalFailure(definition, request, clock, deadline, startedAt, attempt, failure);

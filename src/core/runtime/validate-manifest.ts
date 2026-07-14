@@ -7,7 +7,7 @@ import type {
   ScriptManifestV1,
   ScriptResourceAccess,
 } from '../spec/script-manifest.js';
-import { codePointLength, semanticVersionPattern } from './validation-rules.js';
+import { codePointLength, isExactSemanticVersion } from './validation-rules.js';
 
 export interface ManifestValidationIssue {
   readonly path: string;
@@ -74,9 +74,9 @@ const manifestSchema: z.ZodType<ScriptManifestV1> = z.strictObject({
       typeof value === 'string' && codePointLength(value) <= 256 && scriptIdPattern.test(value),
     { message: 'Script id must use the script:<namespace>/<name> format.' },
   ),
-  version: boundedString(128, 'Version must contain at most 128 Unicode code points.').regex(
-    semanticVersionPattern,
-    'Version must be an exact semantic version.',
+  version: boundedString(128, 'Version must contain at most 128 Unicode code points.').refine(
+    isExactSemanticVersion,
+    { message: 'Version must be an exact semantic version.' },
   ),
   summary: boundedString(512, 'Summary must contain at most 512 Unicode code points.'),
   inputSchemaId: boundedString(

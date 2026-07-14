@@ -5,11 +5,26 @@ import { ScriptFault } from '../spec/script-errors.js';
 import type { ScriptResourceMap } from '../spec/script-resources.js';
 import type { ScriptSchema } from '../spec/script-schema.js';
 import type { ManifestValidationIssue } from './validate-manifest.js';
-import { codePointLength, semanticVersionPattern } from './validation-rules.js';
+import { codePointLength, isExactSemanticVersion } from './validation-rules.js';
 
 const draft202012 = 'https://json-schema.org/draft/2020-12/schema';
-const implementationIdPattern =
-  /^(?:@[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*(?:\/[a-z][a-z0-9-]*)+|[a-z][a-z0-9-]*(?:[./][a-z][a-z0-9-]*)+)$/;
+const implementationIdSegmentPattern = /^[a-z][a-z0-9-]*$/;
+
+const isImplementationId = (value: string): boolean => {
+  if (value.startsWith('@')) {
+    const segments = value.slice(1).split('/');
+    return (
+      segments.length >= 3 &&
+      segments.every((segment) => implementationIdSegmentPattern.test(segment))
+    );
+  }
+
+  const segments = value.split(/[./]/);
+  return (
+    segments.length >= 2 &&
+    segments.every((segment) => implementationIdSegmentPattern.test(segment))
+  );
+};
 
 export interface ValidatedDefinitionSchemas {
   readonly input: Readonly<Record<string, unknown>>;
@@ -127,8 +142,10 @@ const validateSchema = <T>(
     });
   }
 
-  issues.push(...validateObjectClosure(jsonSchema, `${path}/jsonSchema`));
-  issues.push(...validateJsonSchemaCompilation(jsonSchema, `${path}/jsonSchema`));
+  issues.push(
+    ...validateObjectClosure(jsonSchema, `${path}/jsonSchema`),
+    ...validateJsonSchemaCompilation(jsonSchema, `${path}/jsonSchema`),
+  );
 
   return { jsonSchema, issues };
 };
@@ -139,14 +156,14 @@ const validateImplementation = (
 ): readonly ManifestValidationIssue[] => {
   const issues: ManifestValidationIssue[] = [];
 
-  if (codePointLength(id) > 256 || !implementationIdPattern.test(id)) {
+  if (codePointLength(id) > 256 || !isImplementationId(id)) {
     issues.push({
       path: '/implementation/id',
       message: 'Implementation id must be a stable namespaced identifier.',
     });
   }
 
-  if (codePointLength(version) > 128 || !semanticVersionPattern.test(version)) {
+  if (codePointLength(version) > 128 || !isExactSemanticVersion(version)) {
     issues.push({
       path: '/implementation/version',
       message: 'Implementation version must be an exact semantic version.',
