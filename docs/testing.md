@@ -36,12 +36,14 @@ CLI, and durable-recovery test layers do not belong in this package.
 
 ## Test layers
 
-| Layer        | Owns                                                                                                              | Must not own                                            |
-| ------------ | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Unit         | Pure validators, classifiers, canonicalization, redaction, retry decisions, and focused registry behavior.        | Package export claims or broad script lifecycle claims. |
-| Contract     | One script or runtime contract through typed public inputs, capabilities, events, results, and failures.          | Private implementation shape or host orchestration.     |
-| Architecture | Dependency direction, cycle absence, forbidden imports, deep-import prevention, and test-to-production direction. | Built consumer export resolution or runtime behavior.   |
-| Package      | Built declarations, export map, ESM resolution, packed contents, and consumer-visible type/runtime imports.       | Script semantics or private source imports.             |
+| Layer        | Owns                                                                                                                   | Must not own                                            |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Unit         | Pure validators, classifiers, canonicalization, redaction, retry decisions, and focused registry behavior.             | Package export claims or broad script lifecycle claims. |
+| Contract     | One script or runtime contract through typed public inputs, bounded clients, events, results, and failures.            | Private implementation shape or host orchestration.     |
+| Provider     | Privileged binding resolution, bounded client construction, real local/provider fixtures, and secret/path containment. | Pipeline routing or handler business decisions.         |
+| Consumer     | One facade path for arbitrary script ids, startup composition, and absence of per-operation host wiring.               | Provider implementation details or pipeline policy.     |
+| Architecture | Dependency direction, cycle absence, forbidden imports, deep-import prevention, and test-to-production direction.      | Built consumer export resolution or runtime behavior.   |
+| Package      | Built declarations, export map, ESM resolution, packed contents, and consumer-visible type/runtime imports.            | Script semantics or private source imports.             |
 
 Unit and contract tests may share deterministic builders and recording fakes from explicit support modules. There is no
 broad test barrel. Production modules never import test support.
@@ -54,7 +56,9 @@ The runtime foundation requires tests for:
 - input and result schema validation;
 - effect, permission, resource, retry, and idempotency coherence;
 - deterministic definition digest generation;
+- build-generated definition identity freshness and digest participation;
 - duplicate registration, sealing, exact lookup, and missing-definition failures;
+- coexistence and exact lookup of two immutable versions of one script id;
 - input immutability and one-handler invocation per attempt;
 - wall-clock timeout and abort propagation;
 - a never-settling handler or event sink remains bounded by the platform wall-clock deadline;
@@ -63,6 +67,7 @@ The runtime foundation requires tests for:
 - lifecycle and custom event allowlists;
 - redaction before events or failures leave the runtime;
 - input, result, event, error, and evidence payload bounds.
+- schema-declared verdict extraction without a concrete script-id branch.
 
 The injected `ScriptClock` controls observable timestamps and retry sleeps. The hard deadline intentionally uses the
 platform timer so a deterministic or faulty host clock cannot disable the safety bound; timeout tests use fake platform
@@ -77,9 +82,10 @@ Every built-in script has contract tests proving:
 
 - its manifest and schemas are valid and closed;
 - documented examples validate against the same schemas;
-- declared permissions, resources, effects, timeout, retry, idempotency, events, and redaction match observed use;
+- declared permissions, resources, provider contracts, effects, timeout, retry, idempotency, events, and redaction
+  match observed use;
 - prepared resource, permission, and effect grants satisfy the manifest before handler invocation;
-- missing capabilities fail before the handler performs an effect;
+- missing provider clients fail before the handler performs an effect;
 - success returns the documented bounded result;
 - provider failures map to stable namespaced errors without leaking secrets;
 - undeclared events and insufficient prepared effect grants are rejected;
@@ -97,15 +103,61 @@ The first built-in is `script:git/status`. Its contract suite proves the initial
 with provider adapters. Its complete contract requires that it:
 
 - accepts a closed empty input and one prepared repository resource named `repository`;
-- uses only a bounded read-only Git status capability;
+- uses only a bounded read-only package-owned Git client;
 - returns branch, head, detached, cleanliness, and bounded staged, unstaged, untracked, and conflicted counts;
 - does not return an unbounded file list or raw provider output;
-- invokes no write capability;
+- invokes no write client;
 - emits the standard lifecycle events;
 - maps missing access, timeout, provider failure, invalid input, and invalid result to their stable error families.
 
 An in-memory recording port is authoritative for the package contract. A real process-backed Git adapter is a separate
-integration surface and is not required for the first runtime slice.
+integration surface for the current exploratory runtime slice. Before publication, the target package-owned Git
+provider requires a real temporary-repository contract proving that `script:git/status` executes without a
+consumer-provided `readStatus` implementation. Recording fakes remain authoritative for access denial, no-call, retry,
+timeout, and redaction partitions.
+
+## Provider and consumer proof
+
+Every package-owned provider requires tests proving:
+
+- invalid definition, input, digest, binding, access, permission, or effect grants resolve no privileged host value;
+- only manifest-declared workspace and credential bindings are resolved;
+- every provider client is attached only to the resource named by its manifest requirement;
+- each provider construction receives only credential slots assigned to its manifest requirement;
+- provider coordinates are validated from immutable bindings and are never reconstructed from mutable workspace state;
+- absolute paths, secrets, environment values, commands, and raw provider payloads never reach handlers, results,
+  events, artifacts, or public failures;
+- bounded clients expose no generic command, filesystem-root, HTTP, GraphQL, or credential access;
+- duplicate provider client keys fail with `revo.script.provider.client_conflict` before handler invocation;
+- provider construction, calls, and disposal obey the one execution deadline and abort signal;
+- provider-specific transient failures map to stable package faults before central retry;
+- real local or provider-contract fixtures exercise the production adapter without requiring host operation logic;
+- provider contract majors are selected by manifest requirements, while execution resolves the exact implementation
+  id, digest, and package provenance pinned in the plan;
+- multiple retained implementations or contract majors never introduce implicit latest selection or fallback;
+- changing the new-plan default does not change execution or recovery for an existing exact pin.
+- an explicit retained-revision override changes only new plan compilation and still produces exactly one default.
+
+The consumer compatibility suite requires at least two arbitrary definitions in one provider family and proves that:
+
+- both execute through the same `createRevoScripts().execute(...)` path;
+- the facade, host services, and provider registry contain no concrete script-id branch;
+- adding the second definition requires no per-operation host capability or registration call;
+- adding a new script under an existing provider contract requires no consumer executor change;
+- a selected definition family whose provider contract is absent fails at startup;
+- an exact execution pin whose retained implementation is absent fails preflight rather than falling back;
+- a new provider module composes without changing the generic executor.
+
+Version-retention tests and release checks MUST prove that a published `(script id, version)` remains byte-stable and
+that adding an unrelated definition does not change its definition digest. Provider-family tests MUST prove that one
+new-plan default and all retained immutable revisions are registered without consumer enumeration. Removing a script
+version, provider contract major, or exact provider implementation requires external pin-audit evidence; a local green
+suite alone is not evidence that no pipeline or recoverable run still references it.
+
+Architecture tests MUST distinguish `core`, provider contracts, provider adapters, and concrete scripts. They enforce
+that provider contracts cannot import privileged host types, scripts import only bounded contracts in their own
+provider category, adapters never import scripts, provider families do not import one another, only the facade composes
+adapters with definitions, and production never imports testing.
 
 ## Coverage and quality metrics
 
