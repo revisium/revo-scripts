@@ -11,8 +11,8 @@ This file is the repository-local contract for coding agents. When this reposito
 - Protected base branch: `master`.
 - Primary local gate: `pnpm verify`.
 - Static analysis: SonarCloud through the scripts and workflow committed here.
-- The bootstrap package intentionally has no runtime API yet.
-- Target architecture: public SDK and one-script runtime, documented under `docs/`.
+- Current implementation: public SDK, one-script runtime, testing kit, and read-only Git status proof.
+- The package remains unpublished; publishing and downstream integration require separate approval.
 
 ## Required reading
 
@@ -26,8 +26,8 @@ Before editing, inspect:
 6. `REVIEW.md` for the review blockers.
 7. `package.json`, the export map, and the relevant source and tests.
 
-Draft target documents do not describe shipped behavior. Follow the current-versus-target source-of-truth rules in
-`REPOSITORY.md` instead of inferring behavior from neighboring repositories.
+Draft target documents do not describe stable behavior beyond the implemented and tested surface. Follow the
+current-versus-target source-of-truth rules in `REPOSITORY.md` instead of inferring behavior from neighboring repositories.
 
 ## Working rules
 
@@ -57,7 +57,8 @@ Draft target documents do not describe shipped behavior. Follow the current-vers
 - Prefer names, types, and decomposition over explanatory comments. Comments are reserved for non-obvious invariants, compatibility constraints, protocols, or lifecycle hazards.
 - A quality-rule exception, exclusion, or skipped test must be narrow and identify its owner, rationale, and expiry or
   removal condition.
-- Do not introduce dependency cycles, deep imports around the export map, or multiple public paths to the same contract.
+- Do not introduce dependency cycles or deep imports around the export map. Duplicate public paths require an explicit
+  curated-root decision in `REPOSITORY.md`; broad or accidental aliases remain forbidden.
 - Runtime code must not depend on test helpers, generated output, build scripts, or repository tooling.
 - Generated files, fixtures, coverage, and build output must stay outside production quality metrics without hiding owned production source.
 - Prefer complete `toEqual` assertions for owned object contracts. Use snapshots only for complex deterministic

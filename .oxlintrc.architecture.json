@@ -1,0 +1,89 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["import"],
+  "rules": {
+    "import/no-cycle": ["error", { "ignoreTypes": false }]
+  },
+  "overrides": [
+    {
+      "files": ["src/spec/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(?:^|/)(?:runtime|git|github|testing)(?:/|$)",
+                "message": "The spec layer must not depend on implementation layers."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/runtime/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(?:^|/)(?:git|github|testing)(?:/|$)",
+                "message": "The runtime layer may depend only on spec and runtime."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/git/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(?:^|/)(?:github|testing)(?:/|$)",
+                "message": "The git layer must not depend on github or testing."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/github/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(?:^|/)(?:git|testing)(?:/|$)",
+                "message": "The github layer must not depend on git or testing."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/index.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(?:^|/)(?:git|github|testing)(?:/|$)",
+                "message": "The root entry point exposes only the core runtime API."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

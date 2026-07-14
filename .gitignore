@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+.cache/
 .sonar/
 *.tgz
 .DS_Store

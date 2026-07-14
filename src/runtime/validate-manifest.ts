@@ -151,10 +151,11 @@ const manifestSchema: z.ZodType<ScriptManifestV1> = z.strictObject({
   events: z.strictObject({
     allowed: z
       .array(
-        boundedString(256, 'Custom event name must contain at most 256 Unicode code points.').regex(
-          namespacedIdentifierPattern,
-          'Custom event name must be namespaced.',
-        ),
+        boundedString(256, 'Custom event name must contain at most 256 Unicode code points.')
+          .regex(namespacedIdentifierPattern, 'Custom event name must be namespaced.')
+          .refine((name) => !name.startsWith('revo.script.'), {
+            message: 'Custom event name must not use the reserved revo.script namespace.',
+          }),
       )
       .max(64, 'A manifest may declare at most 64 custom events.'),
     detailPaths: z.array(jsonPointerSchema).max(128),
@@ -348,6 +349,27 @@ const locateRedactionPaths = (manifest: ScriptManifestV1): readonly LocatedPath[
   ...locatePaths(manifest.redaction.eventPaths, '/redaction/eventPaths'),
 ];
 
+const findRedactionDuplicateIssues = (
+  manifest: ScriptManifestV1,
+): readonly ManifestValidationIssue[] => [
+  ...findLocatedDuplicateIssues(
+    locatePaths(manifest.redaction.inputPaths, '/redaction/inputPaths'),
+    'Redaction paths must be unique.',
+  ),
+  ...findLocatedDuplicateIssues(
+    locatePaths(manifest.redaction.resultPaths, '/redaction/resultPaths'),
+    'Redaction paths must be unique.',
+  ),
+  ...findLocatedDuplicateIssues(
+    locatePaths(manifest.redaction.errorPaths, '/redaction/errorPaths'),
+    'Redaction paths must be unique.',
+  ),
+  ...findLocatedDuplicateIssues(
+    locatePaths(manifest.redaction.eventPaths, '/redaction/eventPaths'),
+    'Redaction paths must be unique.',
+  ),
+];
+
 const isJsonPointer = (value: string): boolean =>
   value === '' || /^(?:\/(?:[^~/]|~0|~1)*)+$/.test(value);
 
@@ -401,7 +423,7 @@ export const validateManifest = (
       'Custom event names must be unique.',
     ),
     ...findInvalidPointerIssues([...redactionPaths, ...eventDetailPaths]),
-    ...findLocatedDuplicateIssues(redactionPaths, 'Redaction paths must be unique.'),
+    ...findRedactionDuplicateIssues(manifest),
     ...findLocatedDuplicateIssues(eventDetailPaths, 'Event detail paths must be unique.'),
     ...validatePurePolicy(manifest),
     ...validateEffectClass(manifest),

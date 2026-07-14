@@ -297,3 +297,85 @@ test('rejects schema and implementation identities that diverge from the definit
     },
   });
 });
+
+test('rejects nested object schemas that do not fail closed', () => {
+  const nestedInputSchema: ScriptSchema<{ nested: { message: string } }> = {
+    id: manifest.inputSchemaId,
+    validate: async () => ({
+      ok: true,
+      value: { nested: { message: 'valid' } },
+    }),
+    toJsonSchema: () => ({
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      $id: manifest.inputSchemaId,
+      type: 'object',
+      additionalProperties: false,
+      required: ['nested'],
+      properties: {
+        nested: {
+          type: 'object',
+          required: ['message'],
+          properties: { message: { type: 'string' } },
+        },
+      },
+    }),
+  };
+
+  const fault = captureFault(() =>
+    defineScript({
+      manifest,
+      inputSchema: nestedInputSchema,
+      resultSchema,
+      implementation: {
+        id: '@revisium/revo-scripts/test/nested-schema',
+        version: '1.0.0',
+      },
+      handler: async () => ({ value: { echoed: 'valid' } }),
+    }),
+  );
+
+  expect(fault).toEqual({
+    code: 'revo.script.validation.manifest',
+    message: 'Script definition is invalid.',
+    retryable: false,
+    details: {
+      issues: [
+        {
+          path: '/inputSchema/jsonSchema/properties/nested/additionalProperties',
+          message: 'Object schemas must explicitly reject unknown properties.',
+        },
+      ],
+    },
+  });
+});
+
+test('does not interpret JSON Schema annotation values as nested schemas', () => {
+  const annotatedInputSchema: ScriptSchema<{ message: string }> = {
+    ...inputSchema,
+    toJsonSchema: () => ({
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      $id: manifest.inputSchemaId,
+      type: 'object',
+      additionalProperties: false,
+      default: { type: 'object' },
+      examples: [{ type: 'object' }],
+      required: ['message'],
+      properties: {
+        message: { type: 'string', default: 'object' },
+      },
+    }),
+  };
+
+  const definition = defineScript({
+    manifest,
+    inputSchema: annotatedInputSchema,
+    resultSchema,
+    implementation: {
+      id: '@revisium/revo-scripts/test/annotated-schema',
+      version: '1.0.0',
+    },
+    handler,
+  });
+
+  expect(definition.manifest).toEqual(manifest);
+});

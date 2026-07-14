@@ -24,21 +24,19 @@ behavior is described as shipped.
 When code and an Accepted spec disagree, stop and resolve the contract rather than silently treating either as a
 compatibility fallback.
 
-## Intended layout
+## Current layout
 
 ```text
 src/
   spec/       portable manifests, schemas, definitions, results, and errors
   runtime/    definition, registry, validation, events, redaction, and execution
   git/        bounded Git capabilities and built-in Git scripts
-  github/     bounded GitHub capabilities and built-in GitHub scripts
   testing/    public contract-test mechanics and deterministic fakes
 
 test/
   unit/          focused pure and adapter behavior
   contract/      runtime and per-script observable contracts
-  architecture/ dependency, cycle, boundary, and forbidden-import rules
-  package/       built-package and public consumer behavior
+  package-smoke.test.ts  source entrypoint and package metadata contract
   support/       private deterministic test mechanics
 
 docs/
@@ -47,7 +45,8 @@ docs/
 ```
 
 Directories and public entrypoints are created only with their first real owner. Do not add empty placeholder modules
-or broad barrels to make the target tree appear complete.
+or broad barrels to make the target tree appear complete. `src/github/` is therefore deferred until its first bounded
+script or capability contract is implemented.
 
 ## Dependency direction
 
@@ -65,7 +64,9 @@ spec + runtime + git + github <- testing
 - Tests import explicit modules; there is no broad test-support barrel.
 - Public consumers use the export map and never deep-import internal files.
 
-Architecture checks must enforce this graph and zero dependency cycles before the runtime ships.
+`.oxlintrc.architecture.json` enforces this graph and zero value or type dependency cycles through Oxlint's module
+graph. Published boundaries are enforced independently through explicit exports, declarations, package smoke tests,
+`publint`, Are The Types Wrong, and pack-content validation.
 
 ## Ownership boundaries
 
@@ -77,8 +78,10 @@ generic HTTP or GraphQL clients, and global mutable loggers are not handler capa
 
 ## Package surface
 
-The root entrypoint is a small curated convenience API. Domain entrypoints are explicit subpaths. Adding a source file
-does not make it public; `package.json` is authoritative for shipped exports.
+The root entrypoint intentionally repeats only the four primary runtime functions: `defineScript`,
+`createScriptSchema`, `createScriptRegistry`, and `executeScript`. This is the approved curated convenience exception
+to the single-public-path rule. Types, faults, built-ins, and testing mechanics remain on explicit domain subpaths.
+Adding a source file does not make it public; `package.json` is authoritative for shipped exports.
 
 Testing utilities are public only through `@revisium/revo-scripts/testing`. Private fixtures and repository validation
 scripts are never shipped as package API.

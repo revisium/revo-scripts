@@ -16,20 +16,61 @@ export interface ValidatedDefinitionSchemas {
   readonly result: Readonly<Record<string, unknown>>;
 }
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const schemaMapKeywords = new Set(['$defs', 'dependentSchemas', 'patternProperties', 'properties']);
+const schemaArrayKeywords = new Set(['allOf', 'anyOf', 'oneOf', 'prefixItems']);
+const schemaValueKeywords = new Set([
+  'additionalProperties',
+  'contains',
+  'else',
+  'if',
+  'items',
+  'not',
+  'propertyNames',
+  'then',
+  'unevaluatedProperties',
+]);
+
 const validateObjectClosure = (
   schema: Readonly<Record<string, unknown>>,
   path: string,
 ): readonly ManifestValidationIssue[] => {
+  const issues: ManifestValidationIssue[] = [];
+
   if (schema.type === 'object' && schema.additionalProperties !== false) {
-    return [
-      {
-        path: `${path}/additionalProperties`,
-        message: 'Object schemas must explicitly reject unknown properties.',
-      },
-    ];
+    issues.push({
+      path: `${path}/additionalProperties`,
+      message: 'Object schemas must explicitly reject unknown properties.',
+    });
   }
 
-  return [];
+  Object.entries(schema).forEach(([key, value]) => {
+    if (schemaArrayKeywords.has(key) && Array.isArray(value)) {
+      value.forEach((item, index) => {
+        if (isRecord(item)) {
+          issues.push(...validateObjectClosure(item, `${path}/${key}/${index}`));
+        }
+      });
+      return;
+    }
+
+    if (schemaMapKeywords.has(key) && isRecord(value)) {
+      Object.entries(value).forEach(([name, nestedSchema]) => {
+        if (isRecord(nestedSchema)) {
+          issues.push(...validateObjectClosure(nestedSchema, `${path}/${key}/${name}`));
+        }
+      });
+      return;
+    }
+
+    if (schemaValueKeywords.has(key) && isRecord(value)) {
+      issues.push(...validateObjectClosure(value, `${path}/${key}`));
+    }
+  });
+
+  return issues;
 };
 
 const validateJsonSchemaCompilation = (

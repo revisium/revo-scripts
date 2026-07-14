@@ -8,7 +8,7 @@
 
 ## Scope
 
-This specification defines the target public SDK and runtime for one bounded Revo script: serializable manifests,
+This specification defines the proposed stable public SDK and runtime for one bounded Revo script: serializable manifests,
 runtime schemas and definitions, explicit registration, execution context and result, errors, events, redaction,
 payload bounds, extension trust, public entrypoints, and the first built-in operation.
 
@@ -20,9 +20,9 @@ BCP 14 when, and only when, they appear in all capitals.
 
 ## Current Contract
 
-The package currently exposes an empty root module and ships only its package toolchain and quality gates. No runtime,
-SDK, built-in script, or extension contract is available. The target contract below is not shipped until its public
-exports, declarations, tests, and package validation are implemented.
+The repository implements the initial root, `spec`, `runtime`, `git`, and `testing` entrypoints plus the read-only
+`script:git/status` vertical proof. The npm package is not published. This Draft remains the target stable contract;
+implemented behavior is available for review but has no published compatibility commitment.
 
 ## Target Contract
 
@@ -296,6 +296,7 @@ The initial runtime MUST define at least these exact codes:
 | `revo.script.validation.manifest`           | Manifest or policy coherence is invalid.                                  | No           |
 | `revo.script.validation.input`              | Input does not satisfy the declared schema.                               | No           |
 | `revo.script.validation.result`             | Handler output does not satisfy the declared schema.                      | No           |
+| `revo.script.validation.event`              | A custom event is not JSON-compatible.                                    | No           |
 | `revo.script.validation.payload_limit`      | A bounded payload limit was exceeded.                                     | No           |
 | `revo.script.permission.resource`           | A prepared resource does not satisfy the manifest grant.                  | No           |
 | `revo.script.permission.effect`             | A prepared effect grant does not satisfy the manifest.                    | No           |
@@ -351,7 +352,8 @@ started event, zero or more retrying events, and exactly one succeeded or failed
 requirements apply while the sink accepts events.
 
 A handler MAY emit only event names declared by `manifest.events.allowed`. Custom details MUST contain only paths
-allowed by `manifest.events.detailPaths`. Undeclared names or detail paths MUST fail before reaching the sink.
+allowed by `manifest.events.detailPaths`. Empty objects and arrays are leaves at their own JSON Pointer path.
+Undeclared names, detail paths, or non-JSON values MUST fail before reaching the sink.
 Custom event names MUST be namespaced and MUST NOT use the reserved `revo.script.*` lifecycle namespace.
 
 An undeclared custom event fails the active attempt with `revo.script.permission.event`. A rejected `EventSink.emit`
@@ -363,9 +365,10 @@ Redaction MUST occur before data reaches an event sink, failure detail, evidence
 Redaction paths and event detail paths use RFC 6901 JSON Pointer. Invalid pointers MUST fail definition validation.
 
 The typed `value: O` returned to the trusted caller MUST remain schema-valid and MUST NOT be mutated into an
-incompatible placeholder. A result redaction path controls serialized projections of the result in events and
-diagnostics. Script result schemas and handlers MUST NOT treat secrets or provider tokens as domain output. The runtime
-contract suite MUST fail when a fixture secret remains visible in any declared public projection.
+incompatible placeholder. Input and result redaction paths apply only when the runtime creates a serialized projection;
+the initial runtime creates no such projection and never places input or result values in events. Error and event paths
+are enforced now. Script result schemas and handlers MUST NOT treat secrets or provider tokens as domain output. The
+runtime contract suite MUST fail when a fixture secret remains visible in any applicable declared public projection.
 
 ### Registry
 
@@ -445,34 +448,41 @@ declare function executeScript<I, O, R extends ScriptResourceMap>(
 ): Promise<ScriptExecutionResult<O>>;
 ```
 
-`ScriptClock` is a bounded test seam for time and backoff. The runtime provides a real default. A caller MAY provide a
-deterministic clock; a handler MUST NOT receive it or control its own retry timing.
+`ScriptClock` is a bounded test seam for timestamps and retry backoff. The runtime provides a real default. A caller MAY
+provide a deterministic clock; a handler MUST NOT receive it or control its own retry timing. The hard deadline uses a
+platform timer independently of `ScriptClock`, so an injected clock cannot disable the safety bound.
 
-`executionId` MUST be a non-empty string no longer than 256 Unicode code points. The raw execution id is its lifecycle
-event projection. An idempotency key MUST be a non-empty string no longer than 1,024 Unicode code points and MUST NOT be
-copied into an event, failure, or provider marker without applying the operation's fingerprint contract.
+`executionId` MUST be a non-empty string no longer than 256 Unicode code points. A valid raw execution id is its
+lifecycle event projection. An invalid id is replaced with `[INVALID_EXECUTION_ID]` in its preflight failure event so
+the invalid value cannot bypass event bounds. An idempotency key MUST be a non-empty string no longer than 1,024 Unicode
+code points and MUST NOT be copied into an event, failure, or provider marker without applying the operation's
+fingerprint contract.
 
 `executeScript` MUST perform the same generic steps for every definition:
 
-1. require a sealed registry and resolve the registered handle to its exact private definition;
-2. validate and bound input;
-3. verify the prepared resource grant against the manifest;
-4. derive or require idempotency context according to the manifest;
-5. emit the started event;
-6. execute with one total wall-clock deadline and an abort signal;
-7. retry only typed transient failures permitted by the manifest;
-8. validate and bound the handler result;
-9. preserve the validated typed result and redact its declared event/diagnostic projections, failures, evidence, and
-   events;
-10. emit succeeded or failed;
-11. return the typed execution result.
+1. validate and bound the execution identity;
+2. require a sealed registry and resolve the registered handle to its exact private definition;
+3. validate and bound input;
+4. verify the prepared resource grant against the manifest;
+5. derive or require idempotency context according to the manifest;
+6. emit the started event;
+7. execute with one total wall-clock deadline and an abort signal;
+8. retry only typed transient failures permitted by the manifest;
+9. validate and bound the handler result;
+10. preserve the validated typed result and redact its declared event/diagnostic projections, failures, evidence, and
+    events;
+11. emit succeeded or failed;
+12. return the typed execution result.
 
 Generic execution MUST NOT branch on a concrete script id, provider, or host identity. A timeout MUST abort the active
 attempt and return a timeout-family failure. Exhausted transient retries MUST preserve the last stable failure code and
 record the total attempt count.
 
 When the executor stops before a permitted retry because the remaining deadline cannot accommodate the next backoff,
-it MUST return the last attempt's stable failure code and record the total attempts already executed.
+it MUST return `revo.script.timeout.deadline` and record the total attempts already executed.
+
+The total wall-clock timeout includes identity and input validation, registry resolution, all attempts, backoff, result
+validation, custom events, and lifecycle event emission. A never-settling `EventSink` MUST NOT outlive the deadline.
 
 The runtime does not persist results or events. A host MAY persist the validated domain output through its own adapter.
 Any event or diagnostic projection persisted by a host MUST use the runtime-redacted projection.
@@ -502,8 +512,9 @@ The target entrypoints are:
 Only implemented entrypoints MAY appear in `package.json`. The GitHub entrypoint MUST NOT be published as an empty
 placeholder. Filesystem layout alone MUST NOT make a module public. Deep imports around the export map are unsupported.
 
-The root entrypoint MUST be curated and MUST NOT re-export every internal module. Production entrypoints MUST NOT
-export testing utilities, process execution, raw credentials, or unrestricted provider clients.
+The root entrypoint intentionally repeats the four primary runtime functions as a curated convenience API. It MUST NOT
+re-export faults, domain built-ins, testing mechanics, or every internal module. Production entrypoints MUST NOT export
+process execution, raw credentials, or unrestricted provider clients.
 
 ### Dependency direction
 
@@ -580,8 +591,8 @@ The required proof is defined in [Testing](../testing.md). `pnpm verify` MUST in
 contract tests, architecture checks, public type tests, coverage, build, declaration and export validation, package
 content validation, and a pack dry-run before the runtime is declared shipped.
 
-The first implementation MUST keep the package status as bootstrap until the runtime entrypoints and Git status
-contract pass the full local and hosted gates.
+The first implementation MUST remain unpublished until the runtime entrypoints and Git status contract pass the full
+local gates, hosted CI, static analysis, and review.
 
 ## Compatibility
 

@@ -57,11 +57,16 @@ The runtime foundation requires tests for:
 - duplicate registration, sealing, exact lookup, and missing-definition failures;
 - input immutability and one-handler invocation per attempt;
 - wall-clock timeout and abort propagation;
+- a never-settling handler or event sink remains bounded by the platform wall-clock deadline;
 - bounded retry of typed transient failures only;
 - structured conversion of unknown failures;
 - lifecycle and custom event allowlists;
 - redaction before events or failures leave the runtime;
 - input, result, event, error, and evidence payload bounds.
+
+The injected `ScriptClock` controls observable timestamps and retry sleeps. The hard deadline intentionally uses the
+platform timer so a deterministic or faulty host clock cannot disable the safety bound; timeout tests use fake platform
+timers when they need deterministic expiry.
 
 Tests for generic runtime behavior use arbitrary script identifiers. The executor must not pass because a test happens
 to use a built-in identifier.
@@ -88,7 +93,8 @@ implemented as empty placeholder tests before then.
 
 ## First built-in proof
 
-The first target built-in is `script:git/status`. Its contract suite will prove that it:
+The first built-in is `script:git/status`. Its contract suite proves the initial safe read-only path and will expand
+with provider adapters. Its complete contract requires that it:
 
 - accepts a closed empty input and one prepared repository resource named `repository`;
 - uses only a bounded read-only Git status capability;

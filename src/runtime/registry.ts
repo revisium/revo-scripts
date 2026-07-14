@@ -4,6 +4,7 @@ import type { ScriptManifestV1 } from '../spec/script-manifest.js';
 import type { ScriptResourceMap } from '../spec/script-resources.js';
 
 declare const registeredScriptBrand: unique symbol;
+const readDefinition = Symbol('readRegisteredScriptDefinition');
 
 export interface RegisteredScript<I, O, R extends ScriptResourceMap> {
   readonly manifest: ScriptManifestV1;
@@ -44,14 +45,18 @@ class RegisteredScriptHandle<I, O, R extends ScriptResourceMap> implements Regis
   readonly manifest: ScriptManifestV1;
   readonly definitionDigest: `sha256:${string}`;
   readonly implementation: Readonly<{ id: string; version: string }>;
-  readonly definition: ScriptDefinition<I, O, R>;
+  readonly #definition: ScriptDefinition<I, O, R>;
 
   constructor(definition: ScriptDefinition<I, O, R>) {
     this.manifest = definition.manifest;
     this.definitionDigest = definition.definitionDigest;
     this.implementation = definition.implementation;
-    this.definition = definition;
+    this.#definition = definition;
     Object.freeze(this);
+  }
+
+  [readDefinition](): ScriptDefinition<I, O, R> {
+    return this.#definition;
   }
 }
 
@@ -199,5 +204,5 @@ export const getRegisteredDefinition = <I, O, R extends ScriptResourceMap>(
     );
   }
 
-  return script.definition;
+  return script[readDefinition]();
 };

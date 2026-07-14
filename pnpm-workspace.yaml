@@ -1,2 +1,2 @@
 allowBuilds:
-  esbuild: false # tsx uses the platform package; no install script is required
+  esbuild: false # Vitest uses the prebuilt platform package; no install script is required.

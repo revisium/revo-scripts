@@ -1,12 +1,8 @@
+import type { ScriptCustomEvent } from './script-events.js';
 import type { ScriptManifestV1 } from './script-manifest.js';
 import type { ScriptResourceMap } from './script-resources.js';
 import type { ScriptHandlerResult } from './script-result.js';
 import type { ScriptSchema } from './script-schema.js';
-
-export interface ScriptCustomEvent {
-  readonly name: string;
-  readonly details?: Readonly<Record<string, unknown>>;
-}
 
 export interface ScriptContext<R extends ScriptResourceMap> {
   readonly executionId: string;

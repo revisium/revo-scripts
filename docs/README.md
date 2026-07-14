@@ -4,8 +4,9 @@ This directory owns the package architecture and exact target contracts.
 
 ## Current state
 
-The repository currently ships only its package toolchain and quality gates. Documents marked `Draft` describe the
-target package contract; they do not claim that a runtime API is already available.
+The repository contains the initial one-script runtime, public testing mechanics, and the read-only
+`script:git/status` vertical proof. The npm package remains unpublished. Documents marked `Draft` may include target
+contract work beyond the implemented and tested surface.
 
 ## Architecture
 

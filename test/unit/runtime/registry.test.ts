@@ -81,7 +81,12 @@ test('registers explicitly and resolves exact definitions only after sealing', (
   expect({
     alpha: registry.getExact(alpha.manifest.id, alpha.manifest.version, alpha.definitionDigest),
     zeta: registry.resolve(zeta.manifest.id, zeta.manifest.version),
-  }).toEqual({ alpha, zeta });
+    publicHandleKeys: Object.keys(alpha).sort(),
+  }).toEqual({
+    alpha,
+    zeta,
+    publicHandleKeys: ['definitionDigest', 'implementation', 'manifest'],
+  });
 });
 
 test('rejects duplicate registration and registration after sealing', () => {

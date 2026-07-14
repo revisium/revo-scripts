@@ -153,3 +153,24 @@ test('rejects resource and effect access above the declared effect class', () =>
     },
   });
 });
+
+test('rejects lifecycle namespace declarations before registration', () => {
+  const fault = captureManifestFault({
+    ...validManifest,
+    events: { allowed: ['revo.script.succeeded'], detailPaths: [] },
+  });
+
+  expect(fault).toEqual({
+    code: 'revo.script.validation.manifest',
+    message: 'Script manifest is invalid.',
+    retryable: false,
+    details: {
+      issues: [
+        {
+          path: '/events/allowed/0',
+          message: 'Custom event name must not use the reserved revo.script namespace.',
+        },
+      ],
+    },
+  });
+});
