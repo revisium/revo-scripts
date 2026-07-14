@@ -22,12 +22,15 @@ The command must pass without warnings. It includes:
 1. Oxfmt formatting verification.
 2. Strict TypeScript 7 typechecking.
 3. Type-aware Oxlint with compiler diagnostics and unused-suppression detection.
-4. Unit and contract tests currently present in the repository.
+4. Focused unit, contract, consumer/provider integration, and package source tests.
 5. LCOV coverage generation.
-6. ESM JavaScript and declaration build.
-7. `publint` package metadata and export validation.
-8. `@arethetypeswrong/cli` validation under the intentional ESM-only profile.
-9. npm package-content dry-run validation.
+6. Declared coverage thresholds for owned production source.
+7. Oxlint architecture boundaries and dependency-cycle detection.
+8. ESM JavaScript and declaration build.
+9. `publint` package metadata and export validation.
+10. `@arethetypeswrong/cli` validation under the intentional ESM-only profile.
+11. npm package-content dry-run validation.
+12. Packed-tarball consumer typecheck, runtime execution, and deep-import denial.
 
 Runtime and built-in script changes also follow the test ownership and proof rules in
 [`docs/testing.md`](./docs/testing.md). That document defines what must be proven; this file remains authoritative for
@@ -35,15 +38,16 @@ the commands that execute the proof.
 
 ## Required commands
 
-| Capability | Command                        | Expected evidence                                                                |
-| ---------- | ------------------------------ | -------------------------------------------------------------------------------- |
-| Format     | `corepack pnpm format:check`   | No changed or incorrectly formatted files                                        |
-| Typecheck  | `corepack pnpm typecheck`      | No TypeScript diagnostics                                                        |
-| Lint       | `corepack pnpm lint`           | No warnings, errors, or unused suppressions                                      |
-| Tests      | `corepack pnpm test`           | All tests pass                                                                   |
-| Coverage   | `corepack pnpm test:cov`       | Tests pass and `coverage/lcov.info` is generated                                 |
-| Build      | `corepack pnpm build`          | ESM JavaScript, source maps, declarations, and declaration maps in `dist/`       |
-| Package    | `corepack pnpm verify:package` | `publint`, ESM type resolution, exports, declarations, and package contents pass |
+| Capability   | Command                           | Expected evidence                                                               |
+| ------------ | --------------------------------- | ------------------------------------------------------------------------------- |
+| Format       | `corepack pnpm format:check`      | No changed or incorrectly formatted files                                       |
+| Typecheck    | `corepack pnpm typecheck`         | No TypeScript diagnostics                                                       |
+| Lint         | `corepack pnpm lint`              | No warnings, errors, or unused suppressions                                     |
+| Tests        | `corepack pnpm test`              | All tests pass                                                                  |
+| Coverage     | `corepack pnpm test:cov`          | Tests pass and `coverage/lcov.info` is generated                                |
+| Architecture | `corepack pnpm test:architecture` | Source DAG, consumer imports, and value/type dependency cycles pass             |
+| Build        | `corepack pnpm build`             | ESM JavaScript, source maps, declarations, and declaration maps in `dist/`      |
+| Package      | `corepack pnpm verify:package`    | Metadata, ESM types, declarations, contents, and packed-consumer execution pass |
 
 ## Conditional gates
 
@@ -54,24 +58,13 @@ Run these when their surface changes:
 - Package artifact or release workflow: `corepack pnpm pack --pack-destination <temporary-directory>` and inspect the listed contents.
 - Dependency changes: `corepack pnpm audit --prod`; inspect lockfile changes and install-script policy.
 - Public API changes: add runtime behavior tests where applicable, type-surface tests, package export checks, and README examples.
-- Architecture or dependency-direction changes: run the repository architecture check once that target is implemented;
-  until then inspect the complete import graph and record that the automated gate is not yet available.
+- Architecture or dependency-direction changes: run `corepack pnpm verify:architecture` and review changes to
+  `.oxlintrc.architecture.json` independently from production imports.
+- Architecture-rule changes: temporarily introduce one representative forbidden import, prove that
+  `corepack pnpm test:architecture` rejects it for the intended rule, and remove the probe before handoff.
 - Documentation or configuration changes: rerun `corepack pnpm format:check` and check links and commands against current scripts.
 
 Do not commit artifacts created only for verification. Use a temporary directory for tarballs.
-
-## Target runtime gate expansion
-
-Before the runtime is described as shipped, `pnpm verify` must gain explicit required lanes for:
-
-- focused unit tests;
-- runtime and per-script contract tests;
-- public type-surface tests;
-- architecture boundaries and dependency cycles;
-- declared local coverage thresholds.
-
-These commands are not listed as current scripts until they exist and execute real tests. Empty placeholder lanes do
-not satisfy the target contract.
 
 ## SonarCloud
 

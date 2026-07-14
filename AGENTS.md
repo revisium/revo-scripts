@@ -11,8 +11,8 @@ This file is the repository-local contract for coding agents. When this reposito
 - Protected base branch: `master`.
 - Primary local gate: `pnpm verify`.
 - Static analysis: SonarCloud through the scripts and workflow committed here.
-- The bootstrap package intentionally has no runtime API yet.
-- Target architecture: public SDK and one-script runtime, documented under `docs/`.
+- Current implementation: public SDK, one-script runtime, testing kit, and read-only Git status proof.
+- The package remains unpublished; publishing and downstream integration require separate approval.
 
 ## Required reading
 
@@ -26,8 +26,8 @@ Before editing, inspect:
 6. `REVIEW.md` for the review blockers.
 7. `package.json`, the export map, and the relevant source and tests.
 
-Draft target documents do not describe shipped behavior. Follow the current-versus-target source-of-truth rules in
-`REPOSITORY.md` instead of inferring behavior from neighboring repositories.
+Draft target documents do not describe stable behavior beyond the implemented and tested surface. Follow the
+current-versus-target source-of-truth rules in `REPOSITORY.md` instead of inferring behavior from neighboring repositories.
 
 ## Working rules
 
@@ -40,7 +40,8 @@ Draft target documents do not describe shipped behavior. Follow the current-vers
 
 ## Engineering rules
 
-- Start behavior changes with a failing test. Prefer contract and observable-behavior tests over implementation-detail assertions.
+- Develop behavior through a verified red -> green -> refactor cycle. Prefer contract and observable-behavior tests
+  over implementation-detail assertions.
 - Give every behavior one primary proof layer as defined in `docs/testing.md`; do not duplicate lower-layer input
   partitions in broader contract or package tests.
 - Keep fixtures production-shaped for every field the implementation reads. Test support owns mechanics and never
@@ -48,16 +49,35 @@ Draft target documents do not describe shipped behavior. Follow the current-vers
 - Assert stable error codes and causal evidence, not only terminal success or failure.
 - Use the smallest sufficient implementation. Add abstractions only for an existing boundary, variation, or test seam.
 - Keep each unit at one abstraction level and give it one bounded responsibility.
+- Treat `runtime`, `host`, `application`, `providers`, `scripts`, and `testing` as the top-level ownership areas.
+  Runtime is provider-neutral; host owns privileged ports; only application composes concrete modules.
+- Apply SOLID at ownership boundaries: a module has one reason to change, consumers depend on the smallest contract
+  they need, and orchestration depends on stable interfaces rather than concrete provider or script implementations.
+- Add a script or an implementation behind an existing provider contract without editing provider-neutral execution.
+  Prove substitutability of provider implementations through their shared contract suite.
+- Keep one concrete class per file. Name the file after that class or its single composition role; move another class,
+  independently reusable contract, or unrelated policy to its own file. Small cohesive pure helpers may remain together.
+- Use classes with TypeScript `private` members for behavior, owned state, and lifecycle. Keep transport values as
+  TypeScript `readonly` data. Do not use ECMAScript `#private` fields or runtime freezing as substitutes for the
+  repository's TypeScript-level encapsulation contract.
+- Script handlers are stateless class instances with one `execute` method. Execution state belongs to method arguments,
+  never shared handler fields.
 - Keep business decisions separate from process, filesystem, network, provider, and presentation mechanics.
+- Use braces for every control-flow body, including a one-statement `if`, `else`, or loop.
 - Model expected failures explicitly with typed results or errors. Never swallow errors silently.
 - Preserve strict types. Do not use `any`, `@ts-ignore`, broad casts, unchecked assertions, or weaker public types to bypass a failing gate.
 - Reject or bound externally supplied collections, strings, artifacts, and payloads at their owning boundary.
 - Prefer names, types, and decomposition over explanatory comments. Comments are reserved for non-obvious invariants, compatibility constraints, protocols, or lifecycle hazards.
 - A quality-rule exception, exclusion, or skipped test must be narrow and identify its owner, rationale, and expiry or
   removal condition.
-- Do not introduce dependency cycles, deep imports around the export map, or multiple public paths to the same contract.
+- Do not introduce dependency cycles or deep imports around the export map. Duplicate public paths require an explicit
+  curated-root decision in `REPOSITORY.md`; broad or accidental aliases remain forbidden.
 - Runtime code must not depend on test helpers, generated output, build scripts, or repository tooling.
 - Generated files, fixtures, coverage, and build output must stay outside production quality metrics without hiding owned production source.
+- Prefer complete `toEqual` assertions for owned object contracts. Use snapshots only for complex deterministic
+  representations under the policy in `docs/testing.md`.
+- Every concrete provider adapter and built-in script keeps a local README card following the templates in
+  `docs/authoring/`; update the card with its contract, dependencies, and verification evidence.
 
 ## Public package contract
 
