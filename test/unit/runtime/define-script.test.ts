@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 
 import { defineScript } from '../../../src/runtime/define-script.js';
+import { ScriptFault } from '../../../src/spec/script-errors.js';
 import type { ScriptManifestV1 } from '../../../src/spec/script-manifest.js';
 import type { ScriptSchema } from '../../../src/spec/script-schema.js';
 
@@ -84,6 +85,25 @@ const handler = async ({ message }: Readonly<{ message: string }>) => ({
   value: { echoed: message },
 });
 
+const captureFault = (operation: () => unknown) => {
+  try {
+    operation();
+  } catch (error: unknown) {
+    if (error instanceof ScriptFault) {
+      return {
+        code: error.code,
+        message: error.message,
+        retryable: error.retryable,
+        details: error.details,
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error('Expected operation to throw ScriptFault');
+};
+
 test('defines one immutable script with a stable identity digest', () => {
   const definition = defineScript({
     manifest,
@@ -104,7 +124,7 @@ test('defines one immutable script with a stable identity digest', () => {
       id: '@revisium/revo-scripts/test/echo',
       version: '1.0.0',
     },
-    definitionDigest: 'sha256:ef30b321c33cc8dca9905acec67a657df388545123b8ad4b4761c8ec086ba3f2',
+    definitionDigest: 'sha256:3b2653f62db7c236009b94b579b16ecb27c68cb6cea63eaf004582cef8eb75d1',
     handler,
   });
   expect({
@@ -115,5 +135,165 @@ test('defines one immutable script with a stable identity digest', () => {
     definition: true,
     manifest: true,
     implementation: true,
+  });
+});
+
+test('rejects duplicate bounded manifest entries with stable diagnostics', () => {
+  const invalidManifest = {
+    ...manifest,
+    effectClass: 'read',
+    permissions: ['git.status.read', 'git.status.read'],
+    resources: [{ name: 'repository', kind: 'repository', access: 'read' }],
+    effects: ['git.read', 'git.read'],
+  } as const satisfies ScriptManifestV1;
+
+  const fault = captureFault(() =>
+    defineScript({
+      manifest: invalidManifest,
+      inputSchema,
+      resultSchema,
+      implementation: {
+        id: '@revisium/revo-scripts/test/echo',
+        version: '1.0.0',
+      },
+      handler,
+    }),
+  );
+
+  expect(fault).toEqual({
+    code: 'revo.script.validation.manifest',
+    message: 'Script manifest is invalid.',
+    retryable: false,
+    details: {
+      issues: [
+        {
+          path: '/permissions/1',
+          message: 'Permission identifiers must be unique.',
+        },
+        {
+          path: '/effects/1',
+          message: 'Effects must be unique.',
+        },
+      ],
+    },
+  });
+});
+
+test('rejects incoherent effect, retry, and idempotency policies', () => {
+  const invalidManifest = {
+    ...manifest,
+    permissions: ['git.status.read'],
+    resources: [{ name: 'repository', kind: 'repository', access: 'read' }],
+    effects: ['git.read'],
+    retry: { mode: 'never', maxAttempts: 2, backoffMs: [10] },
+    idempotency: 'required',
+  } as const satisfies ScriptManifestV1;
+
+  const fault = captureFault(() =>
+    defineScript({
+      manifest: invalidManifest,
+      inputSchema,
+      resultSchema,
+      implementation: {
+        id: '@revisium/revo-scripts/test/echo',
+        version: '1.0.0',
+      },
+      handler,
+    }),
+  );
+
+  expect(fault).toEqual({
+    code: 'revo.script.validation.manifest',
+    message: 'Script manifest is invalid.',
+    retryable: false,
+    details: {
+      issues: [
+        {
+          path: '/permissions',
+          message: 'Pure scripts must not declare permissions.',
+        },
+        {
+          path: '/resources',
+          message: 'Pure scripts must not declare resources.',
+        },
+        {
+          path: '/effects',
+          message: 'Pure scripts must not declare effects.',
+        },
+        {
+          path: '/retry',
+          message: 'Retry mode never requires one attempt and no backoff.',
+        },
+        {
+          path: '/idempotency',
+          message: 'Required idempotency must declare a mutation effect.',
+        },
+      ],
+    },
+  });
+});
+
+test('rejects schema and implementation identities that diverge from the definition', () => {
+  const invalidInputSchema: ScriptSchema<{ message: string }> = {
+    ...inputSchema,
+    id: 'revo.script.test.wrong.input/v1',
+    toJsonSchema: () => ({
+      $schema: 'http://json-schema.org/draft-07/schema#',
+      $id: 'revo.script.test.wrong.input/v1',
+      type: 'object',
+      properties: { message: { type: 'string' } },
+      unknownKeyword: true,
+    }),
+  };
+
+  const fault = captureFault(() =>
+    defineScript({
+      manifest,
+      inputSchema: invalidInputSchema,
+      resultSchema,
+      implementation: {
+        id: 'implementation with spaces',
+        version: 'latest',
+      },
+      handler,
+    }),
+  );
+
+  expect(fault).toEqual({
+    code: 'revo.script.validation.manifest',
+    message: 'Script definition is invalid.',
+    retryable: false,
+    details: {
+      issues: [
+        {
+          path: '/inputSchema/id',
+          message: 'Input schema id must match manifest.inputSchemaId.',
+        },
+        {
+          path: '/inputSchema/jsonSchema/$schema',
+          message: 'JSON Schema must target Draft 2020-12.',
+        },
+        {
+          path: '/inputSchema/jsonSchema/$id',
+          message: 'JSON Schema $id must match manifest.inputSchemaId.',
+        },
+        {
+          path: '/inputSchema/jsonSchema/additionalProperties',
+          message: 'Object schemas must explicitly reject unknown properties.',
+        },
+        {
+          path: '/inputSchema/jsonSchema',
+          message: 'JSON Schema must compile under strict Draft 2020-12 validation.',
+        },
+        {
+          path: '/implementation/id',
+          message: 'Implementation id must be a stable namespaced identifier.',
+        },
+        {
+          path: '/implementation/version',
+          message: 'Implementation version must be an exact semantic version.',
+        },
+      ],
+    },
   });
 });
