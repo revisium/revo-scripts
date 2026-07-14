@@ -29,6 +29,10 @@ The command must pass without warnings. It includes:
 8. `@arethetypeswrong/cli` validation under the intentional ESM-only profile.
 9. npm package-content dry-run validation.
 
+Runtime and built-in script changes also follow the test ownership and proof rules in
+[`docs/testing.md`](./docs/testing.md). That document defines what must be proven; this file remains authoritative for
+the commands that execute the proof.
+
 ## Required commands
 
 | Capability | Command                        | Expected evidence                                                                |
@@ -50,9 +54,24 @@ Run these when their surface changes:
 - Package artifact or release workflow: `corepack pnpm pack --pack-destination <temporary-directory>` and inspect the listed contents.
 - Dependency changes: `corepack pnpm audit --prod`; inspect lockfile changes and install-script policy.
 - Public API changes: add runtime behavior tests where applicable, type-surface tests, package export checks, and README examples.
+- Architecture or dependency-direction changes: run the repository architecture check once that target is implemented;
+  until then inspect the complete import graph and record that the automated gate is not yet available.
 - Documentation or configuration changes: rerun `corepack pnpm format:check` and check links and commands against current scripts.
 
 Do not commit artifacts created only for verification. Use a temporary directory for tarballs.
+
+## Target runtime gate expansion
+
+Before the runtime is described as shipped, `pnpm verify` must gain explicit required lanes for:
+
+- focused unit tests;
+- runtime and per-script contract tests;
+- public type-surface tests;
+- architecture boundaries and dependency cycles;
+- declared local coverage thresholds.
+
+These commands are not listed as current scripts until they exist and execute real tests. Empty placeholder lanes do
+not satisfy the target contract.
 
 ## SonarCloud
 
@@ -90,4 +109,6 @@ Do not merge, publish npm packages, create releases, or modify protected branche
 - Distinguish passed, failed, pending, skipped, unavailable, and not applicable.
 - A successful narrow test does not prove the aggregate gate passed.
 - Claims about pre-existing failures require evidence from the base branch or an earlier recorded run.
+- Skipped tests, ignored production files, and quality-rule exclusions require an owner, rationale, and expiry or
+  removal condition.
 - If this file disagrees with `package.json` or CI, report the mismatch and correct the contract in the same scoped change when authorized.

@@ -12,17 +12,22 @@ This file is the repository-local contract for coding agents. When this reposito
 - Primary local gate: `pnpm verify`.
 - Static analysis: SonarCloud through the scripts and workflow committed here.
 - The bootstrap package intentionally has no runtime API yet.
+- Target architecture: public SDK and one-script runtime, documented under `docs/`.
 
 ## Required reading
 
 Before editing, inspect:
 
 1. `README.md` for the public package status and supported commands.
-2. `VERIFICATION.md` for exact required, conditional, and remote gates.
-3. `REVIEW.md` for the review blockers.
-4. `package.json`, the export map, and the relevant source and tests.
+2. `REPOSITORY.md` for source-of-truth order, ownership boundaries, and dependency direction.
+3. `docs/README.md` and the relevant ADR/spec when architecture or public behavior changes.
+4. `docs/testing.md` before adding or changing runtime or script tests.
+5. `VERIFICATION.md` for exact required, conditional, and remote gates.
+6. `REVIEW.md` for the review blockers.
+7. `package.json`, the export map, and the relevant source and tests.
 
-When architecture, specifications, or ADRs are added, treat their declared source-of-truth order as authoritative instead of inferring behavior from neighboring repositories.
+Draft target documents do not describe shipped behavior. Follow the current-versus-target source-of-truth rules in
+`REPOSITORY.md` instead of inferring behavior from neighboring repositories.
 
 ## Working rules
 
@@ -36,6 +41,11 @@ When architecture, specifications, or ADRs are added, treat their declared sourc
 ## Engineering rules
 
 - Start behavior changes with a failing test. Prefer contract and observable-behavior tests over implementation-detail assertions.
+- Give every behavior one primary proof layer as defined in `docs/testing.md`; do not duplicate lower-layer input
+  partitions in broader contract or package tests.
+- Keep fixtures production-shaped for every field the implementation reads. Test support owns mechanics and never
+  selects product outcomes or hides assertions.
+- Assert stable error codes and causal evidence, not only terminal success or failure.
 - Use the smallest sufficient implementation. Add abstractions only for an existing boundary, variation, or test seam.
 - Keep each unit at one abstraction level and give it one bounded responsibility.
 - Keep business decisions separate from process, filesystem, network, provider, and presentation mechanics.
@@ -43,7 +53,8 @@ When architecture, specifications, or ADRs are added, treat their declared sourc
 - Preserve strict types. Do not use `any`, `@ts-ignore`, broad casts, unchecked assertions, or weaker public types to bypass a failing gate.
 - Reject or bound externally supplied collections, strings, artifacts, and payloads at their owning boundary.
 - Prefer names, types, and decomposition over explanatory comments. Comments are reserved for non-obvious invariants, compatibility constraints, protocols, or lifecycle hazards.
-- A quality-rule exception must be narrow and identify its owner, rationale, and expiry or removal condition.
+- A quality-rule exception, exclusion, or skipped test must be narrow and identify its owner, rationale, and expiry or
+  removal condition.
 - Do not introduce dependency cycles, deep imports around the export map, or multiple public paths to the same contract.
 - Runtime code must not depend on test helpers, generated output, build scripts, or repository tooling.
 - Generated files, fixtures, coverage, and build output must stay outside production quality metrics without hiding owned production source.
