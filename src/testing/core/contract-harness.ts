@@ -1,11 +1,14 @@
-import type { GitStatusCapability, GitStatusSnapshot } from '../git/status.js';
-import { executeScript } from '../runtime/execute-script.js';
-import { createScriptRegistry } from '../runtime/registry.js';
-import type { ScriptDefinition } from '../spec/script-definition.js';
-import type { EventSink, ScriptEvent } from '../spec/script-events.js';
-import type { ScriptClock } from '../spec/script-execution.js';
-import type { ScriptResourceMap } from '../spec/script-resources.js';
-import type { ScriptExecutionResult } from '../spec/script-result.js';
+import { createScriptRegistry } from '../../core/registry/script-registry.js';
+import { executeScript } from '../../core/runtime/execute-script.js';
+import type { ScriptDefinition } from '../../core/spec/script-definition.js';
+import type { EventSink, ScriptEvent } from '../../core/spec/script-events.js';
+import type { ScriptClock } from '../../core/spec/script-execution.js';
+import type { ScriptResourceMap } from '../../core/spec/script-resources.js';
+import type { ScriptExecutionResult } from '../../core/spec/script-result.js';
+import type {
+  GitStatusClient,
+  GitStatusSnapshot,
+} from '../../providers/git/contracts/v1/status.js';
 
 export class RecordingEventSink implements EventSink {
   readonly #events: ScriptEvent[] = [];
@@ -92,16 +95,14 @@ export const createScriptContractHarness = <I, O, R extends ScriptResourceMap>(
   });
 };
 
-export interface GitStatusCapabilityFake {
-  readonly capability: GitStatusCapability;
+export interface GitStatusClientFake {
+  readonly client: GitStatusClient;
   callCount(): number;
 }
 
-export const createGitStatusCapabilityFake = (
-  snapshot: GitStatusSnapshot,
-): GitStatusCapabilityFake => {
+export const createGitStatusClientFake = (snapshot: GitStatusSnapshot): GitStatusClientFake => {
   let calls = 0;
-  const capability: GitStatusCapability = Object.freeze({
+  const client: GitStatusClient = Object.freeze({
     readStatus: async (signal: AbortSignal) => {
       if (signal.aborted) {
         throw signal.reason;
@@ -113,7 +114,7 @@ export const createGitStatusCapabilityFake = (
   });
 
   return Object.freeze({
-    capability,
+    client,
     callCount: () => calls,
   });
 };

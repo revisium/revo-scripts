@@ -1,12 +1,12 @@
 export {
-  createGitStatusCapabilityFake,
+  createGitStatusClientFake,
   createScriptContractHarness,
   DeterministicScriptClock,
   RecordingEventSink,
-} from './contract-harness.js';
+} from './core/contract-harness.js';
 export type {
-  GitStatusCapabilityFake,
+  GitStatusClientFake,
   ScriptContractExecution,
   ScriptContractHarness,
   ScriptContractHarnessOptions,
-} from './contract-harness.js';
+} from './core/contract-harness.js';

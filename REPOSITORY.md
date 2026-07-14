@@ -32,10 +32,16 @@ implemented and accepted.
 
 ```text
 src/
-  spec/       portable manifests, schemas, definitions, results, and errors
-  runtime/    definition, registry, validation, events, redaction, and execution
-  git/        exploratory Git capability and built-in Git status proof
-  testing/    public contract-test mechanics and deterministic fakes
+  core/
+    spec/       portable manifests, schemas, definitions, results, and errors
+    runtime/    provider-neutral validation, events, redaction, and execution
+    registry/   explicit exact-version registry
+  providers/
+    git/contracts/v1/  handler-safe Git client contracts
+  scripts/
+    git/status/versions/1.0.0/  built-in Git status proof
+  testing/
+    core/       public contract-test mechanics and deterministic fakes
 
 test/
   unit/          focused pure and adapter behavior
@@ -49,8 +55,8 @@ docs/
 ```
 
 Directories and public entrypoints are created only with their first real owner. Do not add empty placeholder modules
-or broad barrels to make the target tree appear complete. `src/github/` is therefore deferred until its first bounded
-script or capability contract is implemented.
+or broad barrels to make the target tree appear complete. GitHub areas are therefore deferred until their first
+bounded script or provider contract is implemented.
 
 ## Target layout
 

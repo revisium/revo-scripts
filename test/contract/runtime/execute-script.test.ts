@@ -1,13 +1,13 @@
 import { expect, test, vi } from 'vitest';
 import { z } from 'zod';
 
-import { createScriptSchema } from '../../../src/runtime/create-script-schema.js';
-import { defineScript } from '../../../src/runtime/define-script.js';
-import { executeScript } from '../../../src/runtime/execute-script.js';
-import { createScriptRegistry } from '../../../src/runtime/registry.js';
-import { ScriptFault } from '../../../src/spec/script-errors.js';
-import type { EventSink, ScriptEvent } from '../../../src/spec/script-events.js';
-import type { ScriptSchema } from '../../../src/spec/script-schema.js';
+import { createScriptRegistry } from '../../../src/core/registry/script-registry.js';
+import { createScriptSchema } from '../../../src/core/runtime/create-script-schema.js';
+import { defineScript } from '../../../src/core/runtime/define-script.js';
+import { executeScript } from '../../../src/core/runtime/execute-script.js';
+import { ScriptFault } from '../../../src/core/spec/script-errors.js';
+import type { EventSink, ScriptEvent } from '../../../src/core/spec/script-events.js';
+import type { ScriptSchema } from '../../../src/core/spec/script-schema.js';
 
 const inputSchema = createScriptSchema({
   id: 'revo.script.test.echo.input/v1',
@@ -427,7 +427,7 @@ test('requires an idempotency key before invoking a mutation script', async () =
         kind: 'repository',
         access: 'write',
         grant: { permissions: ['git.test.write'], effects: ['git.write'] },
-        capabilities: {},
+        clients: {},
       },
     },
     eventSink: sink,

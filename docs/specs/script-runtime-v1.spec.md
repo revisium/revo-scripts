@@ -24,10 +24,10 @@ BCP 14 when, and only when, they appear in all capitals.
 ## Current Contract
 
 The repository implements the initial root, `spec`, `runtime`, `git`, and `testing` entrypoints plus a read-only
-`script:git/status` proof backed by a host-supplied per-operation capability. It does not implement the
+`script:git/status` proof backed by a consumer-prepared bounded Git client. It does not implement the
 `createRevoScripts` facade, definition/provider modules, verdict extraction, credential requirements, generated exact
 implementation identity, or package-owned production Git and GitHub providers specified below. The current
-`GitStatusCapability` is exploratory and MUST NOT become the published consumer integration boundary. The npm package
+manual client preparation is exploratory and MUST NOT become the published consumer integration boundary. The npm package
 is not published. This Draft remains the target stable contract; implemented behavior is available for review but has
 no published compatibility commitment.
 

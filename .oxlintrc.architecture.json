@@ -6,15 +6,15 @@
   },
   "overrides": [
     {
-      "files": ["src/spec/**/*.ts"],
+      "files": ["src/core/spec/**/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
               {
-                "regex": "(?:^|/)(?:runtime|git|github|testing)(?:/|$)",
-                "message": "The spec layer must not depend on implementation layers."
+                "regex": "(?:^|/)(?:runtime|registry|host|facade|providers|scripts|testing)(?:/|$)",
+                "message": "Core spec must not depend on executable package areas."
               }
             ]
           }
@@ -22,15 +22,15 @@
       }
     },
     {
-      "files": ["src/runtime/**/*.ts"],
+      "files": ["src/core/registry/**/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
               {
-                "regex": "(?:^|/)(?:git|github|testing)(?:/|$)",
-                "message": "The runtime layer may depend only on spec and runtime."
+                "regex": "(?:^|/)(?:runtime|host|facade|providers|scripts|testing)(?:/|$)",
+                "message": "The registry may depend only on portable spec contracts."
               }
             ]
           }
@@ -38,15 +38,15 @@
       }
     },
     {
-      "files": ["src/git/**/*.ts"],
+      "files": ["src/core/runtime/**/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
               {
-                "regex": "(?:^|/)(?:github|testing)(?:/|$)",
-                "message": "The git layer must not depend on github or testing."
+                "regex": "(?:^|/)(?:host|facade|providers|scripts|testing)(?:/|$)",
+                "message": "Core runtime must remain provider and script neutral."
               }
             ]
           }
@@ -54,15 +54,15 @@
       }
     },
     {
-      "files": ["src/github/**/*.ts"],
+      "files": ["src/providers/*/contracts/**/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
               {
-                "regex": "(?:^|/)(?:git|testing)(?:/|$)",
-                "message": "The github layer must not depend on git or testing."
+                "regex": "(?:^|/)(?:runtime|registry|host|facade|adapters|scripts|testing)(?:/|$)",
+                "message": "Provider contracts must remain handler-safe."
               }
             ]
           }
@@ -70,15 +70,47 @@
       }
     },
     {
-      "files": ["src/index.ts"],
+      "files": ["src/providers/*/adapters/**/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
               {
-                "regex": "(?:^|/)(?:git|github|testing)(?:/|$)",
-                "message": "The root entry point exposes only the core runtime API."
+                "regex": "(?:^|/)(?:scripts|testing)(?:/|$)",
+                "message": "Provider adapters must not depend on scripts or testing."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/scripts/git/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(?:^|/)(?:host|facade|adapters|github|testing)(?:/|$)",
+                "message": "Git scripts may depend only on core and handler-safe Git contracts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/scripts/github/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(?:^|/)(?:host|facade|adapters|git|testing)(?:/|$)",
+                "message": "GitHub scripts may depend only on core and handler-safe GitHub contracts."
               }
             ]
           }

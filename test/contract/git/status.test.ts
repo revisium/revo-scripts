@@ -1,13 +1,13 @@
 import { expect, test } from 'vitest';
 
-import { gitStatusScript } from '../../../src/git/status.js';
+import { gitStatusScript } from '../../../src/scripts/git/status/versions/1.0.0/script.js';
 import {
-  createGitStatusCapabilityFake,
+  createGitStatusClientFake,
   createScriptContractHarness,
-} from '../../../src/testing/contract-harness.js';
+} from '../../../src/testing/core/contract-harness.js';
 
 test('returns one bounded read-only repository status through the public contract harness', async () => {
-  const fake = createGitStatusCapabilityFake({
+  const fake = createGitStatusClientFake({
     branch: 'feat/runtime-foundation',
     headSha: '0123456789abcdef0123456789abcdef01234567',
     detached: false,
@@ -25,7 +25,7 @@ test('returns one bounded read-only repository status through the public contrac
         kind: 'repository',
         access: 'read',
         grant: { permissions: ['git.status.read'], effects: ['git.read'] },
-        capabilities: fake.capability,
+        clients: { git: fake.client },
       },
     },
   });
@@ -81,7 +81,7 @@ test('returns one bounded read-only repository status through the public contrac
 });
 
 test('rejects unknown input fields before invoking the Git capability', async () => {
-  const fake = createGitStatusCapabilityFake({
+  const fake = createGitStatusClientFake({
     branch: null,
     headSha: '0123456789abcdef0123456789abcdef01234567',
     detached: true,
@@ -99,7 +99,7 @@ test('rejects unknown input fields before invoking the Git capability', async ()
         kind: 'repository',
         access: 'read',
         grant: { permissions: ['git.status.read'], effects: ['git.read'] },
-        capabilities: fake.capability,
+        clients: { git: fake.client },
       },
     },
   });

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 
-import { createScriptSchema } from '../../../src/runtime/create-script-schema.js';
+import { createScriptSchema } from '../../../src/core/runtime/create-script-schema.js';
 
 const messageSchema = z.strictObject({
   message: z.string().trim().min(1),

@@ -1,3 +1,8 @@
+import {
+  getRegisteredDefinition,
+  type RegisteredScript,
+  type ScriptRegistry,
+} from '../registry/script-registry.js';
 import type { ScriptContext, ScriptDefinition } from '../spec/script-definition.js';
 import { ScriptFault } from '../spec/script-errors.js';
 import type { ScriptCustomEvent, ScriptLifecycleEvent } from '../spec/script-events.js';
@@ -13,7 +18,6 @@ import {
   validateEvidence,
 } from './payload-limits.js';
 import { redactValue } from './redact.js';
-import { getRegisteredDefinition, type RegisteredScript, type ScriptRegistry } from './registry.js';
 import { validateExecutionId, validateExecutionRequest } from './validate-execution.js';
 
 const defaultClock: ScriptClock = {

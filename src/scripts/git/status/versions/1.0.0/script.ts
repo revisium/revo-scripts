@@ -1,32 +1,17 @@
 import { z } from 'zod';
 
-import { createScriptSchema } from '../runtime/create-script-schema.js';
-import { defineScript } from '../runtime/define-script.js';
-import type { ScriptResourceHandle } from '../spec/script-resources.js';
-
-interface GitStatusCounts {
-  readonly stagedCount: number;
-  readonly unstagedCount: number;
-  readonly untrackedCount: number;
-  readonly conflictedCount: number;
-}
-
-export type GitStatusSnapshot = Readonly<
-  GitStatusCounts &
-    (
-      | { readonly branch: null; readonly headSha: string; readonly detached: true }
-      | { readonly branch: string; readonly headSha: string | null; readonly detached: false }
-    )
->;
+import { createScriptSchema } from '../../../../../core/runtime/create-script-schema.js';
+import { defineScript } from '../../../../../core/runtime/define-script.js';
+import type { ScriptResourceHandle } from '../../../../../core/spec/script-resources.js';
+import type {
+  GitStatusClient,
+  GitStatusSnapshot,
+} from '../../../../../providers/git/contracts/v1/status.js';
 
 export type GitStatusResult = Readonly<GitStatusSnapshot & { readonly clean: boolean }>;
 
-export interface GitStatusCapability {
-  readStatus(signal: AbortSignal): Promise<GitStatusSnapshot>;
-}
-
 export type GitStatusResources = Readonly<{
-  repository: ScriptResourceHandle<GitStatusCapability>;
+  repository: ScriptResourceHandle<Readonly<{ git: GitStatusClient }>>;
 }>;
 
 const inputSchema = createScriptSchema({
@@ -101,7 +86,7 @@ export const gitStatusScript = defineScript<
   resultSchema,
   implementation: { id: '@revisium/revo-scripts/git/status', version: '1.0.0' },
   handler: async (_input, context) => {
-    const status = await context.resources.repository.capabilities.readStatus(context.signal);
+    const status = await context.resources.repository.clients.git.readStatus(context.signal);
 
     return {
       value: {

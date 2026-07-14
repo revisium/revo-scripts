@@ -362,18 +362,19 @@ and implicit latest-version selection are forbidden.
 
 ## Current implementation status
 
-| Surface                         | Current state           | Draft target                                                   |
-| ------------------------------- | ----------------------- | -------------------------------------------------------------- |
-| Manifest, schemas, definition   | Implemented             | Adds providers, verdict, credentials, and exact identity       |
-| Sealed explicit registry        | Implemented             | Populated through trusted definition modules                   |
-| Low-level `executeScript`       | Implemented             | Public low-level foundation beneath the consumer facade        |
-| `script:git/status`             | Capability-backed proof | Package-owned Git provider and real temporary-repository proof |
-| `createRevoScripts`             | Not implemented         | Sole high-level consumer integration                           |
-| Git/GitHub production providers | Not implemented         | Package-owned trusted provider modules                         |
-| npm publication                 | Not published           | Separate release approval                                      |
+| Surface                         | Current state         | Draft target                                                   |
+| ------------------------------- | --------------------- | -------------------------------------------------------------- |
+| Manifest, schemas, definition   | Implemented           | Adds providers, verdict, credentials, and exact identity       |
+| Sealed explicit registry        | Implemented           | Populated through trusted definition modules                   |
+| Low-level `executeScript`       | Implemented           | Public low-level foundation beneath the consumer facade        |
+| `script:git/status`             | Prepared-client proof | Package-owned Git provider and real temporary-repository proof |
+| `createRevoScripts`             | Not implemented       | Sole high-level consumer integration                           |
+| Git/GitHub production providers | Not implemented       | Package-owned trusted provider modules                         |
+| npm publication                 | Not published         | Separate release approval                                      |
 
-The current public `GitStatusCapability` is an exploratory proof, not the target consumer boundary. The target removes
-per-operation capability implementation from consumers before publication.
+The current public `GitStatusClient` is a handler-safe provider contract, but consumers still prepare it manually for
+the exploratory low-level proof. The target provider/facade slice removes that per-operation preparation before
+publication.
 
 ### Current low-level API
 
@@ -397,16 +398,18 @@ const result = await executeScript(registry, script, {
       kind: 'repository',
       access: 'read',
       grant: { permissions: ['git.status.read'], effects: ['git.read'] },
-      capabilities: {
-        readStatus: async () => ({
-          branch: 'master',
-          headSha: '0123456789abcdef0123456789abcdef01234567',
-          detached: false,
-          stagedCount: 0,
-          unstagedCount: 0,
-          untrackedCount: 0,
-          conflictedCount: 0,
-        }),
+      clients: {
+        git: {
+          readStatus: async () => ({
+            branch: 'master',
+            headSha: '0123456789abcdef0123456789abcdef01234567',
+            detached: false,
+            stagedCount: 0,
+            unstagedCount: 0,
+            untrackedCount: 0,
+            conflictedCount: 0,
+          }),
+        },
       },
     },
   },
@@ -414,24 +417,25 @@ const result = await executeScript(registry, script, {
 });
 ```
 
-The target migration replaces the public `capabilities` field with package-prepared bounded `clients`. This is an
-intentional pre-publication breaking change, not a compatibility alias.
+The target migration keeps the handler-safe `clients` shape but makes the package-owned provider prepare it from host
+bindings. No compatibility alias for the removed `capabilities` field is provided.
 
 ## Package entrypoints
 
 Currently implemented entrypoints:
 
-| Entrypoint                       | Responsibility                                            |
-| -------------------------------- | --------------------------------------------------------- |
-| `@revisium/revo-scripts`         | Current curated runtime API; target consumer facade       |
-| `@revisium/revo-scripts/spec`    | Definitions, manifests, schemas, results, and errors      |
-| `@revisium/revo-scripts/runtime` | Low-level definition, registry, validation, and execution |
-| `@revisium/revo-scripts/git`     | Current Git proof; target built-in Git definitions        |
-| `@revisium/revo-scripts/testing` | Contract harness, fixtures, clocks, sinks, and fakes      |
+| Entrypoint                             | Responsibility                                            |
+| -------------------------------------- | --------------------------------------------------------- |
+| `@revisium/revo-scripts`               | Current curated runtime API; target consumer facade       |
+| `@revisium/revo-scripts/spec`          | Definitions, manifests, schemas, results, and errors      |
+| `@revisium/revo-scripts/runtime`       | Low-level definition, registry, validation, and execution |
+| `@revisium/revo-scripts/git`           | Current Git proof; target built-in Git definitions        |
+| `@revisium/revo-scripts/providers/git` | Handler-safe Git provider contract                        |
+| `@revisium/revo-scripts/testing`       | Contract harness, fixtures, clocks, sinks, and fakes      |
 
-Target provider factories live on `@revisium/revo-scripts/providers/git` and
-`@revisium/revo-scripts/providers/github`; they are deliberately separate from concrete script exports. The host,
-GitHub, and provider entrypoints remain absent until their first real implementation exists.
+The target Git factory will join the implemented contract on `@revisium/revo-scripts/providers/git`; the GitHub
+provider entrypoint remains absent until its first real implementation. Provider surfaces are deliberately separate
+from concrete script exports.
 
 Provider contracts, adapters, and retained revisions remain inside this package and share its release cycle. They are
 separate subpath exports, not separate npm packages.

@@ -1,10 +1,10 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 
-import { createScriptSchema } from '../../../src/runtime/create-script-schema.js';
-import { defineScript } from '../../../src/runtime/define-script.js';
-import { createScriptRegistry } from '../../../src/runtime/registry.js';
-import { ScriptFault } from '../../../src/spec/script-errors.js';
+import { createScriptRegistry } from '../../../src/core/registry/script-registry.js';
+import { createScriptSchema } from '../../../src/core/runtime/create-script-schema.js';
+import { defineScript } from '../../../src/core/runtime/define-script.js';
+import { ScriptFault } from '../../../src/core/spec/script-errors.js';
 
 const emptySchema = createScriptSchema({
   id: 'revo.script.test.empty/v1',

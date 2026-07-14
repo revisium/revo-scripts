@@ -5,7 +5,7 @@ This directory owns the package architecture and exact target contracts.
 ## Current state
 
 The repository contains the initial one-script runtime, public testing mechanics, and the read-only
-`script:git/status` vertical proof backed by a consumer-supplied capability. The npm package remains unpublished. The
+`script:git/status` vertical proof backed by a consumer-prepared bounded Git client. The npm package remains unpublished. The
 Draft target replaces that exploratory consumer boundary with `createRevoScripts`, stable host bindings, and
 package-owned providers. Documents marked `Draft` include target contract work beyond the implemented and tested
 surface.

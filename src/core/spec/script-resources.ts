@@ -1,6 +1,6 @@
 import type { ScriptEffect, ScriptResourceAccess } from './script-manifest.js';
 
-export interface ScriptResourceHandle<TCapabilities extends object> {
+export interface ScriptResourceHandle<TClients extends object> {
   readonly name: string;
   readonly kind: 'repository';
   readonly access: ScriptResourceAccess;
@@ -8,7 +8,7 @@ export interface ScriptResourceHandle<TCapabilities extends object> {
     permissions: readonly string[];
     effects: readonly ScriptEffect[];
   }>;
-  readonly capabilities: TCapabilities;
+  readonly clients: TClients;
 }
 
 export type ScriptResourceMap = Readonly<Record<string, ScriptResourceHandle<object>>>;

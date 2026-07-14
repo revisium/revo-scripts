@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
 
-import { defineScript } from '../../../src/runtime/define-script.js';
-import { ScriptFault } from '../../../src/spec/script-errors.js';
-import type { ScriptManifestV1 } from '../../../src/spec/script-manifest.js';
-import type { ScriptSchema } from '../../../src/spec/script-schema.js';
+import { defineScript } from '../../../src/core/runtime/define-script.js';
+import { ScriptFault } from '../../../src/core/spec/script-errors.js';
+import type { ScriptManifestV1 } from '../../../src/core/spec/script-manifest.js';
+import type { ScriptSchema } from '../../../src/core/spec/script-schema.js';
 
 const manifest = {
   schemaVersion: 'revo.script.manifest/v1',
