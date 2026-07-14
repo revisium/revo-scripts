@@ -17,6 +17,8 @@ export interface ManifestValidationIssue {
 const scriptIdPattern = /^script:[a-z][a-z0-9-]*(?:\/[a-z][a-z0-9-]*)+$/;
 const namespacedIdentifierPattern = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/;
 const resourceNamePattern = /^[a-z][a-z0-9-]*$/;
+const providerContractPattern =
+  /^revo\.provider\.[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)*\/v[1-9][0-9]*$/;
 const mutationEffects = new Set<ScriptEffect>([
   'filesystem.write',
   'git.write',
@@ -108,6 +110,48 @@ const manifestSchema: z.ZodType<ScriptManifestV1> = z.strictObject({
       }),
     )
     .max(16, 'A manifest may declare at most 16 resources.'),
+  providers: z
+    .array(
+      z.strictObject({
+        name: boundedString(
+          128,
+          'Provider name must contain at most 128 Unicode code points.',
+        ).regex(resourceNamePattern, 'Provider name must be a lowercase identifier.'),
+        contract: z.custom<`revo.provider.${string}/v${number}`>(
+          (value) =>
+            typeof value === 'string' &&
+            codePointLength(value) <= 256 &&
+            providerContractPattern.test(value),
+          { message: 'Provider contract must use the revo.provider.<name>/v<major> format.' },
+        ),
+        resource: boundedString(
+          128,
+          'Provider resource must contain at most 128 Unicode code points.',
+        ).regex(resourceNamePattern, 'Provider resource must be a lowercase identifier.'),
+      }),
+    )
+    .max(8, 'A manifest may declare at most 8 providers.'),
+  credentials: z
+    .array(
+      z.strictObject({
+        name: boundedString(
+          128,
+          'Credential name must contain at most 128 Unicode code points.',
+        ).regex(resourceNamePattern, 'Credential name must be a lowercase identifier.'),
+        provider: boundedString(
+          256,
+          'Credential provider must contain at most 256 Unicode code points.',
+        ).regex(resourceNamePattern, 'Credential provider must be a lowercase identifier.'),
+        providerRequirement: boundedString(
+          128,
+          'Credential provider requirement must contain at most 128 Unicode code points.',
+        ).regex(
+          resourceNamePattern,
+          'Credential provider requirement must be a lowercase identifier.',
+        ),
+      }),
+    )
+    .max(16, 'A manifest may declare at most 16 credentials.'),
   effects: z
     .array(
       z.enum([
@@ -219,6 +263,14 @@ const validatePurePolicy = (manifest: ScriptManifestV1): readonly ManifestValida
       path: '/resources',
       message: 'Pure scripts must not declare resources.',
     });
+  }
+
+  if (manifest.providers.length > 0) {
+    issues.push({ path: '/providers', message: 'Pure scripts must not declare providers.' });
+  }
+
+  if (manifest.credentials.length > 0) {
+    issues.push({ path: '/credentials', message: 'Pure scripts must not declare credentials.' });
   }
 
   if (manifest.effects.length > 0) {
@@ -416,6 +468,38 @@ export const validateManifest = (
       '/resources',
       'Resource names must be unique.',
       '/name',
+    ),
+    ...findDuplicateIssues(
+      manifest.providers.map((provider) => provider.name),
+      '/providers',
+      'Provider names must be unique.',
+      '/name',
+    ),
+    ...findDuplicateIssues(
+      manifest.credentials.map((credential) => credential.name),
+      '/credentials',
+      'Credential names must be unique.',
+      '/name',
+    ),
+    ...manifest.providers.flatMap((provider, index) =>
+      manifest.resources.some((resource) => resource.name === provider.resource)
+        ? []
+        : [
+            {
+              path: `/providers/${index}/resource`,
+              message: 'Provider must reference a declared resource.',
+            },
+          ],
+    ),
+    ...manifest.credentials.flatMap((credential, index) =>
+      manifest.providers.some((provider) => provider.name === credential.providerRequirement)
+        ? []
+        : [
+            {
+              path: `/credentials/${index}/providerRequirement`,
+              message: 'Credential must reference a declared provider requirement.',
+            },
+          ],
     ),
     ...findDuplicateIssues(
       manifest.events.allowed,

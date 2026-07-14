@@ -54,6 +54,38 @@
       }
     },
     {
+      "files": ["src/host/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(?:^|/)(?:runtime|registry|facade|providers|scripts|testing)(?:/|$)",
+                "message": "Host contracts may depend only on portable core spec contracts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/host/provider-module.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(?:^|/)(?:runtime|registry|facade|providers|scripts|testing)(?:/|$)",
+                "message": "Provider module contracts must not depend on execution or concrete scripts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/providers/*/contracts/**/*.ts"],
       "rules": {
         "no-restricted-imports": [
@@ -77,8 +109,8 @@
           {
             "patterns": [
               {
-                "regex": "(?:^|/)(?:scripts|testing)(?:/|$)",
-                "message": "Provider adapters must not depend on scripts or testing."
+                "regex": "(?:^|/)(?:runtime|registry|facade|scripts|testing)(?:/|$)",
+                "message": "Provider adapters may depend on core spec, host/provider contracts, and their own bounded contracts only."
               }
             ]
           }

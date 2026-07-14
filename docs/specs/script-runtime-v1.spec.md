@@ -23,13 +23,13 @@ BCP 14 when, and only when, they appear in all capitals.
 
 ## Current Contract
 
-The repository implements the initial root, `spec`, `runtime`, `git`, and `testing` entrypoints plus a read-only
-`script:git/status` proof backed by a consumer-prepared bounded Git client. It does not implement the
-`createRevoScripts` facade, definition/provider modules, verdict extraction, credential requirements, generated exact
-implementation identity, or package-owned production Git and GitHub providers specified below. The current
-manual client preparation is exploratory and MUST NOT become the published consumer integration boundary. The npm package
-is not published. This Draft remains the target stable contract; implemented behavior is available for review but has
-no published compatibility commitment.
+The repository implements the root, `spec`, `runtime`, `host`, `git`, `providers/git`, and `testing` entrypoints; the
+initial `createRevoScripts` facade and definition/provider modules; and a read-only `script:git/status` proof backed by
+the package-owned Node Git provider against a real temporary repository. The host supplies a stable process executor
+and resolves an opaque workspace id, but does not construct a per-script client. Verdict extraction, complete
+coordinate and credential enforcement, build-generated exact implementation identity, automated revision retention,
+and package-owned GitHub providers remain Draft work. The npm package is not published. This Draft remains the target
+stable contract; implemented behavior is available for review but has no published compatibility commitment.
 
 ## Target Contract
 
@@ -949,18 +949,18 @@ The internal dependency graph MUST remain acyclic and follow this direction:
 ```text
 core/spec <- core/runtime
 core/spec <- core/registry
-core/spec <- core/host
+core/spec <- host
 core/spec <- providers/*/contracts
-core/spec + core/host + providers/*/contracts <- providers/*/adapters
+core/spec + host + providers/*/contracts <- providers/*/adapters
 core/spec + core/runtime + providers/*/contracts <- scripts/*
-core/runtime + core/registry + core/host + providers/*/adapters + scripts/* <- core/facade
+core/runtime + core/registry + host + providers/*/adapters + scripts/* <- facade
 core + providers + scripts <- testing
 ```
 
 `core/spec` MUST NOT import another package area. Runtime and registry MUST NOT import host, providers, scripts, or
 facade code. Host contracts MUST NOT import provider implementations. Provider contract directories MAY import only
 portable spec types; they are handler-safe and MUST NOT export adapter construction or host-resolution types. Adapters
-implement the trusted provider-module SPI from `core/host`, import their own bounded contract, and MUST NOT import
+implement the trusted provider-module SPI from `host`, import their own bounded contract, and MUST NOT import
 concrete scripts. Scripts MAY import their category's bounded provider contracts but MUST NOT import adapters, `/host`,
 process, credential, or workspace-resolution modules. Git and GitHub scripts MUST NOT import one another. The facade is
 the composition root. Production code MUST NOT import testing. Consumers MUST use public subpaths rather than internal

@@ -18,6 +18,9 @@ export type {
   ScriptEffect,
   ScriptEffectClass,
   ScriptManifestV1,
+  ScriptCredentialRequirement,
+  ScriptProviderContractRef,
+  ScriptProviderRequirement,
   ScriptResourceAccess,
   ScriptResourceRequirement,
 } from './script-manifest.js';

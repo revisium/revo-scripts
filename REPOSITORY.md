@@ -36,8 +36,12 @@ src/
     spec/       portable manifests, schemas, definitions, results, and errors
     runtime/    provider-neutral validation, events, redaction, and execution
     registry/   explicit exact-version registry
+  host/         privileged host bindings and provider module SPI
+  facade/       startup composition, plan resolution, and generic execution
   providers/
-    git/contracts/v1/  handler-safe Git client contracts
+    git/
+      contracts/v1/  handler-safe Git client contracts
+      adapters/node/revisions/r1/  immutable process-backed implementation
   scripts/
     git/status/versions/1.0.0/  built-in Git status proof
   testing/
@@ -68,8 +72,8 @@ src/
     spec/       portable script contracts
     runtime/    provider-neutral low-level execution
     registry/   explicit exact-version definition and provider registries
-    host/       privileged host/provider integration contracts
-    facade/     createRevoScripts composition and generic execute path
+  host/         privileged host/provider integration contracts
+  facade/       createRevoScripts composition and generic execute path
 
   providers/
     git/
@@ -131,14 +135,19 @@ retained revisions. Removing one requires the same live-pin audit as removing a 
 ## Dependency direction
 
 ```text
-spec <- runtime
-spec + runtime <- git
-spec + runtime <- github
-spec + runtime + git + github <- testing
+core/spec <- core/registry <- core/runtime
+core/spec <- host
+core/spec <- providers/*/contracts
+core/spec + host + providers/*/contracts <- providers/*/adapters
+core/spec + core/runtime + providers/*/contracts <- scripts/*
+core/runtime + core/registry + host + providers/*/adapters + scripts/* <- facade
+core + host + facade + providers + scripts <- testing
 ```
 
-- `spec` is the dependency leaf.
+- `core/spec` is the dependency leaf.
 - Runtime is provider-neutral and does not import built-in Git or GitHub definitions.
+- `host` owns privileged integration types but no host implementation or resource lifecycle.
+- Only `facade` composes host resolvers, exact registries, provider adapters, and definition modules.
 - Git and GitHub do not import one another.
 - Production source never imports `testing`, test support, build output, or repository scripts.
 - Tests import explicit modules; there is no broad test-support barrel.
@@ -148,16 +157,15 @@ spec + runtime + git + github <- testing
 graph. Published boundaries are enforced independently through explicit exports, declarations, package smoke tests,
 `publint`, Are The Types Wrong, and pack-content validation.
 
-The Draft target extends the DAG without reversing the low-level runtime boundary:
+The full Draft target preserves the same direction as more provider families and scripts are added:
 
 ```text
-core/spec <- core/runtime
-core/spec <- core/registry
-core/spec <- core/host
+core/spec <- core/registry <- core/runtime
+core/spec <- host
 core/spec <- providers/*/contracts
-core/spec + core/host + providers/*/contracts <- providers/*/adapters
+core/spec + host + providers/*/contracts <- providers/*/adapters
 core/spec + core/runtime + providers/*/contracts <- scripts/*
-core/runtime + core/registry + core/host + providers/*/adapters + scripts/* <- core/facade
+core/runtime + core/registry + host + providers/*/adapters + scripts/* <- facade
 core + providers + scripts <- testing
 ```
 
@@ -168,8 +176,8 @@ but MUST NOT decide script result schemas, stale-state policy, idempotency, or b
 composition root and the only production area allowed to join host resolvers, provider adapters, registries, and script
 modules.
 
-Provider contract directories MUST NOT import `core/host` or export adapter construction types. The trusted provider
-module SPI belongs to `core/host`; an adapter implements it while importing its family's handler-safe contract.
+Provider contract directories MUST NOT import `host` or export adapter construction types. The trusted provider module
+SPI belongs to `host`; an adapter implements it while importing its family's handler-safe contract.
 
 Architecture enforcement MUST distinguish provider contracts from adapters and concrete scripts before the first
 target provider lands. Runtime remains provider-neutral and no dependency cycle is permitted.
@@ -195,11 +203,11 @@ new resource lifecycle that the stable host integration contract cannot represen
 
 ## Package surface
 
-The current root entrypoint intentionally repeats only the four primary runtime functions: `defineScript`,
-`createScriptSchema`, `createScriptRegistry`, and `executeScript`. The Draft target adds the high-level
-`createRevoScripts` facade and built-in definition module factory to the curated root. Provider factories, types,
-faults, individual built-ins, privileged host contracts, and testing mechanics remain on explicit domain subpaths.
-Adding a source file does not make it public; `package.json` is authoritative for shipped exports.
+The root entrypoint exposes the high-level `createRevoScripts` facade, built-in definition-module factories, and the
+four low-level SDK/runtime functions: `defineScript`, `createScriptSchema`, `createScriptRegistry`, and
+`executeScript`. Provider factories, faults, individual built-ins, privileged host contracts, and testing mechanics
+remain on explicit domain subpaths. Adding a source file does not make it public; `package.json` is authoritative for
+shipped exports.
 
 Testing utilities are public only through `@revisium/revo-scripts/testing`. Private fixtures and repository validation
 scripts are never shipped as package API.

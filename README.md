@@ -12,9 +12,9 @@
 </div>
 
 > [!IMPORTANT]
-> The package is unpublished. The low-level definition, registry, and one-script runtime exist for review. The
-> `createRevoScripts` consumer facade and package-owned production providers described below are the Draft target and
-> are not implemented yet.
+> The package is unpublished. The low-level runtime, initial `createRevoScripts` facade, and package-owned Node Git
+> provider exist for review. The linked Draft contract is broader than this implementation; the current-status table
+> identifies the remaining work.
 
 ## What this package owns
 
@@ -100,22 +100,18 @@ the same generic `execute` call for every script id.
 
 ## Consumer integration
 
-The following API is the Draft target. Names and behavior are normative in the linked specification but are not yet
-available from the current package build.
+The following startup, plan-resolution, and execution path is implemented for the Git status vertical. Names and
+behavior remain under Draft review until the contract is accepted and the package is published.
 
 ### 1. Compose the runtime once
 
 ```ts
 import { builtInScripts, createRevoScripts } from '@revisium/revo-scripts';
 import { nodeGitProviders } from '@revisium/revo-scripts/providers/git';
-import { gitHubProviders } from '@revisium/revo-scripts/providers/github';
 
 const scripts = createRevoScripts({
   definitions: [builtInScripts()],
-  providers: [
-    ...nodeGitProviders({ processExecutor }),
-    ...gitHubProviders({ transport: githubTransport }),
-  ],
+  providers: nodeGitProviders({ processExecutor }),
   host: {
     workspaces: workspaceResolver,
     credentials: credentialResolver,
@@ -124,6 +120,11 @@ const scripts = createRevoScripts({
   },
 });
 ```
+
+`processExecutor` is host infrastructure, not a script implementation. The Git provider calls it with a bounded
+`{ command, args, cwd, maxOutputBytes, signal }` request and receives
+`{ exitCode, stdout, stderr }`. The host adapter owns process spawning and executable policy; scripts never receive the
+executor, command, environment, or resolved workspace path.
 
 This is the only provider-level composition point. `builtInScripts()` explicitly registers the package's trusted
 definitions as one module; it is convenient for a host that installs every built-in provider. A narrower host uses
@@ -362,23 +363,26 @@ and implicit latest-version selection are forbidden.
 
 ## Current implementation status
 
-| Surface                         | Current state         | Draft target                                                   |
-| ------------------------------- | --------------------- | -------------------------------------------------------------- |
-| Manifest, schemas, definition   | Implemented           | Adds providers, verdict, credentials, and exact identity       |
-| Sealed explicit registry        | Implemented           | Populated through trusted definition modules                   |
-| Low-level `executeScript`       | Implemented           | Public low-level foundation beneath the consumer facade        |
-| `script:git/status`             | Prepared-client proof | Package-owned Git provider and real temporary-repository proof |
-| `createRevoScripts`             | Not implemented       | Sole high-level consumer integration                           |
-| Git/GitHub production providers | Not implemented       | Package-owned trusted provider modules                         |
-| npm publication                 | Not published         | Separate release approval                                      |
+| Surface                       | Current state              | Remaining Draft target                                      |
+| ----------------------------- | -------------------------- | ----------------------------------------------------------- |
+| Manifest, schemas, definition | Providers/credentials land | Verdict and build-generated exact identity                  |
+| Sealed explicit registry      | Implemented                | Immutable release-retention checks                          |
+| Low-level `executeScript`     | Implemented                | Stable public low-level foundation                          |
+| `script:git/status`           | Package-owned vertical     | Complete provider failure/timeout contract                  |
+| `createRevoScripts`           | Initial facade implemented | Coordinate, credential, cleanup, and verdict completion     |
+| Git production provider       | Node `r1` implemented      | Generated digest freshness and retained-revision automation |
+| GitHub production providers   | Not implemented            | First bounded GitHub operation                              |
+| npm publication               | Not published              | Separate release approval                                   |
 
-The current public `GitStatusClient` is a handler-safe provider contract, but consumers still prepare it manually for
-the exploratory low-level proof. The target provider/facade slice removes that per-operation preparation before
-publication.
+The implemented high-level path resolves an exact script and provider pin, resolves an opaque workspace id through the
+host, constructs the bounded Git client inside the package, executes the handler, and disposes provider resources. A
+consumer no longer implements or injects `readStatus`. The provider still receives one host-level `ProcessExecutor`;
+that is stable infrastructure shared by the Git family, not a per-script capability.
 
-### Current low-level API
+### Low-level SDK/runtime API
 
-Until the Draft facade lands, the implemented proof remains directly executable:
+Definition authors, provider contract tests, and advanced trusted hosts can still execute the low-level foundation
+directly:
 
 ```ts
 import { createScriptRegistry, executeScript } from '@revisium/revo-scripts';
@@ -417,8 +421,8 @@ const result = await executeScript(registry, script, {
 });
 ```
 
-The target migration keeps the handler-safe `clients` shape but makes the package-owned provider prepare it from host
-bindings. No compatibility alias for the removed `capabilities` field is provided.
+The high-level facade keeps the same handler-safe `clients` shape and prepares it from host bindings. No compatibility
+alias for the removed `capabilities` field is provided.
 
 ## Package entrypoints
 
@@ -426,16 +430,16 @@ Currently implemented entrypoints:
 
 | Entrypoint                             | Responsibility                                            |
 | -------------------------------------- | --------------------------------------------------------- |
-| `@revisium/revo-scripts`               | Current curated runtime API; target consumer facade       |
+| `@revisium/revo-scripts`               | Consumer facade, module factories, and low-level SDK      |
 | `@revisium/revo-scripts/spec`          | Definitions, manifests, schemas, results, and errors      |
 | `@revisium/revo-scripts/runtime`       | Low-level definition, registry, validation, and execution |
-| `@revisium/revo-scripts/git`           | Current Git proof; target built-in Git definitions        |
-| `@revisium/revo-scripts/providers/git` | Handler-safe Git provider contract                        |
+| `@revisium/revo-scripts/host`          | Privileged host and provider integration contracts        |
+| `@revisium/revo-scripts/git`           | Built-in Git definitions and result types                 |
+| `@revisium/revo-scripts/providers/git` | Git contract and Node provider-family factory             |
 | `@revisium/revo-scripts/testing`       | Contract harness, fixtures, clocks, sinks, and fakes      |
 
-The target Git factory will join the implemented contract on `@revisium/revo-scripts/providers/git`; the GitHub
-provider entrypoint remains absent until its first real implementation. Provider surfaces are deliberately separate
-from concrete script exports.
+The GitHub provider entrypoint remains absent until its first real implementation. Provider surfaces are deliberately
+separate from concrete script exports.
 
 Provider contracts, adapters, and retained revisions remain inside this package and share its release cycle. They are
 separate subpath exports, not separate npm packages.

@@ -32,6 +32,8 @@ const definition = defineScript({
     effectClass: 'pure',
     permissions: [],
     resources: [],
+    providers: [],
+    credentials: [],
     effects: [],
     timeout: { wallClockMs: 1_000 },
     retry: { mode: 'never', maxAttempts: 1, backoffMs: [] },

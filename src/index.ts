@@ -2,6 +2,20 @@ export { createScriptRegistry } from './core/registry/script-registry.js';
 export { createScriptSchema } from './core/runtime/create-script-schema.js';
 export { defineScript } from './core/runtime/define-script.js';
 export { executeScript } from './core/runtime/execute-script.js';
+export { createRevoScripts } from './facade/create-revo-scripts.js';
+export type {
+  RevoScriptExecutionRequest,
+  RevoScripts,
+  RevoScriptsOptions,
+  ScriptIdentityPin,
+  ScriptPlanDescriptor,
+  ScriptProviderPin,
+} from './facade/contracts.js';
+export type {
+  ScriptDefinitionModule,
+  ScriptDefinitionRegistrar,
+} from './facade/definition-module.js';
+export { builtInScripts, gitScripts } from './facade/built-ins.js';
 export type {
   ScriptContext,
   ScriptDefinition,

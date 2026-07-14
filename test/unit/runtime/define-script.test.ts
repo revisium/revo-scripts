@@ -15,6 +15,8 @@ const manifest = {
   effectClass: 'pure',
   permissions: [],
   resources: [],
+  providers: [],
+  credentials: [],
   effects: [],
   timeout: { wallClockMs: 1_000 },
   retry: { mode: 'never', maxAttempts: 1, backoffMs: [] },
@@ -124,7 +126,7 @@ test('defines one immutable script with a stable identity digest', () => {
       id: '@revisium/revo-scripts/test/echo',
       version: '1.0.0',
     },
-    definitionDigest: 'sha256:3b2653f62db7c236009b94b579b16ecb27c68cb6cea63eaf004582cef8eb75d1',
+    definitionDigest: 'sha256:d6d2ab007afc8982c38815b1055f220161fe64eafc44cb48cbd6dd36ec11a1bb',
     handler,
   });
   expect({

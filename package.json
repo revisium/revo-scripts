@@ -33,6 +33,10 @@
       "types": "./dist/core/runtime/index.d.ts",
       "import": "./dist/core/runtime/index.js"
     },
+    "./host": {
+      "types": "./dist/host/index.d.ts",
+      "import": "./dist/host/index.js"
+    },
     "./git": {
       "types": "./dist/scripts/git/index.d.ts",
       "import": "./dist/scripts/git/index.js"

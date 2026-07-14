@@ -39,12 +39,18 @@ export const createScriptDeadline = (
       fail(new ScriptFault('revo.script.timeout.deadline', 'Script wall-clock deadline expired.')),
     timeoutMs,
   );
-  const abortFromCaller = () =>
+  const abortFromCaller = () => {
+    if (externalSignal?.reason instanceof ScriptFault) {
+      fail(externalSignal.reason);
+      return;
+    }
+
     fail(
       new ScriptFault('revo.script.execution.aborted', 'Script execution was aborted.', {
         cause: externalSignal?.reason,
       }),
     );
+  };
 
   if (externalSignal?.aborted === true) {
     abortFromCaller();

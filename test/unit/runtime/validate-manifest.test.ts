@@ -13,6 +13,8 @@ const validManifest = {
   effectClass: 'pure',
   permissions: [],
   resources: [],
+  providers: [],
+  credentials: [],
   effects: [],
   timeout: { wallClockMs: 1_000 },
   retry: { mode: 'never', maxAttempts: 1, backoffMs: [] },
@@ -169,6 +171,41 @@ test('rejects lifecycle namespace declarations before registration', () => {
         {
           path: '/events/allowed/0',
           message: 'Custom event name must not use the reserved revo.script namespace.',
+        },
+      ],
+    },
+  });
+});
+
+test('rejects duplicate and dangling provider or credential requirements', () => {
+  const fault = captureManifestFault({
+    ...validManifest,
+    effectClass: 'read',
+    permissions: ['git.status.read'],
+    resources: [{ name: 'repository', kind: 'repository', access: 'read' }],
+    providers: [
+      { name: 'git', contract: 'revo.provider.git/v1', resource: 'repository' },
+      { name: 'git', contract: 'revo.provider.git/v1', resource: 'missing' },
+    ],
+    credentials: [
+      { name: 'account', provider: 'github', providerRequirement: 'git' },
+      { name: 'account', provider: 'github', providerRequirement: 'missing' },
+    ],
+    effects: ['git.read'],
+  });
+
+  expect(fault).toEqual({
+    code: 'revo.script.validation.manifest',
+    message: 'Script manifest is invalid.',
+    retryable: false,
+    details: {
+      issues: [
+        { path: '/providers/1/name', message: 'Provider names must be unique.' },
+        { path: '/credentials/1/name', message: 'Credential names must be unique.' },
+        { path: '/providers/1/resource', message: 'Provider must reference a declared resource.' },
+        {
+          path: '/credentials/1/providerRequirement',
+          message: 'Credential must reference a declared provider requirement.',
         },
       ],
     },

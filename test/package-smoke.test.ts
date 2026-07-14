@@ -5,6 +5,7 @@ import { expect, expectTypeOf, test } from 'vitest';
 import * as runtimeEntry from '../src/core/runtime/index.js';
 import * as specEntry from '../src/core/spec/index.js';
 import type { ScriptDefinition } from '../src/core/spec/script-definition.js';
+import * as hostEntry from '../src/host/index.js';
 import * as packageEntry from '../src/index.js';
 import * as gitProviderEntry from '../src/providers/git/index.js';
 import * as gitEntry from '../src/scripts/git/index.js';
@@ -24,15 +25,25 @@ test('entry points expose only their curated runtime values', () => {
     root: exportNames(packageEntry),
     spec: exportNames(specEntry),
     runtime: exportNames(runtimeEntry),
+    host: exportNames(hostEntry),
     git: exportNames(gitEntry),
     gitProvider: exportNames(gitProviderEntry),
     testing: exportNames(testingEntry),
   }).toEqual({
-    root: ['createScriptRegistry', 'createScriptSchema', 'defineScript', 'executeScript'],
+    root: [
+      'builtInScripts',
+      'createRevoScripts',
+      'createScriptRegistry',
+      'createScriptSchema',
+      'defineScript',
+      'executeScript',
+      'gitScripts',
+    ],
     spec: ['ScriptFault'],
     runtime: ['createScriptRegistry', 'createScriptSchema', 'defineScript', 'executeScript'],
+    host: [],
     git: ['gitStatusScript'],
-    gitProvider: [],
+    gitProvider: ['nodeGitProviders'],
     testing: [
       'DeterministicScriptClock',
       'RecordingEventSink',
@@ -78,6 +89,10 @@ test('package metadata declares the intended package and explicit root export', 
       './runtime': {
         types: './dist/core/runtime/index.d.ts',
         import: './dist/core/runtime/index.js',
+      },
+      './host': {
+        types: './dist/host/index.d.ts',
+        import: './dist/host/index.js',
       },
       './git': {
         types: './dist/scripts/git/index.d.ts',

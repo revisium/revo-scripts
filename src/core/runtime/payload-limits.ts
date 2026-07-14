@@ -7,14 +7,14 @@ const evidenceLimit = 64;
 const evidenceRefLimit = 2_048;
 const evidenceSummaryLimit = 4_096;
 
-export type ScriptPayloadKind = 'input' | 'result' | 'event';
+export type ScriptPayloadKind = 'input' | 'bindings' | 'result' | 'event';
 
 const jsonCompatibilityCode = (kind: ScriptPayloadKind) => {
   if (kind === 'event') {
     return 'revo.script.validation.event' as const;
   }
 
-  return kind === 'input'
+  return kind === 'input' || kind === 'bindings'
     ? ('revo.script.validation.input' as const)
     : ('revo.script.validation.result' as const);
 };

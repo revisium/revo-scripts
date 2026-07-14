@@ -17,6 +17,20 @@ export interface ScriptResourceRequirement {
   readonly access: ScriptResourceAccess;
 }
 
+export type ScriptProviderContractRef = `revo.provider.${string}/v${number}`;
+
+export interface ScriptProviderRequirement {
+  readonly name: string;
+  readonly contract: ScriptProviderContractRef;
+  readonly resource: string;
+}
+
+export interface ScriptCredentialRequirement {
+  readonly name: string;
+  readonly provider: string;
+  readonly providerRequirement: string;
+}
+
 export interface ScriptManifestV1 {
   readonly schemaVersion: 'revo.script.manifest/v1';
   readonly id: `script:${string}`;
@@ -27,6 +41,8 @@ export interface ScriptManifestV1 {
   readonly effectClass: ScriptEffectClass;
   readonly permissions: readonly string[];
   readonly resources: readonly ScriptResourceRequirement[];
+  readonly providers: readonly ScriptProviderRequirement[];
+  readonly credentials: readonly ScriptCredentialRequirement[];
   readonly effects: readonly ScriptEffect[];
   readonly timeout: Readonly<{ wallClockMs: number }>;
   readonly retry: Readonly<{

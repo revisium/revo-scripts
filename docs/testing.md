@@ -110,9 +110,8 @@ with provider adapters. Its complete contract requires that it:
 - emits the standard lifecycle events;
 - maps missing access, timeout, provider failure, invalid input, and invalid result to their stable error families.
 
-An in-memory recording port is authoritative for the package contract. A real process-backed Git adapter is a separate
-integration surface for the current exploratory runtime slice. Before publication, the target package-owned Git
-provider requires a real temporary-repository contract proving that `script:git/status` executes without a
+An in-memory recording port remains authoritative for the handler contract. The package-owned process-backed Git
+adapter also has a real temporary-repository contract proving that `script:git/status` executes without a
 consumer-provided `readStatus` implementation. Recording fakes remain authoritative for access denial, no-call, retry,
 timeout, and redaction partitions.
 

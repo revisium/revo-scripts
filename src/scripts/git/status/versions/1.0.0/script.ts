@@ -70,9 +70,11 @@ export const gitStatusScript = defineScript<
     effectClass: 'read',
     permissions: ['git.status.read'],
     resources: [{ name: 'repository', kind: 'repository', access: 'read' }],
+    providers: [{ name: 'git', contract: 'revo.provider.git/v1', resource: 'repository' }],
+    credentials: [],
     effects: ['git.read'],
     timeout: { wallClockMs: 5_000 },
-    retry: { mode: 'transient', maxAttempts: 3, backoffMs: [100, 500] },
+    retry: { mode: 'never', maxAttempts: 1, backoffMs: [] },
     idempotency: 'read-only',
     redaction: {
       inputPaths: [],

@@ -13,6 +13,10 @@ const freezeManifest = (manifest: ScriptManifestV1): ScriptManifestV1 =>
     ...manifest,
     permissions: Object.freeze([...manifest.permissions]),
     resources: Object.freeze(manifest.resources.map((resource) => Object.freeze({ ...resource }))),
+    providers: Object.freeze(manifest.providers.map((provider) => Object.freeze({ ...provider }))),
+    credentials: Object.freeze(
+      manifest.credentials.map((credential) => Object.freeze({ ...credential })),
+    ),
     effects: Object.freeze([...manifest.effects]),
     timeout: Object.freeze({ ...manifest.timeout }),
     retry: Object.freeze({

@@ -18,31 +18,8 @@ import {
   validateEvidence,
 } from './payload-limits.js';
 import { redactValue } from './redact.js';
+import { systemClock } from './system-clock.js';
 import { validateExecutionId, validateExecutionRequest } from './validate-execution.js';
-
-const defaultClock: ScriptClock = {
-  now: () => Date.now(),
-  sleep: (ms, signal) =>
-    new Promise((resolve, reject) => {
-      const complete = () => {
-        signal.removeEventListener('abort', abort);
-        resolve();
-      };
-      const timeout = setTimeout(complete, ms);
-      const abort = () => {
-        clearTimeout(timeout);
-        signal.removeEventListener('abort', abort);
-        reject(signal.reason);
-      };
-
-      if (signal.aborted) {
-        abort();
-        return;
-      }
-
-      signal.addEventListener('abort', abort, { once: true });
-    }),
-};
 
 const deepFreeze = <T>(value: T): Readonly<T> => {
   if (typeof value !== 'object' || value === null || Object.isFrozen(value)) {
@@ -424,7 +401,7 @@ export const executeScript = async <I, O, R extends ScriptResourceMap>(
   script: RegisteredScript<I, O, R>,
   request: ExecuteScriptRequest<R>,
 ): Promise<ScriptExecutionResult<O>> => {
-  const clock = request.clock ?? defaultClock;
+  const clock = request.clock ?? systemClock;
   const startedAt = clock.now();
   const deadline = createScriptDeadline(script.manifest.timeout.wallClockMs, clock, request.signal);
   try {
