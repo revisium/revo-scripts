@@ -2,34 +2,7 @@ import { expect, test } from 'vitest';
 
 import { validateScriptManifest } from '../../../src/core/runtime/validate-manifest.js';
 import { ScriptFault } from '../../../src/core/spec/script-errors.js';
-
-const validManifest = {
-  schemaVersion: 'revo.script.manifest/v1',
-  id: 'script:test/echo',
-  version: '1.0.0',
-  summary: 'Returns the provided message.',
-  inputSchemaId: 'revo.script.test.echo.input/v1',
-  resultSchemaId: 'revo.script.test.echo.result/v1',
-  effectClass: 'pure',
-  permissions: [],
-  resources: [],
-  providers: [],
-  credentials: [],
-  effects: [],
-  timeout: { wallClockMs: 1_000 },
-  retry: { mode: 'never', maxAttempts: 1, backoffMs: [] },
-  idempotency: 'read-only',
-  redaction: {
-    inputPaths: [],
-    resultPaths: [],
-    errorPaths: [],
-    eventPaths: [],
-  },
-  events: {
-    allowed: [],
-    detailPaths: [],
-  },
-} as const;
+import { echoManifest as validManifest } from '../../support/runtime/echo-definition-input.js';
 
 const captureManifestFault = (value: unknown) => {
   try {

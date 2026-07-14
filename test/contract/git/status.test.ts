@@ -6,18 +6,13 @@ import {
   createScriptContractHarness,
 } from '../../../src/testing/core/contract-harness.js';
 
-test('returns one bounded read-only repository status through the public contract harness', async () => {
-  const fake = createGitStatusClientFake({
-    branch: 'feat/runtime-foundation',
-    headSha: '0123456789abcdef0123456789abcdef01234567',
-    detached: false,
-    stagedCount: 2,
-    unstagedCount: 3,
-    untrackedCount: 1,
-    conflictedCount: 0,
-  });
+const createGitStatusHarness = (
+  snapshot: Parameters<typeof createGitStatusClientFake>[0],
+  executionId: string,
+) => {
+  const fake = createGitStatusClientFake(snapshot);
   const harness = createScriptContractHarness(gitStatusScript, {
-    executionId: 'git-status-contract',
+    executionId,
     nowMs: 1_000,
     resources: {
       repository: {
@@ -29,6 +24,23 @@ test('returns one bounded read-only repository status through the public contrac
       },
     },
   });
+
+  return { fake, harness };
+};
+
+test('returns one bounded read-only repository status through the public contract harness', async () => {
+  const { fake, harness } = createGitStatusHarness(
+    {
+      branch: 'feat/runtime-foundation',
+      headSha: '0123456789abcdef0123456789abcdef01234567',
+      detached: false,
+      stagedCount: 2,
+      unstagedCount: 3,
+      untrackedCount: 1,
+      conflictedCount: 0,
+    },
+    'git-status-contract',
+  );
 
   const execution = await harness.execute({});
 
@@ -81,28 +93,18 @@ test('returns one bounded read-only repository status through the public contrac
 });
 
 test('rejects unknown input fields before invoking the Git capability', async () => {
-  const fake = createGitStatusClientFake({
-    branch: null,
-    headSha: '0123456789abcdef0123456789abcdef01234567',
-    detached: true,
-    stagedCount: 0,
-    unstagedCount: 0,
-    untrackedCount: 0,
-    conflictedCount: 0,
-  });
-  const harness = createScriptContractHarness(gitStatusScript, {
-    executionId: 'git-status-invalid-input',
-    nowMs: 1_000,
-    resources: {
-      repository: {
-        name: 'repository',
-        kind: 'repository',
-        access: 'read',
-        grant: { permissions: ['git.status.read'], effects: ['git.read'] },
-        clients: { git: fake.client },
-      },
+  const { fake, harness } = createGitStatusHarness(
+    {
+      branch: null,
+      headSha: '0123456789abcdef0123456789abcdef01234567',
+      detached: true,
+      stagedCount: 0,
+      unstagedCount: 0,
+      untrackedCount: 0,
+      conflictedCount: 0,
     },
-  });
+    'git-status-invalid-input',
+  );
 
   const execution = await harness.execute({ unexpected: true });
 

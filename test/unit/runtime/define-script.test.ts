@@ -4,88 +4,12 @@ import { defineScript } from '../../../src/core/runtime/define-script.js';
 import { ScriptFault } from '../../../src/core/spec/script-errors.js';
 import type { ScriptManifestV1 } from '../../../src/core/spec/script-manifest.js';
 import type { ScriptSchema } from '../../../src/core/spec/script-schema.js';
-
-const manifest = {
-  schemaVersion: 'revo.script.manifest/v1',
-  id: 'script:test/echo',
-  version: '1.0.0',
-  summary: 'Returns the provided message.',
-  inputSchemaId: 'revo.script.test.echo.input/v1',
-  resultSchemaId: 'revo.script.test.echo.result/v1',
-  effectClass: 'pure',
-  permissions: [],
-  resources: [],
-  providers: [],
-  credentials: [],
-  effects: [],
-  timeout: { wallClockMs: 1_000 },
-  retry: { mode: 'never', maxAttempts: 1, backoffMs: [] },
-  idempotency: 'read-only',
-  redaction: {
-    inputPaths: [],
-    resultPaths: [],
-    errorPaths: [],
-    eventPaths: [],
-  },
-  events: {
-    allowed: [],
-    detailPaths: [],
-  },
-} as const satisfies ScriptManifestV1;
-
-const inputSchema: ScriptSchema<{ message: string }> = {
-  id: manifest.inputSchemaId,
-  validate: async (value) => {
-    if (
-      typeof value === 'object' &&
-      value !== null &&
-      Object.keys(value).length === 1 &&
-      'message' in value &&
-      typeof value.message === 'string'
-    ) {
-      return { ok: true, value: { message: value.message } };
-    }
-
-    return { ok: false, issues: [{ message: 'Expected one message string.', path: [] }] };
-  },
-  toJsonSchema: () => ({
-    $schema: 'https://json-schema.org/draft/2020-12/schema',
-    $id: manifest.inputSchemaId,
-    type: 'object',
-    additionalProperties: false,
-    required: ['message'],
-    properties: { message: { type: 'string' } },
-  }),
-};
-
-const resultSchema: ScriptSchema<{ echoed: string }> = {
-  id: manifest.resultSchemaId,
-  validate: async (value) => {
-    if (
-      typeof value === 'object' &&
-      value !== null &&
-      Object.keys(value).length === 1 &&
-      'echoed' in value &&
-      typeof value.echoed === 'string'
-    ) {
-      return { ok: true, value: { echoed: value.echoed } };
-    }
-
-    return { ok: false, issues: [{ message: 'Expected one echoed string.', path: [] }] };
-  },
-  toJsonSchema: () => ({
-    $schema: 'https://json-schema.org/draft/2020-12/schema',
-    $id: manifest.resultSchemaId,
-    type: 'object',
-    additionalProperties: false,
-    required: ['echoed'],
-    properties: { echoed: { type: 'string' } },
-  }),
-};
-
-const handler = async ({ message }: Readonly<{ message: string }>) => ({
-  value: { echoed: message },
-});
+import {
+  echoHandler as handler,
+  echoManifest as manifest,
+  manualEchoInputSchema as inputSchema,
+  manualEchoResultSchema as resultSchema,
+} from '../../support/runtime/echo-definition-input.js';
 
 const captureFault = (operation: () => unknown) => {
   try {

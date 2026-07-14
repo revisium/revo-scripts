@@ -11,8 +11,11 @@ import {
 import type { GitStatusClient } from '../../../src/providers/git/contracts/v1/status.js';
 import { nodeGitProviders } from '../../../src/providers/git/index.js';
 import { gitStatusScript } from '../../../src/scripts/git/status/versions/1.0.0/script.js';
-
-const headSha = '0123456789abcdef0123456789abcdef01234567';
+import {
+  createGitHost,
+  createGitScriptRequest,
+  gitTestHeadSha,
+} from '../../support/git/git-fixture.js';
 
 const inputSchema = createScriptSchema({
   id: 'revo.script.test.git-branch.input/v1',
@@ -83,52 +86,25 @@ const twoGitScripts = (): ScriptDefinitionModule => ({
 });
 
 test('adds a second script on the Git contract without changing the consumer execution path', async () => {
+  const { host } = createGitHost();
   const scripts = createRevoScripts({
     definitions: [twoGitScripts()],
     providers: nodeGitProviders({
       processExecutor: async () => ({
         exitCode: 0,
-        stdout: [`# branch.oid ${headSha}`, '# branch.head feature', ''].join('\0'),
+        stdout: [`# branch.oid ${gitTestHeadSha}`, '# branch.head feature', ''].join('\0'),
         stderr: '',
       }),
     }),
-    host: {
-      workspaces: {
-        resolve: async (workspaceId) => ({
-          workspaceId,
-          repositoryId: 'repository-123',
-          absolutePath: '/tmp/revo-worktree',
-        }),
-      },
-      credentials: {
-        resolve: async () => {
-          throw new Error('Git scripts must not resolve credentials.');
-        },
-      },
-      events: { emit: async () => undefined },
-    },
+    host,
   });
   const plan = scripts.resolveForPlan({ id: 'script:test/git-branch', version: '1.0.0' });
-  const result = await scripts.execute({
-    executionId: 'custom-git-branch',
-    script: plan.script,
-    providers: plan.providers,
-    input: {},
-    bindings: {
-      resources: {
-        repository: {
-          resourceId: 'target',
-          kind: 'repository',
-          repositoryId: 'repository-123',
-          workspaceId: 'workspace-456',
-          access: 'read',
-          grant: { permissions: ['git.branch.read'], effects: ['git.read'] },
-          providerCoordinates: {},
-        },
-      },
-      credentials: {},
-    },
-  });
+  const result = await scripts.execute(
+    createGitScriptRequest(plan, {
+      executionId: 'custom-git-branch',
+      permissions: ['git.branch.read'],
+    }),
+  );
 
   expect({
     manifests: scripts.listManifests().map((manifest) => manifest.id),
@@ -137,7 +113,7 @@ test('adds a second script on the Git contract without changing the consumer exe
     manifests: ['script:git/status', 'script:test/git-branch'],
     result: {
       ok: true,
-      value: { branch: 'feature', headSha },
+      value: { branch: 'feature', headSha: gitTestHeadSha },
       evidence: [],
       attempts: 1,
     },

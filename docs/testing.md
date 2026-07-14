@@ -18,8 +18,29 @@ CLI, and durable-recovery test layers do not belong in this package.
 - Fixtures contain every field read by production code. Deliberate omission is itself asserted as the tested behavior.
 - Test support owns mechanics such as fakes, recording sinks, clocks, and builders. It does not choose product outcomes
   or hide assertions.
+- A test body stays at one abstraction level: it makes the behavior-specific setup, action, and observable outcome easy
+  to identify. Repeated registry wiring, clocks, sinks, host bindings, and valid baseline manifests belong in typed test
+  support once they obscure that behavior.
 - Tests use public contracts unless the owning layer is a focused unit test for a private pure function.
 - Skips and quality-rule exclusions require an owner, rationale, and expiry or removal condition.
+
+## Test readability and suite structure
+
+- Prefer small typed builders, scenario harnesses, and recording fakes over a fluent or natural-language test DSL. Test
+  support should remove mechanics while leaving behavior choices and assertions visible in ordinary TypeScript.
+- Builders expose explicit domain overrides and fail closed on unsupported combinations. They MUST NOT use an
+  unbounded deep merge, infer the expected product outcome, or derive expected values from the actual result.
+- Do not extract a one-off setup merely to shorten a test. A helper earns its name when it removes repeated mechanics
+  or gives a stable domain concept one clear representation.
+- One suite file owns one behavioral axis. Split a suite when independent concerns such as preflight, retry, deadlines,
+  event policy, payload bounds, or provider lifecycle can change and be reviewed separately.
+- More than 400 lines or ten top-level scenarios is a review trigger, not an automatic failure. The author MUST check
+  whether the suite contains multiple behavioral axes; a `describe` block is not a substitute for splitting independent
+  contracts into focused files.
+- Focused files may share private mechanics from `test/support/<area>/`. They MUST NOT introduce a broad support barrel,
+  hide assertions, or move repository-only fixtures into the published `src/testing` API.
+- Keep exceptional mechanics explicit when they are the subject of the test. A deadline test may control timers and an
+  event-sink test may define a rejecting sink directly even when the common path uses a scenario harness.
 
 ## Assertion style
 

@@ -8,6 +8,7 @@ import { expect, test } from 'vitest';
 
 import { builtInScripts, createRevoScripts } from '../../../src/index.js';
 import { nodeGitProviders, type ProcessExecutor } from '../../../src/providers/git/index.js';
+import { createGitHost, createGitScriptRequest } from '../../support/git/git-fixture.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -47,46 +48,26 @@ test('executes the production Node Git provider against a real temporary reposit
     await writeFile(join(repository, 'tracked.txt'), 'changed\n');
     await writeFile(join(repository, 'untracked.txt'), 'new\n');
 
+    const { host } = createGitHost({
+      resolveWorkspace: async (workspaceId) => ({
+        workspaceId,
+        repositoryId: 'temporary-repository',
+        absolutePath: repository,
+      }),
+    });
     const scripts = createRevoScripts({
       definitions: [builtInScripts()],
       providers: nodeGitProviders({ processExecutor }),
-      host: {
-        workspaces: {
-          resolve: async (workspaceId) => ({
-            workspaceId,
-            repositoryId: 'temporary-repository',
-            absolutePath: repository,
-          }),
-        },
-        credentials: {
-          resolve: async () => {
-            throw new Error('Git status must not request credentials.');
-          },
-        },
-        events: { emit: async () => undefined },
-      },
+      host,
     });
     const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
-    const result = await scripts.execute({
-      executionId: 'real-git-status',
-      script: plan.script,
-      providers: plan.providers,
-      input: {},
-      bindings: {
-        resources: {
-          repository: {
-            resourceId: 'target',
-            kind: 'repository',
-            repositoryId: 'temporary-repository',
-            workspaceId: 'temporary-workspace',
-            access: 'read',
-            grant: { permissions: ['git.status.read'], effects: ['git.read'] },
-            providerCoordinates: {},
-          },
-        },
-        credentials: {},
-      },
-    });
+    const result = await scripts.execute(
+      createGitScriptRequest(plan, {
+        executionId: 'real-git-status',
+        repositoryId: 'temporary-repository',
+        workspaceId: 'temporary-workspace',
+      }),
+    );
 
     expect(result).toEqual({
       ok: true,

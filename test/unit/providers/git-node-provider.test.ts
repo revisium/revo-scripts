@@ -186,6 +186,17 @@ test('retains one exact provider revision and validates factory selection', asyn
   const registrations = nodeGitProviders({ processExecutor, defaultRevision: 'r1' });
   const provider = registrations[0]?.module;
 
+  if (provider === undefined) {
+    throw new Error('Expected the retained Git provider revision.');
+  }
+
+  const providerRequirement = gitStatusScript.manifest.providers[0];
+  const resourceRequirement = gitStatusScript.manifest.resources[0];
+
+  if (providerRequirement === undefined || resourceRequirement === undefined) {
+    throw new Error('Expected Git status provider and resource requirements.');
+  }
+
   expect(
     await captureFault(async () => {
       nodeGitProviders({ processExecutor, defaultRevision: 'r2' });
@@ -197,13 +208,12 @@ test('retains one exact provider revision and validates factory selection', asyn
     retryable: undefined,
   });
 
-  expect(provider).toBeDefined();
   expect(
     await captureFault(() =>
-      provider!.createResourceClients({
+      provider.createResourceClients({
         manifest: gitStatusScript.manifest,
-        provider: gitStatusScript.manifest.providers[0]!,
-        requirement: gitStatusScript.manifest.resources[0]!,
+        provider: providerRequirement,
+        requirement: resourceRequirement,
         binding: {
           resourceId: 'target',
           kind: 'repository',

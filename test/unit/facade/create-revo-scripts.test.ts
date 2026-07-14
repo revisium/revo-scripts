@@ -4,22 +4,21 @@ import { ScriptFault } from '../../../src/core/spec/script-errors.js';
 import type { ScriptProviderRegistration } from '../../../src/host/index.js';
 import { createRevoScripts, gitScripts } from '../../../src/index.js';
 import { nodeGitProviders } from '../../../src/providers/git/index.js';
+import {
+  createGitHost,
+  requireNodeGitProviderRegistration,
+} from '../../support/git/git-fixture.js';
 
 const processExecutor = async () => ({ exitCode: 0, stdout: '', stderr: '' });
 
-const host = {
-  workspaces: {
-    resolve: async () => {
-      throw new Error('Workspace resolution is not expected during startup.');
-    },
+const { host } = createGitHost({
+  resolveWorkspace: async () => {
+    throw new Error('Workspace resolution is not expected during startup.');
   },
-  credentials: {
-    resolve: async () => {
-      throw new Error('Credential resolution is not expected during startup.');
-    },
+  resolveCredential: async () => {
+    throw new Error('Credential resolution is not expected during startup.');
   },
-  events: { emit: async () => undefined },
-} as const;
+});
 
 const captureFault = (operation: () => unknown) => {
   try {
@@ -79,20 +78,18 @@ test('fails startup for duplicate definition modules and provider implementation
 });
 
 test('fails startup for absent, ambiguous, or incomplete provider coverage', () => {
-  const registration = nodeGitProviders({ processExecutor })[0];
-
-  expect(registration).toBeDefined();
+  const registration = requireNodeGitProviderRegistration({ processExecutor });
 
   const alternate: ScriptProviderRegistration = {
     module: {
-      ...registration!.module,
+      ...registration.module,
       id: 'provider:git/node/r2',
       implementationDigest: `sha256:${'1'.repeat(64)}`,
     },
     useForNewPlans: true,
   };
   const missingEffect: ScriptProviderRegistration = {
-    module: { ...registration!.module, effects: [] },
+    module: { ...registration.module, effects: [] },
     useForNewPlans: true,
   };
 
@@ -103,7 +100,7 @@ test('fails startup for absent, ambiguous, or incomplete provider coverage', () 
     ambiguous: captureFault(() =>
       createRevoScripts({
         definitions: [gitScripts()],
-        providers: [registration!, alternate],
+        providers: [registration, alternate],
         host,
       }),
     ),
