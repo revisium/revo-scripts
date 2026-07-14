@@ -53,8 +53,13 @@ src/
     git/
       contracts/      handler-safe Git client contracts
       adapters/node/  process-backed implementation and bounded clients
+    github/
+      contracts/       handler-safe GitHub client contracts and coordinates
+      adapters/fetch/  REST/GraphQL implementation and bounded clients
   scripts/
-    git/status/       built-in Git status proof
+    approval/subject/  provider-neutral approval subject
+    git/               status, commit, and push operations
+    github/            pull-request and review-thread operations
   testing/
     runtime/       public runtime contract mechanics and deterministic clocks/sinks
     providers/git/ public bounded Git provider fakes
@@ -74,12 +79,11 @@ docs/
 ```
 
 Directories and public entrypoints are created only with their first real owner. Do not add empty placeholder modules
-or broad barrels to make the target tree appear complete. GitHub areas are therefore deferred until their first
-bounded script or provider contract is implemented.
+or broad barrels to make a target tree appear complete.
 
 ## Growth layout
 
-The Draft target adds areas only with their first implementation:
+New areas are added only with their first implementation. The current family layout is:
 
 ```text
 src/
@@ -108,21 +112,26 @@ src/
       adapters/
         node/
           status/ bounded status client and Git protocol parser
+          commit/ exact-tree local commit adapter
+          push/   exact-head remote publication adapter
     github/
       contracts/
         bounded GitHub client protocol
       adapters/
-        api/    bounded GitHub API implementation
+        fetch/  bounded GitHub REST/GraphQL implementation
 
   scripts/
     git/
       status/
-      diff-summary/
+      commit/
+      push/
     github/
       pull-request/
-        readiness/
         upsert/
-      review-threads/
+        mark-ready/
+        readiness/
+        merge/
+      review-thread/
         respond/
         resolve/
 
@@ -198,7 +207,7 @@ intended override rejects a representative forbidden import. Published boundarie
 explicit exports, declarations, packed-consumer execution, `publint`, Are The Types Wrong, and pack-content
 validation.
 
-The full Draft target preserves the same direction as more provider families and scripts are added:
+The dependency graph preserves the same direction as more provider families and scripts are added:
 
 ```text
 runtime/spec <- runtime/definition
@@ -269,6 +278,7 @@ The target export map keeps physical ownership and consumer intent distinct:
 | `@revisium/revo-scripts/spec`             | Portable manifests, schemas, results, and failures                   |
 | `@revisium/revo-scripts/runtime`          | Low-level definition, registry, validation, and one-script execution |
 | `@revisium/revo-scripts/host`             | Privileged host integration contracts                                |
+| `@revisium/revo-scripts/approval`         | Approval-subject definition and domain result types                  |
 | `@revisium/revo-scripts/git`              | Git script definitions and domain result types                       |
 | `@revisium/revo-scripts/github`           | GitHub script definitions and domain result types                    |
 | `@revisium/revo-scripts/providers/git`    | Git contract and trusted provider-family factory                     |

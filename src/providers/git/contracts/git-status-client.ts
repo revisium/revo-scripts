@@ -1,17 +1,16 @@
-export interface GitStatusCounts {
-  readonly stagedCount: number;
-  readonly unstagedCount: number;
-  readonly untrackedCount: number;
-  readonly conflictedCount: number;
+export type GitChangedPathStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked';
+
+export interface GitChangedPath {
+  readonly path: string;
+  readonly status: GitChangedPathStatus;
 }
 
-export type GitStatusSnapshot = Readonly<
-  GitStatusCounts &
-    (
-      | { readonly branch: null; readonly headSha: string; readonly detached: true }
-      | { readonly branch: string; readonly headSha: string | null; readonly detached: false }
-    )
->;
+export interface GitStatusSnapshot {
+  readonly baseCapture: string;
+  readonly headCapture: string;
+  readonly changedPaths: readonly GitChangedPath[];
+  readonly clean: boolean;
+}
 
 export interface GitStatusClient {
   readStatus(signal: AbortSignal): Promise<GitStatusSnapshot>;

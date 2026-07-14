@@ -9,7 +9,12 @@ export type { RevoScriptsOptions } from './application/contracts/revo-scripts-op
 export type { ScriptIdentityPin } from './application/contracts/script-identity-pin.js';
 export type { ScriptPlanDescriptor } from './application/contracts/script-plan-descriptor.js';
 export type { ScriptProviderPin } from './application/contracts/script-provider-pin.js';
-export { builtInScripts, gitScripts } from './application/registration/built-ins.js';
+export {
+  approvalScripts,
+  builtInScripts,
+  githubScripts,
+  gitScripts,
+} from './application/registration/built-ins.js';
 export type { ScriptDefinitionModule } from './application/registration/script-definition-module.js';
 export type { ScriptDefinitionRegistrar } from './application/registration/script-definition-registrar.js';
 export type {

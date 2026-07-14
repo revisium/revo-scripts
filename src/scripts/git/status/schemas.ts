@@ -8,31 +8,20 @@ export const gitStatusInputSchema = createScriptSchema({
   jsonSchema: 'input',
 });
 
-const boundedCount = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
-const headSha = z.string().regex(/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/);
-const statusCounts = {
-  clean: z.boolean(),
-  stagedCount: boundedCount,
-  unstagedCount: boundedCount,
-  untrackedCount: boundedCount,
-  conflictedCount: boundedCount,
-};
+const objectId = '[0-9a-f]{40}|[0-9a-f]{64}';
+const changedPath = z.strictObject({
+  path: z.string().min(1).max(4_096),
+  status: z.enum(['added', 'modified', 'deleted', 'renamed', 'untracked']),
+});
 
 export const gitStatusResultSchema = createScriptSchema({
-  id: 'revo.script.git.status.result/v1',
-  schema: z.discriminatedUnion('detached', [
-    z.strictObject({
-      branch: z.null(),
-      headSha,
-      detached: z.literal(true),
-      ...statusCounts,
-    }),
-    z.strictObject({
-      branch: z.string().max(255),
-      headSha: headSha.nullable(),
-      detached: z.literal(false),
-      ...statusCounts,
-    }),
-  ]),
+  id: 'schema:workspaceChange/v1',
+  schema: z.strictObject({
+    schemaVersion: z.literal('workspace-change/v1'),
+    baseCapture: z.string().regex(new RegExp(`^git-commit:(?:${objectId})$`)),
+    headCapture: z.string().regex(new RegExp(`^git-tree:(?:${objectId})$`)),
+    changedPaths: z.array(changedPath).max(2_048),
+    clean: z.boolean(),
+  }),
   jsonSchema: 'output',
 });

@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 
 import type { PreparedProviderClients } from '../../../../src/host/index.js';
-import { builtInScripts, createRevoScripts } from '../../../../src/index.js';
+import { createRevoScripts, gitScripts } from '../../../../src/index.js';
 import {
   createGitHost,
   createGitScriptRequest,
@@ -30,7 +30,7 @@ test('disposes provider clients that finish preparing after execution is aborted
   const { host } = createGitHost();
 
   const scripts = createRevoScripts({
-    definitions: [builtInScripts()],
+    definitions: [gitScripts()],
     providers: [
       {
         ...baseRegistration,
@@ -85,7 +85,7 @@ test('reports cleanup failure without publishing a success event', async () => {
   const { events, host } = createGitHost();
 
   const scripts = createRevoScripts({
-    definitions: [builtInScripts()],
+    definitions: [gitScripts()],
     providers: [
       {
         ...baseRegistration,
@@ -95,13 +95,10 @@ test('reports cleanup failure without publishing a success event', async () => {
             clients: {
               git: {
                 readStatus: async () => ({
-                  branch: 'master',
-                  headSha: gitTestHeadSha,
-                  detached: false as const,
-                  stagedCount: 0,
-                  unstagedCount: 0,
-                  untrackedCount: 0,
-                  conflictedCount: 0,
+                  baseCapture: `git-commit:${gitTestHeadSha}` as const,
+                  headCapture: `git-tree:${gitTestHeadSha}` as const,
+                  changedPaths: [],
+                  clean: true,
                 }),
               },
             },
@@ -147,7 +144,7 @@ test('preserves attempts when reporting cleanup failure also reaches a rejected 
     },
   });
   const scripts = createRevoScripts({
-    definitions: [builtInScripts()],
+    definitions: [gitScripts()],
     providers: [
       {
         ...baseRegistration,
@@ -157,13 +154,10 @@ test('preserves attempts when reporting cleanup failure also reaches a rejected 
             clients: {
               git: {
                 readStatus: async () => ({
-                  branch: 'master',
-                  headSha: gitTestHeadSha,
-                  detached: false as const,
-                  stagedCount: 0,
-                  unstagedCount: 0,
-                  untrackedCount: 0,
-                  conflictedCount: 0,
+                  baseCapture: `git-commit:${gitTestHeadSha}` as const,
+                  headCapture: `git-tree:${gitTestHeadSha}` as const,
+                  changedPaths: [],
+                  clean: true,
                 }),
               },
             },
@@ -204,7 +198,7 @@ test('bounds a provider cleanup operation that never settles', async () => {
     });
     const { events, host } = createGitHost();
     const scripts = createRevoScripts({
-      definitions: [builtInScripts()],
+      definitions: [gitScripts()],
       providers: [
         {
           ...baseRegistration,
@@ -214,13 +208,10 @@ test('bounds a provider cleanup operation that never settles', async () => {
               clients: {
                 git: {
                   readStatus: async () => ({
-                    branch: 'master',
-                    headSha: gitTestHeadSha,
-                    detached: false as const,
-                    stagedCount: 0,
-                    unstagedCount: 0,
-                    untrackedCount: 0,
-                    conflictedCount: 0,
+                    baseCapture: `git-commit:${gitTestHeadSha}` as const,
+                    headCapture: `git-tree:${gitTestHeadSha}` as const,
+                    changedPaths: [],
+                    clean: true,
                   }),
                 },
               },

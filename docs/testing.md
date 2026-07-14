@@ -99,7 +99,6 @@ The runtime foundation requires tests for:
 - lifecycle and custom event allowlists;
 - redaction before events or failures leave the runtime;
 - input, result, event, error, and evidence payload bounds.
-- schema-declared verdict extraction without a concrete script-id branch.
 
 The injected `ScriptClock` controls observable timestamps and retry sleeps. The hard deadline intentionally uses the
 platform timer so a deterministic or faulty host clock cannot disable the safety bound; timeout tests use fake platform
@@ -126,18 +125,18 @@ Every built-in script has contract tests proving:
 - operations with required idempotency reconcile a replay and a crash-after-effect window without duplicating an
   external effect.
 
-The last two mutation requirements become executable gates when the first mutation script is added. They must not be
-implemented as empty placeholder tests before then.
+Git commit, Git push, GitHub pull-request, review-thread, and merge suites make the mutation requirements executable.
+They prove stale precondition rejection, exact-head behavior, replay reconciliation, and no duplicate external effect.
 
-## First built-in proof
+## Git status proof
 
-The first built-in is `script:git/status`. Its contract suite proves the initial safe read-only path and will expand
-with provider adapters. Its complete contract requires that it:
+`script:git/status` proves the safe read-only workspace-capture path. Its complete contract requires that it:
 
 - accepts a closed empty input and one prepared repository resource named `repository`;
 - uses only a bounded read-only package-owned Git client;
-- returns branch, head, detached, cleanliness, and bounded staged, unstaged, untracked, and conflicted counts;
-- does not return an unbounded file list or raw provider output;
+- returns exact `git-commit:*` and `git-tree:*` captures, cleanliness, and at most 2,048 bounded changed paths;
+- captures the workspace tree through a temporary Git index without changing the real index;
+- does not return raw provider output, a workspace path, or provenance;
 - invokes no write client;
 - emits the standard lifecycle events;
 - maps missing access, timeout, provider failure, invalid input, and invalid result to their stable error families.

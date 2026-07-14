@@ -1,6 +1,6 @@
 # ADR-0001 - Script SDK and runtime boundary
 
-- **Status:** Draft
+- **Status:** Accepted
 - **Proposed:** 2026-07-14
 - **Spec:** [Script runtime v1](../specs/script-runtime-v1.spec.md)
 
@@ -31,16 +31,21 @@ resolve opaque host bindings into private bounded clients. The host will provide
 owns: workspace resolution, credential resolution, event persistence, time, and policy grants. Artifact persistence
 remains a host action over validated script results and evidence references.
 
+Script results are domain payloads only. They do not contain run, node, attempt, workspace, execution-plan, artifact,
+or provenance fields. A host may wrap a validated result in its single `ArtifactEnvelope` using schema identity from
+the compiled plan and `OutputProvenance` from durable execution context. This wrapping is generic and never branches
+on script id.
+
 Resolved workspace paths and credentials may exist inside trusted provider infrastructure, but they will never be
 members of handler input or `ScriptContext`. Handlers will receive bounded resource clients whose private closure state
 contains the resolved values. A handler will not receive a shell, raw process executor, unrestricted filesystem root,
 generic network client, token resolver, DBOS, Prisma, NestJS, or orchestration service.
 
-Custom scripts will use the same contracts as built-ins. A host will explicitly install trusted definition and
-provider modules before execution. The package will not scan directories, download code, or choose untrusted modules on
-the host's behalf. Package-provided family definition modules will avoid per-script registration wiring without
-forcing a Git-only host to install GitHub infrastructure. An all-built-ins module remains a convenience for hosts that
-select every family.
+The runtime accepts explicitly imported trusted definition modules, but a stable external custom-script SDK and its
+distribution and trust policy are deferred. This ADR does not promise automatic discovery or arbitrary third-party
+code loading. The package will not scan directories, download code, or choose untrusted modules on the host's behalf.
+Package-provided family definition modules avoid per-script registration wiring without forcing a Git-only host to
+install GitHub infrastructure. An all-built-ins module remains a convenience for hosts that select every family.
 
 The source tree will separate provider-neutral contracts, definition construction, registration, and execution under
 `src/runtime`; privileged integration ports under `src/host`; consumer use cases and facade composition under
@@ -51,13 +56,13 @@ an adapter implementation, a privileged host resolver, or application compositio
 The application layer behind the public facade is the composition root that joins these areas.
 
 Script versions remain exact manifest identities rather than directory names. The repository currently retains one
-implementation per script/provider id; a multi-version source-retention scheme requires a separate proven design and
-must not be introduced speculatively.
+implementation per script/provider id. Exact pins leave room for future coexistence, but a multi-version
+source-retention scheme requires a separate proven design and must not be introduced speculatively.
 
 Package, script, provider-contract, and provider-implementation identity are deliberately separate:
 
 - the npm package follows ordinary package SemVer and may contain many script identities and versions;
-- a pipeline names one immutable exact script SemVer, and multiple versions of one script may coexist;
+- a pipeline names one immutable exact script SemVer; simultaneous source retention of versions is deferred;
 - a script manifest names the provider protocol major it requires, such as `revo.provider.git/v1`;
 - an execution plan pins the selected provider implementation by stable id, contract major, workspace mode, package
   provenance, and implementation digest.
@@ -77,6 +82,10 @@ outside the package. The host supplies logical resource and credential aliases f
 package performs the selected operation and returns domain data or a structured failure. The exact facade, host,
 provider, binding, and handler boundaries are defined in the linked specification.
 
+Provider modules choose an operation-specific bounded client from manifest permissions and resource access. They do
+not compare concrete script ids. Consequently a status handler cannot receive commit/push methods, and a read-only
+GitHub handler cannot receive mutation methods, while the host remains generic.
+
 ## Relationship to orchestrator milestone 11
 
 This ADR extracts and generalizes the bounded-operation design documented by orchestrator
@@ -92,7 +101,7 @@ or compatibility adapter.
 | Operation boundary  | One bounded handler; no routing, gates, workspace lifecycle, raw path, token, shell, DBOS, or Prisma | No change                                                                                                                            | Consume package handlers through the generic facade                                                        |
 | Public SDK          | Milestone 11 deferred a public SDK until the internal model was proven                               | This repository is the separately reviewed SDK and provider implementation                                                           | Amend ADR-0011's phase scope before cutover                                                                |
 | Manifest identity   | Closed versioned manifest and exact definition pin                                                   | `revo.script.manifest/v1` becomes the sole package schema; named resources and credential slots generalize the internal shape        | Replace the internal schema directly; do not translate between schemas                                     |
-| Verdict routing     | Optional schema-validated JSON Pointer                                                               | Retained as `manifest.verdict`; the facade returns the extracted enum generically                                                    | Consume the returned verdict without script-id branches                                                    |
+| Verdict routing     | Optional schema-validated JSON Pointer                                                               | Deferred from package v1; domain results remain provider-neutral payloads                                                            | Keep pipeline branching and fragment semantics in orchestrator                                             |
 | Executable identity | Definition digest includes a trusted generated build digest                                          | Refined to the exact definition runtime closure so unrelated additions do not invalidate existing pins                               | Pin exact definition digest and provider provenance; audit availability before recovery                    |
 | Errors and events   | Typed failures and lifecycle/progress events                                                         | Lowercase `revo.script.*` codes and `revo.script.*` lifecycle names are the package vocabulary                                       | Update the orchestrator contract and persisted event mapping atomically                                    |
 | Credentials         | Plan-pinned Git/GitHub aliases, never secrets                                                        | Named provider-neutral slots bind to aliases; provider modules resolve only declared slots                                           | Compile existing aliases into package bindings                                                             |
@@ -133,9 +142,10 @@ cross-repository supersession.
 
 ## Consequences
 
-- Built-ins and custom scripts share one versioned contract and test kit.
-- Multiple exact versions of one script may coexist during migration and recovery. A published version is immutable and
-  can be removed only after no supported pipeline, execution plan, or recoverable run pins it.
+- Built-ins share one versioned contract and test kit; a stable external custom-script distribution contract remains
+  deferred.
+- A published version is immutable and can be removed only after no supported pipeline, execution plan, or recoverable
+  run pins it. Simultaneous source retention requires a later accepted design.
 - Consumers can adopt the package without DBOS, Prisma, NestJS, or a Revo pipeline.
 - The package accepts a public API and semantic-versioning burden earlier than a private runtime would.
 - A new script inside an installed provider family changes package code and pipeline data, not the host executor.

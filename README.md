@@ -2,7 +2,7 @@
 
 # @revisium/revo-scripts
 
-**Bounded, versioned operations that a host can execute without knowing their implementation.**
+**Bounded, versioned Git and GitHub operations behind one generic host API.**
 
 [![CI](https://github.com/revisium/revo-scripts/actions/workflows/ci.yml/badge.svg)](https://github.com/revisium/revo-scripts/actions/workflows/ci.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=revisium_revo-scripts&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=revisium_revo-scripts)
@@ -12,123 +12,77 @@
 </div>
 
 > [!IMPORTANT]
-> The package is unpublished. The low-level runtime, initial `createRevoScripts` facade, and package-owned Node Git
-> provider exist for review. The linked Draft contract is broader than this implementation; the current-status table
-> identifies the remaining work.
+> The package is not published. The contracts and implementations in this repository are reviewable pre-release API.
 
-## What this package owns
+## Responsibility
 
-`@revisium/revo-scripts` is the independent home for bounded Revo operations. A built-in script owns its manifest,
-schemas, handler, provider interaction, stale-state checks, error mapping, idempotency, and result. A consumer chooses
-which exact script to run and supplies logical input, resource grants, and trusted host bindings; it does not implement
-that script's Git or GitHub operation.
-
-The target invariant is:
-
-> Adding or upgrading a script within an installed provider family changes the package and pipeline data, not the
-> orchestrator executor.
+`@revisium/revo-scripts` owns definitions and execution of one bounded operation. A built-in script owns its closed
+input and result schemas, manifest, stale-state fences, idempotency behavior, provider calls, error mapping, and domain
+result. The consumer chooses an exact script, supplies logical bindings and grants, then receives a typed result or a
+structured failure.
 
 The package owns:
 
-- versioned definitions, closed input/result schemas, typed results, and structured failures;
-- explicit trusted registration and exact definition lookup;
-- execution of one script with timeout, retry, idempotency, permission, event, redaction, and payload policy;
-- package-owned bounded Git and GitHub operations and their provider adapters;
-- reusable contract tests for built-in and trusted custom scripts.
+- exact script registration and single-script execution;
+- timeout, bounded retry, idempotency, permissions, events, redaction, and payload limits;
+- package-owned Git and GitHub provider adapters;
+- bounded Git status, commit, push, pull-request, review-thread, merge, and approval-subject operations;
+- contract and consumer test mechanics.
 
 The host owns:
 
-- pipeline routing and durable workflow state;
-- workspace allocation, retention, and release;
-- credential storage and policy;
-- logical resource and credential bindings for a run;
+- pipeline routing and durable state;
+- workspace allocation and release;
+- credential storage and account-selection policy;
+- logical bindings and grants for one execution;
 - event and artifact persistence;
-- human gates and the decision about what happens after a script result.
+- human gates and decisions made after a script result.
 
-The package resolves host bindings through stable host services. Script handlers never receive an absolute workspace
-path, token, unrestricted process executor, generic network client, DBOS, Prisma, NestJS, or pipeline service.
+Handlers never receive an absolute workspace path, token, process executor, generic HTTP/GraphQL client, DBOS,
+Prisma, NestJS, or pipeline service. Those values remain private inside trusted provider adapters.
 
-## Internal ownership
-
-The target source tree separates system mechanics, infrastructure, and concrete operations:
+## Architecture
 
 ```text
-src/
-  runtime/
-    spec/                       portable script contracts and transport values
-    definition/                 definition construction and schema validation
-    registry/                   explicit exact-version registration and lookup
-    execution/                  provider-neutral execution of one script
-    validation/                 dependency-neutral validation primitives
-    index.ts                    curated low-level public entrypoint
-  host/
-    bindings/                   immutable execution bindings
-    credentials/                credential resolver port and resolved handle
-    workspaces/                 workspace resolver port and trusted allocation
-    providers/                  trusted provider module SPI
-  application/
-    contracts/                  consumer facade request and result contracts
-    registration/               definition modules and registry composition
-    providers/                  provider catalog and execution preparation
-    execution/                  generic one-script coordination
-  providers/
-    git/contracts/              bounded Git protocol
-    git/adapters/*/             trusted implementations and bounded clients
-    github/contracts/
-    github/adapters/*/
-  scripts/
-    git/<operation>/
-    github/<area>/<operation>/
-  testing/                      runtime, provider, and script contract mechanics
+pipeline data
+  exact script id/version + domain input + logical grants
+                           |
+                           v
+createRevoScripts().execute(request)
+  -> exact definition and provider-pin validation
+  -> host resolves opaque workspace/credential bindings
+  -> package provider constructs one operation-specific client
+  -> handler performs one bounded operation
+  -> schema-validated domain result or structured failure
 ```
 
-A script imports its provider's bounded contract, never its adapter. A provider implements infrastructure and never
-imports a concrete script. Only the application layer behind the consumer facade composes host resolvers, exact
-registries, provider adapters, and script modules. See [REPOSITORY.md](REPOSITORY.md) for the complete dependency graph
-and export-map rules.
-
-## Mental model
+The dependency direction is deliberate:
 
 ```text
-application startup
-  createRevoScripts(host services, trusted definition modules, provider modules)
-                              |
-pipeline script node          |
-  exact script ref            |
-  domain input                |
-  resource grants             |
-             |                |
-             +------ execute -+
-                       |
-                       v
-              resolve exact definition
-                       |
-              resolve opaque host bindings
-                       |
-              construct permitted provider clients
-                       |
-              execute one bounded handler
-                       |
-              typed result + redacted events
+runtime/spec <- runtime/{definition,registry,execution}
+runtime/spec <- host
+runtime/spec <- providers/*/contracts <- scripts/*
+host + providers/*/contracts <- providers/*/adapters
+runtime + host + providers + scripts <- application facade
 ```
 
-`createRevoScripts` is startup composition. A pipeline node is runtime data. The host creates the facade once and uses
-the same generic `execute` call for every script id.
+Scripts import bounded provider contracts, never adapters. Adapters import no concrete script. Runtime execution knows
+neither Git nor GitHub. See [REPOSITORY.md](REPOSITORY.md),
+[ADR-0001](docs/adr/0001-script-sdk-and-runtime-boundary.md), and
+[script-runtime-v1.spec.md](docs/specs/script-runtime-v1.spec.md).
 
 ## Consumer integration
 
-The following startup, plan-resolution, and execution path is implemented for the Git status vertical. Names and
-behavior remain under Draft review until the contract is accepted and the package is published.
-
-### 1. Compose the runtime once
+### Compose once at startup
 
 ```ts
-import { builtInScripts, createRevoScripts } from '@revisium/revo-scripts';
+import { createRevoScripts, gitScripts, githubScripts } from '@revisium/revo-scripts';
 import { nodeGitProviders } from '@revisium/revo-scripts/providers/git';
+import { fetchGitHubProviders } from '@revisium/revo-scripts/providers/github';
 
 const scripts = createRevoScripts({
-  definitions: [builtInScripts()],
-  providers: nodeGitProviders({ processExecutor }),
+  definitions: [gitScripts(), githubScripts()],
+  providers: [...nodeGitProviders({ processExecutor }), ...fetchGitHubProviders()],
   host: {
     workspaces: workspaceResolver,
     credentials: credentialResolver,
@@ -138,407 +92,289 @@ const scripts = createRevoScripts({
 });
 ```
 
-`processExecutor` is host infrastructure, not a script implementation. The Git provider calls it with a bounded
-`{ command, args, cwd, maxOutputBytes, signal }` request and receives
-`{ exitCode, stdout, stderr }`. The host adapter owns process spawning and executable policy; scripts never receive the
-executor, command, environment, or resolved workspace path.
+`approvalScripts()`, `gitScripts()`, and `githubScripts()` let a host install only the families it uses.
+`builtInScripts()` registers every built-in and therefore requires providers for every provider-backed family. There
+is no filesystem scanning or
+per-script `registry.register(...)` wiring in consumer code.
 
-This is the only provider-level composition point. `builtInScripts()` explicitly registers the package's trusted
-definitions as one module. The currently implemented narrower family module is `gitScripts()`. A future family module
-is exported only when that family has a real definition; `githubScripts()` does not exist yet. The consumer never adds
-one `registry.register(...)` call per built-in.
+`processExecutor` is a host infrastructure seam for argv-safe process spawning. The Node Git adapter receives only
+`{ command, args, cwd, maxOutputBytes, environment?, signal }`. A script never sees that interface. The Fetch GitHub
+adapter owns REST/GraphQL request construction and receives a short-lived token resolved through the host credential
+port.
 
-Each provider-family factory currently returns one default implementation for new plans. Upgrading the package does
-not require the consumer to list implementation digests or wire adapters. Multiple retained implementations and their
-selection API require a separate accepted design before they are added.
-
-### 2. Declare a script node in pipeline data
-
-```json
-{
-  "type": "script",
-  "script": {
-    "id": "script:git/status",
-    "version": "1.0.0"
-  },
-  "input": {},
-  "resources": {
-    "repository": {
-      "ref": "target",
-      "access": "read"
-    }
-  }
-}
-```
-
-The portable node contains no machine path, token, provider client, or executable source.
-
-### 3. Compile exact execution facts
-
-Generic plan compilation resolves the selected script definition and its required provider contracts. It chooses the
-configured provider implementation for new plans and records exact immutable pins:
+### Compile an exact plan
 
 ```ts
 const executable = scripts.resolveForPlan({
-  id: node.script.id,
-  version: node.script.version,
+  id: 'script:github/pull-request-upsert',
+  version: '1.0.0',
 });
 ```
 
-The returned descriptor contains the exact definition digest, the manifest maximums, and provider pins such as
-the provider slot and resource, `provider:git/node`, `revo.provider.git/v1`, the workspace requirement, the
-implementation SHA-256, and its package provenance. The host does not write a per-script mapping or select a provider
-in pipeline code.
+The descriptor contains an exact definition digest, the manifest, and exact provider implementation pins. Pipeline
+data names only the script id/version; it never selects a provider implementation or carries a path or token.
 
-The host also binds portable resource names to facts owned by that run:
-
-```ts
-const bindings = {
-  resources: {
-    repository: {
-      resourceId: 'target',
-      kind: 'repository',
-      repositoryId: 'repository-123',
-      workspaceId: 'workspace-456',
-      access: 'read',
-      grant: {
-        permissions: ['git.status.read'],
-        effects: ['git.read'],
-      },
-      providerCoordinates: {},
-    },
-  },
-  credentials: {},
-} as const;
-```
-
-Provider coordinates are keyed by the manifest provider-requirement name. The selected provider module owns a closed
-schema for its coordinate. The facade rejects missing, extra, invalid, or oversized coordinates before resolving a
-workspace or credential.
-
-The following GitHub binding illustrates that target contract; it is not executable until a GitHub script and provider
-are implemented:
-
-```ts
-const githubBindings = {
-  resources: {
-    repository: {
-      resourceId: 'target',
-      kind: 'repository',
-      repositoryId: 'repository-123',
-      access: 'publish',
-      grant: {
-        permissions: ['github.pull-request.upsert'],
-        effects: ['github.read', 'github.write'],
-      },
-      providerCoordinates: {
-        github: { owner: 'revisium', repository: 'orchestrator' },
-      },
-    },
-  },
-  credentials: {
-    github: { alias: 'github-publication-account', provider: 'github' },
-  },
-} as const;
-```
-
-`workspaceId` is present only when the selected provider needs an allocated workspace. Workspace ids and credential
-aliases are opaque, stable references. The pipeline never carries the resolved path or token.
-
-The pipeline also never chooses a provider implementation. The compiler selects a compatible provider from trusted
-startup composition, and the resulting plan pins it exactly. Recovery resolves the same pin; it never switches to a
-new default or fallback.
-
-### 4. Execute every script through one host path
+### Execute through one generic path
 
 ```ts
 const result = await scripts.execute({
-  executionId: 'run-123:git-status:1',
+  executionId: 'run-123:open-pr:1',
+  idempotencyKey: 'run-123:open-pr',
   script: executable.script,
   providers: executable.providers,
-  input: {},
-  bindings,
+  input: {
+    repositoryId: 'repository-123',
+    head: { branch: 'revo/task-123', sha: 'a'.repeat(40) },
+    base: { branch: 'master' },
+    title: 'Add bounded operation',
+    body: 'Implements the approved change.',
+    draft: true,
+  },
+  bindings: {
+    resources: {
+      repository: {
+        resourceId: 'target',
+        kind: 'repository',
+        repositoryId: 'repository-123',
+        access: 'write',
+        grant: {
+          permissions: ['github.pull-request.upsert'],
+          effects: ['github.read', 'github.write'],
+        },
+        providerCoordinates: {
+          github: { owner: 'revisium', repository: 'revo-scripts' },
+        },
+      },
+    },
+    credentials: {
+      token: { alias: 'github-publication-account', provider: 'github' },
+    },
+  },
   signal,
 });
 
 if (result.ok) {
-  await persistOutput(result.value);
+  await consumeDomainResult(result.value);
 } else {
   await handleScriptFailure(result.error);
 }
 ```
 
-The executor does not branch on `script:git/status` or any other concrete id.
+The executor contains no branch for `script:github/pull-request-upsert`. Adding another operation that uses
+`revo.provider.github/v1` changes this package and pipeline data, not the host executor.
 
-### 5. What happens inside the package
+## Result contracts
 
-For a Git operation:
+Results are bounded domain values. They intentionally contain no `runId`, `nodeId`, `attemptId`, `workspaceId`,
+execution-plan hash, artifact identity, or provenance.
 
-```text
-workspaceId
-  -> host workspace resolver
-  -> trusted allocation with an absolute path
-  -> package-owned Git provider
-  -> bounded Git client captured in the handler context
-  -> script handler
+### Workspace change
+
+`script:git/status@1.0.0` returns the exact base commit and a tree captured from the current workspace without mutating
+the real Git index:
+
+```json
+{
+  "schemaVersion": "workspace-change/v1",
+  "baseCapture": "git-commit:0123456789abcdef0123456789abcdef01234567",
+  "headCapture": "git-tree:89abcdef0123456789abcdef0123456789abcdef",
+  "changedPaths": [
+    { "path": "src/index.ts", "status": "modified" },
+    { "path": "test/new.test.ts", "status": "untracked" }
+  ],
+  "clean": false
+}
 ```
 
-For a GitHub operation:
+### Git change
 
-```text
-credential alias
-  -> host credential resolver
-  -> short-lived resolved credential
-  -> package-owned GitHub provider
-  -> bounded GitHub client captured in the handler context
-  -> script handler
+`script:git/commit` creates exactly the approved tree using an exact parent fence and explicit deterministic
+authorship (`name`, `email`, and timestamp). `script:git/push` accepts and returns the same payload, publishes only its
+pinned head, never rewrites history, and rejects a remote head other than the expected base:
+
+```json
+{
+  "schemaVersion": "git-change/v1",
+  "repositoryId": "repository-123",
+  "remoteIdentity": "github.com/revisium/revo-scripts",
+  "branch": "revo/task-123",
+  "baseCommit": "0123456789abcdef0123456789abcdef01234567",
+  "headCommit": "fedcba9876543210fedcba9876543210fedcba98",
+  "commits": ["fedcba9876543210fedcba9876543210fedcba98"]
+}
 ```
 
-Only trusted provider infrastructure sees a resolved path or credential. The current Git status handler calls
-`context.resources.repository.clients.git.readStatus(context.signal)`; the path remains private closure state. A future
-GitHub handler will use an equally bounded GitHub client rather than a generic transport.
+### GitHub pull request and readiness
 
-## Releasing a new script
+Pull-request mutations return `github-pull-request/v1` with `pullRequestId`, number, URL, and exact head identity:
 
-This is the intended adoption path for a future script, not a currently exported definition. Suppose package `1.2.0`
-adds `script:git/diff-summary@1.0.0` using capabilities already supplied by the Git provider.
-Adoption requires:
+```json
+{
+  "schemaVersion": "github-pull-request/v1",
+  "repositoryId": "repository-123",
+  "number": 42,
+  "pullRequestId": "PR_kwDOExample",
+  "url": "https://github.com/revisium/revo-scripts/pull/42",
+  "head": {
+    "branch": "revo/task-123",
+    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "base": { "branch": "master" },
+  "state": "open",
+  "draft": true
+}
+```
 
-1. update the package version;
-2. reference the exact new script version in pipeline data;
-3. compile its manifest maximums into the execution plan;
-4. deploy a package build that contains the exact definition and provider implementations pinned by the plan.
+Readiness is a separate read-only result so policy blockers remain explicit:
 
-It does not require a new orchestrator handler, capability interface, DBOS step, registry branch, or script-id switch.
+```json
+{
+  "schemaVersion": "github-readiness/v1",
+  "repositoryId": "repository-123",
+  "pullRequestNumber": 42,
+  "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "ready": false,
+  "blockers": ["check:verify:failure"]
+}
+```
+
+Review-thread reply and resolution return the pinned thread receipt. `replyId` is present only when the operation
+created or reconciled a reply:
+
+```json
+{
+  "schemaVersion": "github-review-thread/v1",
+  "repositoryId": "repository-123",
+  "pullRequestNumber": 42,
+  "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "threadId": "PRRT_kwDOExample",
+  "replyId": "PRRC_kwDOExample",
+  "resolved": false
+}
+```
+
+### Approval subject
+
+The provider-neutral approval helper normalizes the exact subject a host can place behind its own human gate:
+
+```json
+{
+  "schemaVersion": "approval-subject/v1",
+  "kind": "publication",
+  "identity": { "scheme": "github-pull-request", "value": "revisium/revo-scripts#42" },
+  "revision": { "scheme": "git-commit", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  "title": "Publish bounded Git and GitHub scripts",
+  "summary": "Review the exact pull-request head before publication.",
+  "evidence": [
+    {
+      "identity": { "scheme": "script-result", "value": "github-readiness/v1:repository-123#42" },
+      "title": "GitHub readiness"
+    }
+  ],
+  "risk": "Creates or updates external GitHub state."
+}
+```
+
+Every result schema is closed and size-bounded. Structured failures use stable `revo.script.*` codes and are returned
+as `{ ok: false, error, attempts }`; they are not encoded inside these domain values:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "revo.script.idempotency.conflict",
+    "message": "The observed pull-request head does not match the requested head.",
+    "retryable": false,
+    "details": { "expectedHeadSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+  },
+  "attempts": 1
+}
+```
+
+### Host artifact envelope
+
+The package returns only the validated value above. A durable host may wrap it after execution using the exact schema
+identity compiled into its plan:
+
+```ts
+const artifactEnvelope = {
+  artifactId: hostAllocatedArtifactId,
+  schema: {
+    schemaId: executable.manifest.resultSchemaId,
+    version: 'v1',
+    digest: compiledResultSchema.digest,
+  },
+  value: { kind: 'inline', data: result.value },
+  provenance: {
+    runId,
+    nodeId,
+    ordinal,
+    attemptId,
+    workspaceId,
+    executionPlanHash,
+  },
+};
+```
+
+`ArtifactEnvelope` and `OutputProvenance` belong to the orchestrator/host, not this package. The host performs this
+generic wrapping from the plan and execution context; it must not map concrete script ids or duplicate provenance
+inside a script payload.
+
+## Built-in operations
+
+| Script                                        | Effect  | Result schema                  | Safety fence                                  |
+| --------------------------------------------- | ------- | ------------------------------ | --------------------------------------------- |
+| `script:approval/subject@1.0.0`               | pure    | `schema:approvalSubject/v1`    | closed provider-neutral input                 |
+| `script:git/status@1.0.0`                     | read    | `schema:workspaceChange/v1`    | immutable commit/tree captures                |
+| `script:git/commit@1.0.0`                     | write   | `schema:gitChange/v1`          | exact parent/tree + operation marker          |
+| `script:git/push@1.0.0`                       | publish | `schema:gitChange/v1`          | ancestry proof + exact remote-head CAS lease  |
+| `script:github/pull-request-upsert@1.0.0`     | write   | `schema:githubPullRequest/v1`  | head/draft fence + metadata reconciliation    |
+| `script:github/pull-request-mark-ready@1.0.0` | write   | `schema:githubPullRequest/v1`  | exact PR head                                 |
+| `script:github/pull-request-readiness@1.0.0`  | read    | `schema:githubReadiness/v1`    | exact PR head                                 |
+| `script:github/review-thread-respond@1.0.0`   | write   | `schema:githubReviewThread/v1` | exact PR head + operation marker              |
+| `script:github/review-thread-resolve@1.0.0`   | write   | `schema:githubReviewThread/v1` | exact PR head + resolved-state reconciliation |
+| `script:github/pull-request-merge@1.0.0`      | publish | `schema:githubPullRequest/v1`  | GitHub merge request includes exact head SHA  |
 
 ## Versioning
 
-Four identities remain separate:
+Four identities stay separate:
 
-| Identity                | Example                        | Purpose                                           |
-| ----------------------- | ------------------------------ | ------------------------------------------------- |
-| npm package             | `@revisium/revo-scripts@1.2.0` | Release vehicle containing many scripts/providers |
-| script                  | `script:git/status@1.0.0`      | Immutable observable operation contract           |
-| provider contract       | `revo.provider.git/v1`         | Bounded client protocol compatibility             |
-| provider implementation | `provider:git/node` + SHA-256  | Exact adapter used by one compiled execution plan |
+| Identity                | Example                        | Purpose                                 |
+| ----------------------- | ------------------------------ | --------------------------------------- |
+| npm package             | `@revisium/revo-scripts@1.2.0` | release vehicle for many operations     |
+| script                  | `script:git/status@1.0.0`      | immutable observable operation contract |
+| provider contract       | `revo.provider.git/v1`         | bounded client protocol compatibility   |
+| provider implementation | `provider:git/node` + digest   | exact adapter pinned into a plan        |
 
-The pipeline specifies only an exact script id and SemVer. It never uses `latest`, a range, or a provider id. The
-script manifest states which provider contract major it requires; generic plan compilation selects and pins a trusted
-compatible implementation.
+Pipeline data uses an exact script version, never a range or `latest`. Folder names are not version identities. The
+repository currently retains one implementation of each script. Coexisting source implementations of two versions
+remain a separate design decision and are not simulated with version folders or compatibility fallbacks.
 
-The current repository keeps one implementation in a flat operation directory:
+## Public entrypoints
 
-```text
-src/scripts/git/status/
-```
+| Entrypoint                                | Purpose                                                       |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| `@revisium/revo-scripts`                  | facade and trusted definition-family factories                |
+| `@revisium/revo-scripts/spec`             | portable manifest, result, error, event, and schema contracts |
+| `@revisium/revo-scripts/runtime`          | low-level definition, registry, and execution API             |
+| `@revisium/revo-scripts/host`             | trusted host/provider integration contracts                   |
+| `@revisium/revo-scripts/approval`         | approval-subject definition and types                         |
+| `@revisium/revo-scripts/git`              | Git definitions and domain types                              |
+| `@revisium/revo-scripts/github`           | GitHub definitions and domain types                           |
+| `@revisium/revo-scripts/providers/git`    | Node Git provider factory and bounded contracts               |
+| `@revisium/revo-scripts/providers/github` | Fetch GitHub provider factory and bounded contracts           |
+| `@revisium/revo-scripts/testing`          | reusable contract harness and fakes                           |
 
-The logical version remains explicit in the manifest and execution plan. The folder keeps its public contract visible
-and its composition small:
+Deep imports outside this export map are unsupported. The root deliberately does not re-export individual scripts,
+provider adapters, testing mechanics, or every internal type.
 
-```text
-status/
-  README.md
-  types.ts
-  schemas.ts
-  manifest.ts
-  git-status.handler.ts
-  script.ts
-```
-
-The handler is a stateless class with one `execute` method. `script.ts` only connects the manifest, schemas,
-implementation identity, and handler instance through `defineScript`.
-
-The contract requires a published exact version to remain immutable. Enforcement of source retention across releases
-and the export design for two simultaneously retained versions are still Draft; the current package does not claim
-that coexistence is implemented. Provider adapters use a stable id and exact digest field, while build-generated digest
-freshness and retention checks remain unfinished.
-
-## Adding a new provider family
-
-A new provider over the existing repository resource, such as GitLab, needs a trusted coordinate schema, transport,
-and credential adapter. The following is target composition pseudocode: only `nodeGitProviders` is currently exported.
-
-```ts
-const scripts = createRevoScripts({
-  definitions: [builtInScripts(), gitLabScripts()],
-  providers: [
-    ...nodeGitProviders({ processExecutor }),
-    ...gitHubProviders({ transport: githubTransport }),
-    ...gitLabProviders({ transport: gitlabTransport }),
-  ],
-  host,
-});
-```
-
-The generic pipeline executor still does not change. Installation, credential policy, and provider configuration do.
-Provider modules prevent ordinary provider API growth from becoming orchestrator executor growth without granting
-every script a generic shell or network client.
-
-V1 resources are repositories. A provider such as Kubernetes introduces a cluster resource rather than another
-repository provider. Supporting it requires a separately approved widening of the resource contract and possibly new
-host lifecycle behavior, such as allocating or fencing a temporary environment. That is a legitimate host-level change,
-not an ordinary script release. A future provider-defined resource-schema seam may reduce such changes, but this Draft
-does not claim it exists.
-
-## Custom scripts
-
-Trusted custom scripts use the same definition and contract-test APIs as built-ins. They may consume existing bounded
-provider clients without host changes. A custom provider module is required only for a new effect family. Definition
-and provider modules are imported explicitly at startup; runtime filesystem scanning, package discovery, hot loading,
-and implicit latest-version selection are forbidden.
-
-## Current implementation status
-
-| Surface                       | Current state                                     | Remaining Draft target                          |
-| ----------------------------- | ------------------------------------------------- | ----------------------------------------------- |
-| Manifest, schemas, definition | Implemented                                       | Verdict and build-generated exact identity      |
-| Sealed explicit registry      | Implemented                                       | Immutable cross-release retention checks        |
-| Low-level `executeScript`     | Implemented                                       | Publication and stable-API approval             |
-| `script:git/status`           | Executable package-owned vertical                 | Accepted stable contract                        |
-| `createRevoScripts`           | Exact pins, bindings, coordinates, lifecycle done | Verdict projection and accepted facade contract |
-| Workspace and credentials     | Resolver contracts and lifecycle implemented      | Production GitHub credential consumer           |
-| Git production provider       | Node adapter implemented                          | Generated digest freshness and retention design |
-| GitHub production providers   | Not implemented                                   | First bounded GitHub operation                  |
-| npm publication               | Not published                                     | Separate release approval                       |
-
-The implemented high-level path resolves an exact script and provider pin, resolves an opaque workspace id through the
-host, constructs the bounded Git client inside the package, executes the handler, and disposes provider resources. A
-consumer no longer implements or injects `readStatus`. The provider still receives one host-level `ProcessExecutor`;
-that is stable infrastructure shared by the Git family, not a per-script capability.
-
-### Low-level SDK/runtime API
-
-Definition authors, provider contract tests, and advanced trusted hosts can still execute the low-level foundation
-directly:
-
-```ts
-import { createScriptRegistry, executeScript } from '@revisium/revo-scripts';
-import { gitStatusScript } from '@revisium/revo-scripts/git';
-import { RecordingEventSink } from '@revisium/revo-scripts/testing';
-
-const registry = createScriptRegistry();
-const script = registry.register(gitStatusScript);
-registry.seal();
-
-const result = await executeScript(registry, script, {
-  executionId: 'status-1',
-  input: {},
-  resources: {
-    repository: {
-      name: 'repository',
-      kind: 'repository',
-      access: 'read',
-      grant: { permissions: ['git.status.read'], effects: ['git.read'] },
-      clients: {
-        git: {
-          readStatus: async () => ({
-            branch: 'master',
-            headSha: '0123456789abcdef0123456789abcdef01234567',
-            detached: false,
-            stagedCount: 0,
-            unstagedCount: 0,
-            untrackedCount: 0,
-            conflictedCount: 0,
-          }),
-        },
-      },
-    },
-  },
-  eventSink: new RecordingEventSink(),
-});
-```
-
-The high-level facade keeps the same handler-safe `clients` shape and prepares it from host bindings. No compatibility
-alias for the removed `capabilities` field is provided.
-
-## Package entrypoints
-
-Currently implemented entrypoints:
-
-| Entrypoint                             | Responsibility                                            |
-| -------------------------------------- | --------------------------------------------------------- |
-| `@revisium/revo-scripts`               | Consumer facade, module factories, and low-level SDK      |
-| `@revisium/revo-scripts/spec`          | Definitions, manifests, schemas, results, and errors      |
-| `@revisium/revo-scripts/runtime`       | Low-level definition, registry, validation, and execution |
-| `@revisium/revo-scripts/host`          | Privileged host and provider integration contracts        |
-| `@revisium/revo-scripts/git`           | Built-in Git definitions and result types                 |
-| `@revisium/revo-scripts/providers/git` | Git contract and Node provider-family factory             |
-| `@revisium/revo-scripts/testing`       | Contract harness, deterministic clock, sink, and Git fake |
-
-The GitHub provider entrypoint remains absent until its first real implementation. Provider surfaces are deliberately
-separate from concrete script exports.
-
-Provider contracts and adapters remain inside this package and share its release cycle. They are separate subpath
-exports, not separate npm packages.
-
-## Architecture and contracts
-
-- [Repository map](REPOSITORY.md) defines source-of-truth order, layout, ownership, and dependency direction.
-- [ADR-0001](docs/adr/0001-script-sdk-and-runtime-boundary.md) records the package-owned operation and provider boundary.
-- [Script runtime v1](docs/specs/script-runtime-v1.spec.md) defines the exact target facade, host bindings, providers,
-  handler context, and execution contract.
-- [Testing](docs/testing.md) defines TDD, test ownership, and per-script/provider proof.
-
-Documents marked `Draft` describe the proposed target and do not make an API available. Current declarations and tests
-remain authoritative for code that exists today.
-
-## Schema strategy
-
-The public `ScriptSchema` contract is validation-library-neutral. `createScriptSchema` accepts Standard Schema and
-Standard JSON Schema compatible validators. Built-ins currently use Zod for type inference. `defineScript` compiles
-the emitted Draft 2020-12 JSON Schema with Ajv in strict mode before registration.
-
-## Development
-
-Requirements:
-
-- Node.js 24 (`>=24.11.1 <25`)
-- pnpm 11.13.0 through Corepack
-- Docker only for the local SonarCloud parity check
+## Verification
 
 ```bash
-corepack enable
-pnpm install --frozen-lockfile
-pnpm verify
+corepack pnpm verify
 ```
 
-| Command                     | Purpose                                                                              |
-| --------------------------- | ------------------------------------------------------------------------------------ |
-| `pnpm build`                | Build ESM JavaScript and TypeScript declarations with TypeScript 7                   |
-| `pnpm format`               | Format supported repository files with Oxfmt                                         |
-| `pnpm format:check`         | Verify formatting without writing files                                              |
-| `pnpm lint`                 | Run type-aware Oxlint and TypeScript diagnostics                                     |
-| `pnpm test`                 | Run focused unit, contract, consumer/provider integration, and package source suites |
-| `pnpm test:cov`             | Run tests and write LCOV coverage                                                    |
-| `pnpm test:architecture`    | Enforce imports, public consumer boundaries, and dependency cycles                   |
-| `pnpm test:consumer:packed` | Execute the packed package from an isolated consumer project                         |
-| `pnpm verify:architecture`  | Run the required architecture test alias                                             |
-| `pnpm verify`               | Run the complete local CI gate                                                       |
-| `pnpm ci:local:sonar`       | Run verification, Sonar analysis, and open-issue inspection                          |
-
-## SonarCloud
-
-Copy `.env.sonar.example` to an ignored local file and provide a Sonar token:
-
-```bash
-cp .env.sonar.example .env.sonar
-pnpm ci:local:sonar
-```
-
-An existing environment file can be reused without copying secrets:
-
-```bash
-SONAR_ENV_FILE=/absolute/path/to/.env.sonar pnpm ci:local:sonar
-```
-
-CI runs the same verification gate before Sonar analysis. Pull requests additionally wait for the Quality Gate and
-fail when open Sonar issues remain.
-
-## Package contract
-
-The package is ESM-only, uses explicit exports, emits declarations, and ships only `dist`, `README.md`, `LICENSE`, and
-package metadata. Package contents and declarations are validated during `pnpm verify`.
-
-## License
-
-[MIT](LICENSE) © Revisium
+The root gate includes format, TypeScript, zero-warning lint, unit/contract/integration/package tests, coverage,
+architecture boundaries, build, declarations and exports, package content, and packed-consumer validation. Exact
+commands and Sonar behavior are in [VERIFICATION.md](VERIFICATION.md); test authoring rules are in
+[docs/testing.md](docs/testing.md).

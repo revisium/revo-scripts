@@ -6,7 +6,9 @@ import type { ScriptResourceHandle } from '../../../runtime/spec/resources/index
 
 export type GitStatusInput = Record<string, never>;
 
-export type GitStatusResult = Readonly<GitStatusSnapshot & { readonly clean: boolean }>;
+export type GitStatusResult = Readonly<
+  GitStatusSnapshot & { readonly schemaVersion: 'workspace-change/v1' }
+>;
 
 export type GitStatusResources = Readonly<{
   repository: ScriptResourceHandle<Readonly<{ git: GitStatusClient }>>;

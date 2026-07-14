@@ -5,11 +5,14 @@ import { expect, expectTypeOf, test } from 'vitest';
 import * as hostEntry from '../../src/host/index.js';
 import * as packageEntry from '../../src/index.js';
 import * as gitProviderEntry from '../../src/providers/git/index.js';
+import * as githubProviderEntry from '../../src/providers/github/index.js';
 import * as runtimeEntry from '../../src/runtime/index.js';
 import * as specEntry from '../../src/runtime/spec/index.js';
 import type { ScriptDefinition } from '../../src/runtime/spec/index.js';
+import * as approvalEntry from '../../src/scripts/approval/index.js';
 import * as gitEntry from '../../src/scripts/git/index.js';
 import type { GitStatusResources, GitStatusResult } from '../../src/scripts/git/index.js';
+import * as githubEntry from '../../src/scripts/github/index.js';
 import * as testingEntry from '../../src/testing/index.js';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -19,15 +22,20 @@ const exportNames = (entry: object): readonly string[] => Object.keys(entry).sor
 
 test('entry points expose only their curated runtime values', () => {
   expect({
+    approval: exportNames(approvalEntry),
     root: exportNames(packageEntry),
     spec: exportNames(specEntry),
     runtime: exportNames(runtimeEntry),
     host: exportNames(hostEntry),
     git: exportNames(gitEntry),
     gitProvider: exportNames(gitProviderEntry),
+    github: exportNames(githubEntry),
+    githubProvider: exportNames(githubProviderEntry),
     testing: exportNames(testingEntry),
   }).toEqual({
+    approval: ['approvalSubjectScript'],
     root: [
+      'approvalScripts',
       'builtInScripts',
       'createRevoScripts',
       'createScriptRegistry',
@@ -35,12 +43,22 @@ test('entry points expose only their curated runtime values', () => {
       'defineScript',
       'executeScript',
       'gitScripts',
+      'githubScripts',
     ],
     spec: ['ScriptFault'],
     runtime: ['createScriptRegistry', 'createScriptSchema', 'defineScript', 'executeScript'],
     host: [],
-    git: ['gitStatusScript'],
+    git: ['gitCommitScript', 'gitPushScript', 'gitStatusScript'],
     gitProvider: ['nodeGitProviders'],
+    github: [
+      'githubPullRequestMarkReadyScript',
+      'githubPullRequestMergeScript',
+      'githubPullRequestReadinessScript',
+      'githubPullRequestUpsertScript',
+      'githubReviewThreadResolveScript',
+      'githubReviewThreadRespondScript',
+    ],
+    githubProvider: ['fetchGitHubProviders'],
     testing: [
       'DeterministicScriptClock',
       'RecordingEventSink',
@@ -95,9 +113,21 @@ test('package metadata declares the intended package and explicit root export', 
         types: './dist/scripts/git/index.d.ts',
         import: './dist/scripts/git/index.js',
       },
+      './approval': {
+        types: './dist/scripts/approval/index.d.ts',
+        import: './dist/scripts/approval/index.js',
+      },
+      './github': {
+        types: './dist/scripts/github/index.d.ts',
+        import: './dist/scripts/github/index.js',
+      },
       './providers/git': {
         types: './dist/providers/git/index.d.ts',
         import: './dist/providers/git/index.js',
+      },
+      './providers/github': {
+        types: './dist/providers/github/index.d.ts',
+        import: './dist/providers/github/index.js',
       },
       './testing': {
         types: './dist/testing/index.d.ts',

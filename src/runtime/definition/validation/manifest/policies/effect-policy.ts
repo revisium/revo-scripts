@@ -9,7 +9,14 @@ import type { ManifestValidationIssue } from '../manifest-validation-issue.js';
 const permittedEffects: Readonly<Record<ScriptEffectClass, ReadonlySet<ScriptEffect>>> = {
   pure: new Set(),
   read: new Set(['filesystem.read', 'git.read', 'github.read']),
-  write: new Set(['filesystem.read', 'filesystem.write', 'git.read', 'git.write', 'github.read']),
+  write: new Set([
+    'filesystem.read',
+    'filesystem.write',
+    'git.read',
+    'git.write',
+    'github.read',
+    'github.write',
+  ]),
   publish: new Set([
     'filesystem.read',
     'filesystem.write',

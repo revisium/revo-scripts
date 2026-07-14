@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { builtInScripts, createRevoScripts } from '../../../../src/index.js';
+import { createRevoScripts, gitScripts } from '../../../../src/index.js';
 import { nodeGitProviders } from '../../../../src/providers/git/index.js';
 import type {
   ProcessExecutionRequest,
@@ -17,15 +17,21 @@ test('executes built-in git status through the package-owned provider', async ()
   const processExecutor: ProcessExecutor = {
     execute: async (request) => {
       processRequests.push(request);
+      const operation = request.args[0];
       return {
         exitCode: 0,
-        stdout: [
-          `# branch.oid ${gitTestHeadSha}`,
-          '# branch.head master',
-          `1 .M N... 100644 100644 100644 ${gitTestHeadSha} ${gitTestHeadSha} tracked.txt`,
-          '? untracked.txt',
-          '',
-        ].join('\0'),
+        stdout:
+          operation === 'status'
+            ? [
+                `# branch.oid ${gitTestHeadSha}`,
+                '# branch.head master',
+                `1 .M N... 100644 100644 100644 ${gitTestHeadSha} ${gitTestHeadSha} tracked.txt`,
+                '? untracked.txt',
+                '',
+              ].join('\0')
+            : operation === 'rev-parse' || operation === 'write-tree'
+              ? gitTestHeadSha
+              : '',
         stderr: '',
       };
     },
@@ -42,7 +48,7 @@ test('executes built-in git status through the package-owned provider', async ()
     },
   });
   const scripts = createRevoScripts({
-    definitions: [builtInScripts()],
+    definitions: [gitScripts()],
     providers: nodeGitProviders({ processExecutor }),
     host,
   });
@@ -83,26 +89,62 @@ test('executes built-in git status through the package-owned provider', async ()
   expect(result).toEqual({
     ok: true,
     value: {
-      branch: 'master',
-      headSha: gitTestHeadSha,
-      detached: false,
-      stagedCount: 0,
-      unstagedCount: 1,
-      untrackedCount: 1,
-      conflictedCount: 0,
+      schemaVersion: 'workspace-change/v1',
+      baseCapture: `git-commit:${gitTestHeadSha}`,
+      headCapture: `git-tree:${gitTestHeadSha}`,
+      changedPaths: [
+        { path: 'tracked.txt', status: 'modified' },
+        { path: 'untracked.txt', status: 'untracked' },
+      ],
       clean: false,
     },
     evidence: [],
     attempts: 1,
   });
   expect(workspaceRequests).toEqual(['workspace-456']);
-  expect(processRequests).toEqual([
+  expect(
+    processRequests.map((request) => ({
+      command: request.command,
+      args: request.args,
+      cwd: request.cwd,
+      maxOutputBytes: request.maxOutputBytes,
+      hasTemporaryIndex: request.environment?.['GIT_INDEX_FILE'] !== undefined,
+    })),
+  ).toEqual([
     {
       command: 'git',
       args: ['status', '--porcelain=v2', '--branch', '-z'],
       cwd: '/tmp/revo-worktree',
       maxOutputBytes: 1_048_576,
-      signal: processRequests[0]?.signal,
+      hasTemporaryIndex: false,
+    },
+    {
+      command: 'git',
+      args: ['rev-parse', 'HEAD'],
+      cwd: '/tmp/revo-worktree',
+      maxOutputBytes: 1_048_576,
+      hasTemporaryIndex: false,
+    },
+    {
+      command: 'git',
+      args: ['read-tree', 'HEAD'],
+      cwd: '/tmp/revo-worktree',
+      maxOutputBytes: 1_048_576,
+      hasTemporaryIndex: true,
+    },
+    {
+      command: 'git',
+      args: ['add', '-A'],
+      cwd: '/tmp/revo-worktree',
+      maxOutputBytes: 1_048_576,
+      hasTemporaryIndex: true,
+    },
+    {
+      command: 'git',
+      args: ['write-tree'],
+      cwd: '/tmp/revo-worktree',
+      maxOutputBytes: 1_048_576,
+      hasTemporaryIndex: true,
     },
   ]);
   expect(events.map((event) => event.name)).toEqual([

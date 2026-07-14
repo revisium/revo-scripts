@@ -39,19 +39,19 @@ test('maps process and output failures without exposing provider output', async 
     process: {
       name: 'ScriptFault',
       code: 'revo.script.provider.unavailable',
-      message: 'Git status execution failed.',
+      message: 'Git execution failed.',
       retryable: false,
     },
     exit: {
       name: 'ScriptFault',
       code: 'revo.script.provider.unavailable',
-      message: 'Git status execution failed.',
+      message: 'Git execution failed.',
       retryable: false,
     },
     oversized: {
       name: 'ScriptFault',
       code: 'revo.script.provider.invalid_response',
-      message: 'Git status output exceeded the configured limit.',
+      message: 'Git output exceeded the configured limit.',
       retryable: false,
     },
   });

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 
-import { builtInScripts, createRevoScripts, createScriptSchema } from '../../../src/index.js';
+import { createRevoScripts, gitScripts, createScriptSchema } from '../../../src/index.js';
 import { nodeGitProviders } from '../../../src/providers/git/index.js';
 import { createMultiProviderConsumerFixture } from '../../support/consumer/multi-provider-consumer-fixture.js';
 import { createGitHost, createGitScriptRequest } from '../../support/git/git-fixture.js';
@@ -21,7 +21,7 @@ test('rejects coordinates for a provider that does not declare a coordinate sche
     },
   });
   const scripts = createRevoScripts({
-    definitions: [builtInScripts()],
+    definitions: [gitScripts()],
     providers: nodeGitProviders({
       processExecutor: { execute: async () => ({ exitCode: 0, stdout: '', stderr: '' }) },
     }),

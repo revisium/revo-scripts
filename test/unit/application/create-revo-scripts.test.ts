@@ -44,6 +44,8 @@ test('composes the Git definition family without per-script registration', () =>
   });
 
   expect(scripts.listManifests().map((manifest) => `${manifest.id}@${manifest.version}`)).toEqual([
+    'script:git/commit@1.0.0',
+    'script:git/push@1.0.0',
     'script:git/status@1.0.0',
   ]);
 });

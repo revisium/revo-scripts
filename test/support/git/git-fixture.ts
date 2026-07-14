@@ -27,6 +27,8 @@ export interface GitScriptRequestOptions {
   readonly workspaceId?: string;
   readonly providers?: RevoScriptExecutionRequest['providers'];
   readonly signal?: AbortSignal;
+  readonly access?: 'read' | 'write' | 'publish';
+  readonly idempotencyKey?: string;
 }
 
 export const createGitScriptRequest = (
@@ -44,7 +46,7 @@ export const createGitScriptRequest = (
         kind: 'repository',
         repositoryId: options.repositoryId ?? 'repository-123',
         workspaceId: options.workspaceId ?? 'workspace-456',
-        access: 'read',
+        access: options.access ?? 'read',
         grant: {
           permissions: options.permissions ?? ['git.status.read'],
           effects: options.effects ?? ['git.read'],
@@ -55,6 +57,7 @@ export const createGitScriptRequest = (
     credentials: {},
   },
   ...(options.signal === undefined ? {} : { signal: options.signal }),
+  ...(options.idempotencyKey === undefined ? {} : { idempotencyKey: options.idempotencyKey }),
 });
 
 export const requireNodeGitProviderRegistration = (options: NodeGitProvidersOptions) => {
