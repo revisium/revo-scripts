@@ -5,4 +5,4 @@ export const createScriptDeadline = (
   timeoutMs: number,
   clock: ScriptClock,
   externalSignal?: AbortSignal,
-): ScriptDeadline => new ScriptDeadline(timeoutMs, clock, externalSignal);
+): ScriptDeadline => ScriptDeadline.create(timeoutMs, clock, externalSignal);

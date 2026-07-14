@@ -9,19 +9,22 @@ export class ScriptDeadline {
   private readonly expiresAt: number;
   private readonly deadline: Promise<never>;
   private readonly timeout: ReturnType<typeof setTimeout>;
-  private rejectDeadline: (reason: ScriptFault) => void = () => {};
+  private readonly rejectDeadline: (reason: ScriptFault) => void;
   private settled = false;
 
-  constructor(timeoutMs: number, clock: ScriptClock, externalSignal?: AbortSignal) {
+  private constructor(
+    timeoutMs: number,
+    clock: ScriptClock,
+    deadline: Promise<never>,
+    rejectDeadline: (reason: ScriptFault) => void,
+    externalSignal?: AbortSignal,
+  ) {
     this.clock = clock;
     this.externalSignal = externalSignal;
     this.signal = this.controller.signal;
     this.expiresAt = clock.now() + timeoutMs;
-    this.deadline = new Promise<never>((_resolve, reject) => {
-      this.rejectDeadline = reject;
-    });
-    // Preflight may return before a race consumes an already-aborted deadline.
-    void this.deadline.catch(() => undefined);
+    this.deadline = deadline;
+    this.rejectDeadline = rejectDeadline;
     this.timeout = setTimeout(() => {
       this.fail(
         new ScriptFault('revo.script.timeout.deadline', 'Script wall-clock deadline expired.'),
@@ -33,6 +36,21 @@ export class ScriptDeadline {
     } else {
       externalSignal?.addEventListener('abort', this.abortFromCaller, { once: true });
     }
+  }
+
+  static create(
+    timeoutMs: number,
+    clock: ScriptClock,
+    externalSignal?: AbortSignal,
+  ): ScriptDeadline {
+    let rejectDeadline: (reason: ScriptFault) => void = () => {};
+    const deadline = new Promise<never>((_resolve, reject) => {
+      rejectDeadline = reject;
+    });
+    // Preflight may return before a race consumes an already-aborted deadline.
+    void deadline.catch(() => undefined);
+
+    return new ScriptDeadline(timeoutMs, clock, deadline, rejectDeadline, externalSignal);
   }
 
   remainingMs(): number {
