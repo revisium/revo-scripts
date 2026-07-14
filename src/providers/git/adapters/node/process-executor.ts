@@ -12,4 +12,6 @@ export interface ProcessExecutionResult {
   readonly stderr: string;
 }
 
-export type ProcessExecutor = (request: ProcessExecutionRequest) => Promise<ProcessExecutionResult>;
+export interface ProcessExecutor {
+  execute(request: ProcessExecutionRequest): Promise<ProcessExecutionResult>;
+}

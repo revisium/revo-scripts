@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 
-import { defineScript } from '../../../../src/core/runtime/define-script.js';
-import { ScriptFault } from '../../../../src/core/spec/script-errors.js';
+import { defineScript } from '../../../../src/runtime/definition/define-script.js';
+import { ScriptFault } from '../../../../src/runtime/spec/errors/index.js';
 import {
   echoDefinition,
   echoInputSchema,
@@ -13,9 +13,11 @@ test('rejects an input payload larger than one mebibyte before invoking the hand
   let invoked = false;
   const boundedDefinition = defineScript({
     ...echoDefinition,
-    handler: async (input) => {
-      invoked = true;
-      return { value: { echoed: input.message } };
+    handler: {
+      execute: async (input) => {
+        invoked = true;
+        return { value: { echoed: input.message } };
+      },
     },
   });
   const { events, result } = await executeRuntimeScenario(boundedDefinition, {
@@ -51,9 +53,11 @@ test('fails an oversized custom event before it reaches the event sink', async (
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
     implementation: { id: '@revisium/revo-scripts/test/event-limit', version: '1.0.0' },
-    handler: async (input, context) => {
-      await context.emit({ name: 'test.large', details: { payload: 'x'.repeat(65_536) } });
-      return { value: { echoed: input.message } };
+    handler: {
+      execute: async (input, context) => {
+        await context.emit({ name: 'test.large', details: { payload: 'x'.repeat(65_536) } });
+        return { value: { echoed: input.message } };
+      },
     },
   });
   const { events, result } = await executeRuntimeScenario(eventDefinition, {
@@ -81,13 +85,15 @@ test('rejects evidence that exceeds its bounded item count', async () => {
   const evidenceDefinition = defineScript({
     ...echoDefinition,
     implementation: { id: '@revisium/revo-scripts/test/evidence-limit', version: '1.0.0' },
-    handler: async (input) => ({
-      value: { echoed: input.message },
-      evidence: Array.from({ length: 65 }, (_, index) => ({
-        kind: 'artifact' as const,
-        ref: `artifact-${index}`,
-      })),
-    }),
+    handler: {
+      execute: async (input) => ({
+        value: { echoed: input.message },
+        evidence: Array.from({ length: 65 }, (_, index) => ({
+          kind: 'artifact' as const,
+          ref: `artifact-${index}`,
+        })),
+      }),
+    },
   });
   const { result } = await executeRuntimeScenario(evidenceDefinition, {
     executionId: 'execution-evidence-limit',
@@ -111,7 +117,7 @@ test('rejects a result payload larger than one mebibyte', async () => {
   const largeResultDefinition = defineScript({
     ...echoDefinition,
     implementation: { id: '@revisium/revo-scripts/test/result-limit', version: '1.0.0' },
-    handler: async () => ({ value: { echoed: 'x'.repeat(1_048_577) } }),
+    handler: { execute: async () => ({ value: { echoed: 'x'.repeat(1_048_577) } }) },
   });
   const { result } = await executeRuntimeScenario(largeResultDefinition, {
     executionId: 'execution-result-limit',
@@ -135,10 +141,12 @@ test('rejects an evidence reference longer than its Unicode code-point limit', a
   const evidenceDefinition = defineScript({
     ...echoDefinition,
     implementation: { id: '@revisium/revo-scripts/test/evidence-ref', version: '1.0.0' },
-    handler: async (input) => ({
-      value: { echoed: input.message },
-      evidence: [{ kind: 'artifact', ref: 'x'.repeat(2_049) }],
-    }),
+    handler: {
+      execute: async (input) => ({
+        value: { echoed: input.message },
+        evidence: [{ kind: 'artifact', ref: 'x'.repeat(2_049) }],
+      }),
+    },
   });
   const { result } = await executeRuntimeScenario(evidenceDefinition, {
     executionId: 'execution-evidence-ref',
@@ -162,10 +170,12 @@ test('rejects an evidence summary longer than its Unicode code-point limit', asy
   const evidenceDefinition = defineScript({
     ...echoDefinition,
     implementation: { id: '@revisium/revo-scripts/test/evidence-summary', version: '1.0.0' },
-    handler: async (input) => ({
-      value: { echoed: input.message },
-      evidence: [{ kind: 'artifact', ref: 'artifact-1', summary: 'x'.repeat(4_097) }],
-    }),
+    handler: {
+      execute: async (input) => ({
+        value: { echoed: input.message },
+        evidence: [{ kind: 'artifact', ref: 'artifact-1', summary: 'x'.repeat(4_097) }],
+      }),
+    },
   });
   const { result } = await executeRuntimeScenario(evidenceDefinition, {
     executionId: 'execution-evidence-summary',
@@ -189,10 +199,12 @@ test('fails closed when typed fault details are not JSON-compatible', async () =
   const failingDefinition = defineScript({
     ...echoDefinition,
     implementation: { id: '@revisium/revo-scripts/test/fault-details', version: '1.0.0' },
-    handler: async () => {
-      throw new ScriptFault('revo.script.provider.unavailable', 'Provider is unavailable.', {
-        details: { callback: () => undefined },
-      });
+    handler: {
+      execute: async () => {
+        throw new ScriptFault('revo.script.provider.unavailable', 'Provider is unavailable.', {
+          details: { callback: () => undefined },
+        });
+      },
     },
   });
   const { result } = await executeRuntimeScenario(failingDefinition, {

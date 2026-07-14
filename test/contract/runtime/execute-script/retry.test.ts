@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
 
-import { defineScript } from '../../../../src/core/runtime/define-script.js';
-import { executeScript } from '../../../../src/core/runtime/execute-script.js';
-import { ScriptFault } from '../../../../src/core/spec/script-errors.js';
-import type { EventSink, ScriptEvent } from '../../../../src/core/spec/script-events.js';
+import { defineScript } from '../../../../src/runtime/definition/define-script.js';
+import { executeScript } from '../../../../src/runtime/execution/execute-script.js';
+import { ScriptFault } from '../../../../src/runtime/spec/errors/index.js';
+import type { EventSink, ScriptEvent } from '../../../../src/runtime/spec/events/index.js';
 import {
   echoDefinition,
   echoInputSchema,
@@ -27,16 +27,18 @@ test('retries only an explicitly transient typed failure within the manifest pol
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
     implementation: { id: '@revisium/revo-scripts/test/retry', version: '1.0.0' },
-    handler: async (input, context) => {
-      invocationCount += 1;
+    handler: {
+      execute: async (input, context) => {
+        invocationCount += 1;
 
-      if (context.attempt === 1) {
-        throw new ScriptFault('revo.script.provider.transient', 'Provider is temporarily busy.', {
-          retryable: true,
-        });
-      }
+        if (context.attempt === 1) {
+          throw new ScriptFault('revo.script.provider.transient', 'Provider is temporarily busy.', {
+            retryable: true,
+          });
+        }
 
-      return { value: { echoed: input.message } };
+        return { value: { echoed: input.message } };
+      },
     },
   });
   const sleeps: number[] = [];
@@ -123,10 +125,12 @@ test('does not start retry backoff that cannot fit inside the total deadline', a
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
     implementation: { id: '@revisium/revo-scripts/test/retry-deadline', version: '1.0.0' },
-    handler: async () => {
-      throw new ScriptFault('revo.script.provider.transient', 'Provider is busy.', {
-        retryable: true,
-      });
+    handler: {
+      execute: async () => {
+        throw new ScriptFault('revo.script.provider.transient', 'Provider is busy.', {
+          retryable: true,
+        });
+      },
     },
   });
   const sleeps: number[] = [];
@@ -170,11 +174,13 @@ test('returns an event-sink failure when the retrying event is rejected', async 
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
     implementation: { id: '@revisium/revo-scripts/test/retry-event', version: '1.0.0' },
-    handler: async () => {
-      invocationCount += 1;
-      throw new ScriptFault('revo.script.provider.transient', 'Provider is busy.', {
-        retryable: true,
-      });
+    handler: {
+      execute: async () => {
+        invocationCount += 1;
+        throw new ScriptFault('revo.script.provider.transient', 'Provider is busy.', {
+          retryable: true,
+        });
+      },
     },
   });
   const { registry, script } = registerTestScript(retryDefinition);
@@ -227,10 +233,12 @@ test('converts an unexpected retry scheduler failure into a terminal failure', a
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
     implementation: { id: '@revisium/revo-scripts/test/retry-scheduler', version: '1.0.0' },
-    handler: async () => {
-      throw new ScriptFault('revo.script.provider.transient', 'Provider is busy.', {
-        retryable: true,
-      });
+    handler: {
+      execute: async () => {
+        throw new ScriptFault('revo.script.provider.transient', 'Provider is busy.', {
+          retryable: true,
+        });
+      },
     },
   });
   const clock = {

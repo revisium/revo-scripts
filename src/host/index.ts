@@ -1,17 +1,13 @@
-export type {
-  CredentialResolver,
-  ResolvedCredential,
-  RevoScriptsHost,
-  ScriptCredentialBinding,
-  ScriptExecutionBindings,
-  ScriptResourceBinding,
-  TrustedWorkspaceAllocation,
-  WorkspaceResolver,
-} from './contracts.js';
-export type {
-  PreparedProviderClients,
-  ProviderClientRequest,
-  ScriptProviderDescriptor,
-  ScriptProviderModule,
-  ScriptProviderRegistration,
-} from './provider-module.js';
+export type { ScriptCredentialBinding } from './bindings/script-credential-binding.js';
+export type { ScriptExecutionBindings } from './bindings/script-execution-bindings.js';
+export type { ScriptResourceBinding } from './bindings/script-resource-binding.js';
+export type { CredentialResolver } from './credentials/credential-resolver.js';
+export type { ResolvedCredential } from './credentials/resolved-credential.js';
+export type { PreparedProviderClients } from './providers/prepared-provider-clients.js';
+export type { ProviderClientRequest } from './providers/provider-client-request.js';
+export type { ScriptProviderDescriptor } from './providers/script-provider-descriptor.js';
+export type { ScriptProviderModule } from './providers/script-provider-module.js';
+export type { ScriptProviderRegistration } from './providers/script-provider-registration.js';
+export type { RevoScriptsHost } from './revo-scripts-host.js';
+export type { TrustedWorkspaceAllocation } from './workspaces/trusted-workspace-allocation.js';
+export type { WorkspaceResolver } from './workspaces/workspace-resolver.js';

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { isExactSemanticVersion } from '../../../src/core/runtime/validation-rules.js';
+import { isExactSemanticVersion } from '../../../src/runtime/definition/validation/exact-semantic-version.js';
 
 test('accepts exact semantic versions including bounded prerelease and build identifiers', () => {
   const versions = ['0.0.0', '1.2.3', '1.2.3-alpha.1+build.5', '1.0.0-alpha-beta'];

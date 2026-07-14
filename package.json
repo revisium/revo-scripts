@@ -26,12 +26,12 @@
       "import": "./dist/index.js"
     },
     "./spec": {
-      "types": "./dist/core/spec/index.d.ts",
-      "import": "./dist/core/spec/index.js"
+      "types": "./dist/runtime/spec/index.d.ts",
+      "import": "./dist/runtime/spec/index.js"
     },
     "./runtime": {
-      "types": "./dist/core/runtime/index.d.ts",
-      "import": "./dist/core/runtime/index.js"
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js"
     },
     "./host": {
       "types": "./dist/host/index.d.ts",
@@ -56,18 +56,21 @@
   },
   "scripts": {
     "clean": "rm -rf dist coverage",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "oxlint --type-aware --type-check --deny-warnings --report-unused-disable-directives .",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "test:unit": "vitest run test/unit",
     "test:contract": "vitest run test/contract",
-    "test:package": "vitest run test/package-smoke.test.ts",
-    "test": "pnpm run test:unit && pnpm run test:contract && pnpm run test:package",
+    "test:integration": "vitest run test/integration",
+    "test:package": "vitest run test/package",
+    "test:consumer:packed": "node scripts/verify-packed-consumer.ts",
+    "test:architecture": "oxlint --config .oxlintrc.architecture.json --deny-warnings src test/integration/consumer test/support/consumer",
+    "test": "pnpm run test:unit && pnpm run test:contract && pnpm run test:integration && pnpm run test:package",
     "test:cov": "vitest run --coverage",
-    "verify:architecture": "oxlint --config .oxlintrc.architecture.json --deny-warnings src",
-    "verify:package": "pnpm run build && publint && npm_config_cache=.cache/npm attw --pack . --profile esm-only && node scripts/validate-pack.ts",
+    "verify:architecture": "pnpm run test:architecture",
+    "verify:package": "pnpm run build && publint && npm_config_cache=.cache/npm attw --pack . --profile esm-only && node scripts/validate-pack.ts && pnpm run test:consumer:packed",
     "verify": "pnpm run format:check && pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run test:cov && pnpm run verify:architecture && pnpm run verify:package",
     "sonar:local": "bash scripts/sonar-local.sh",
     "sonar:issues:local": "bash scripts/sonar-issues-local.sh",

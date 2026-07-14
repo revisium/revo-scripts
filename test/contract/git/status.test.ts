@@ -1,10 +1,10 @@
 import { expect, test } from 'vitest';
 
-import { gitStatusScript } from '../../../src/scripts/git/status/versions/1.0.0/script.js';
+import { gitStatusScript } from '../../../src/scripts/git/index.js';
 import {
   createGitStatusClientFake,
   createScriptContractHarness,
-} from '../../../src/testing/core/contract-harness.js';
+} from '../../../src/testing/index.js';
 
 const createGitStatusHarness = (
   snapshot: Parameters<typeof createGitStatusClientFake>[0],

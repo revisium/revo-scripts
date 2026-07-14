@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
 
-import { defineScript } from '../../../../src/core/runtime/define-script.js';
-import { executeScript } from '../../../../src/core/runtime/execute-script.js';
-import { ScriptFault } from '../../../../src/core/spec/script-errors.js';
-import type { EventSink, ScriptEvent } from '../../../../src/core/spec/script-events.js';
+import { defineScript } from '../../../../src/runtime/definition/define-script.js';
+import { executeScript } from '../../../../src/runtime/execution/execute-script.js';
+import { ScriptFault } from '../../../../src/runtime/spec/errors/index.js';
+import type { EventSink, ScriptEvent } from '../../../../src/runtime/spec/events/index.js';
 import {
   echoDefinition,
   echoInputSchema,
@@ -34,15 +34,17 @@ test('redacts custom events and typed failure details before they leave the runt
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
     implementation: { id: '@revisium/revo-scripts/test/failure', version: '1.0.0' },
-    handler: async (input, context) => {
-      await context.emit({
-        name: 'test.provider.observed',
-        details: { secret: input.message, visible: 'kept' },
-      });
-      throw new ScriptFault('revo.script.provider.transient', 'Provider request failed.', {
-        retryable: true,
-        details: { secret: input.message, status: 503 },
-      });
+    handler: {
+      execute: async (input, context) => {
+        await context.emit({
+          name: 'test.provider.observed',
+          details: { secret: input.message, visible: 'kept' },
+        });
+        throw new ScriptFault('revo.script.provider.transient', 'Provider request failed.', {
+          retryable: true,
+          details: { secret: input.message, status: 503 },
+        });
+      },
     },
   });
   const { events, result } = await executeRuntimeScenario(failingDefinition, {
@@ -96,9 +98,11 @@ test('returns an event-sink failure without invoking the handler or re-emitting'
   let sinkCalls = 0;
   const sinkFailureDefinition = defineScript({
     ...echoDefinition,
-    handler: async (input) => {
-      invoked = true;
-      return { value: { echoed: input.message } };
+    handler: {
+      execute: async (input) => {
+        invoked = true;
+        return { value: { echoed: input.message } };
+      },
     },
   });
   const { registry, script } = registerTestScript(sinkFailureDefinition);
@@ -136,9 +140,11 @@ test('rejects an undeclared custom event before it reaches the sink', async () =
   const eventDefinition = defineScript({
     ...echoDefinition,
     implementation: { id: '@revisium/revo-scripts/test/undeclared-event', version: '1.0.0' },
-    handler: async (input, context) => {
-      await context.emit({ name: 'test.undeclared' });
-      return { value: { echoed: input.message } };
+    handler: {
+      execute: async (input, context) => {
+        await context.emit({ name: 'test.undeclared' });
+        return { value: { echoed: input.message } };
+      },
     },
   });
   const { events, result } = await executeRuntimeScenario(eventDefinition, {
@@ -165,8 +171,10 @@ test('returns an event-sink failure when the terminal failure event is rejected'
   const failingDefinition = defineScript({
     ...echoDefinition,
     implementation: { id: '@revisium/revo-scripts/test/terminal-event', version: '1.0.0' },
-    handler: async () => {
-      throw new ScriptFault('revo.script.provider.unavailable', 'Provider is unavailable.');
+    handler: {
+      execute: async () => {
+        throw new ScriptFault('revo.script.provider.unavailable', 'Provider is unavailable.');
+      },
     },
   });
   const { registry, script } = registerTestScript(failingDefinition);
@@ -212,9 +220,11 @@ test('rejects an undeclared empty-container event detail path', async () => {
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
     implementation: { id: '@revisium/revo-scripts/test/empty-event-detail', version: '1.0.0' },
-    handler: async (input, context) => {
-      await context.emit({ name: 'test.empty-detail', details: { privateMetadata: {} } });
-      return { value: { echoed: input.message } };
+    handler: {
+      execute: async (input, context) => {
+        await context.emit({ name: 'test.empty-detail', details: { privateMetadata: {} } });
+        return { value: { echoed: input.message } };
+      },
     },
   });
   const { events, result } = await executeRuntimeScenario(eventDefinition, {
@@ -249,13 +259,55 @@ test('returns a stable event-validation failure for non-JSON custom details', as
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
     implementation: { id: '@revisium/revo-scripts/test/non-json-event', version: '1.0.0' },
-    handler: async (input, context) => {
-      await context.emit({ name: 'test.non-json', details: { count: 1n } });
-      return { value: { echoed: input.message } };
+    handler: {
+      execute: async (input, context) => {
+        await context.emit({ name: 'test.non-json', details: { count: 1n } });
+        return { value: { echoed: input.message } };
+      },
     },
   });
   const { events, result } = await executeRuntimeScenario(eventDefinition, {
     executionId: 'execution-non-json-event',
+    input: { message: 'hello' },
+    resources: {},
+  });
+
+  expect({ result, eventNames: events.map((event) => event.name) }).toEqual({
+    result: {
+      ok: false,
+      error: {
+        code: 'revo.script.validation.event',
+        message: 'Script event must be JSON-compatible.',
+        retryable: false,
+      },
+      attempts: 1,
+    },
+    eventNames: ['revo.script.started', 'revo.script.failed'],
+  });
+});
+
+test('returns a stable event-validation failure for cyclic custom details', async () => {
+  const eventDefinition = defineScript({
+    manifest: {
+      ...echoDefinition.manifest,
+      id: 'script:test/cyclic-event',
+      summary: 'Emits one declared test event.',
+      events: { allowed: ['test.cyclic'], detailPaths: ['/self'] },
+    },
+    inputSchema: echoInputSchema,
+    resultSchema: echoResultSchema,
+    implementation: { id: '@revisium/revo-scripts/test/cyclic-event', version: '1.0.0' },
+    handler: {
+      execute: async (input, context) => {
+        const details: Record<string, unknown> = {};
+        details.self = details;
+        await context.emit({ name: 'test.cyclic', details });
+        return { value: { echoed: input.message } };
+      },
+    },
+  });
+  const { events, result } = await executeRuntimeScenario(eventDefinition, {
+    executionId: 'execution-cyclic-event',
     input: { message: 'hello' },
     resources: {},
   });

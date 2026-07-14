@@ -1,5 +1,5 @@
-import type { ScriptManifestV1 } from '../../../src/core/spec/script-manifest.js';
-import type { ScriptSchema } from '../../../src/core/spec/script-schema.js';
+import type { ScriptManifestV1 } from '../../../src/runtime/spec/manifest/index.js';
+import type { ScriptSchema } from '../../../src/runtime/spec/schema/index.js';
 
 export const echoManifest = {
   schemaVersion: 'revo.script.manifest/v1',
@@ -79,6 +79,8 @@ export const manualEchoResultSchema: ScriptSchema<{ echoed: string }> = {
   }),
 };
 
-export const echoHandler = async ({ message }: Readonly<{ message: string }>) => ({
-  value: { echoed: message },
-});
+export const echoHandler = {
+  execute: async ({ message }: Readonly<{ message: string }>) => ({
+    value: { echoed: message },
+  }),
+};

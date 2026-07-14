@@ -14,7 +14,8 @@ including coordinate/credential completion and build-generated exact implementat
 
 - [ADR-0001: Script SDK and runtime boundary](./adr/0001-script-sdk-and-runtime-boundary.md) explains why the package
   owns a public script SDK, one-script runtime, bounded built-ins, and their production provider adapters while keeping
-  `core`, provider infrastructure, and concrete scripts in separate ownership areas.
+  runtime, host ports, application composition, provider infrastructure, and concrete scripts in separate ownership
+  areas.
 - [Script runtime v1](./specs/script-runtime-v1.spec.md) defines the exact target manifest, definition, registry,
   consumer facade, host binding, provider, execution, versioning, error, event, and extension contracts.
 - [Testing](./testing.md) defines test-layer ownership and the required proof for runtime, provider, consumer, and

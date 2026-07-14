@@ -32,25 +32,40 @@ implemented and accepted.
 
 ```text
 src/
-  core/
+  runtime/
     spec/       portable manifests, schemas, definitions, results, and errors
-    runtime/    provider-neutral validation, events, redaction, and execution
+    definition/ definition construction, schema adapters, and validation
     registry/   explicit exact-version registry
-  host/         privileged host bindings and provider module SPI
-  facade/       startup composition, plan resolution, and generic execution
+    execution/  provider-neutral events, redaction, retries, and one-script execution
+    validation/ dependency-neutral validation primitives
+    index.ts    curated public low-level entrypoint
+  host/
+    bindings/     immutable execution bindings
+    credentials/  credential resolution port and resolved handle
+    workspaces/   workspace resolution port and trusted allocation
+    providers/    trusted provider module SPI
+  application/
+    contracts/    consumer facade contracts
+    registration/ definition module composition
+    providers/    provider catalog and execution preparation
+    execution/    generic one-script coordination
   providers/
     git/
-      contracts/v1/  handler-safe Git client contracts
-      adapters/node/revisions/r1/  immutable process-backed implementation
+      contracts/      handler-safe Git client contracts
+      adapters/node/  process-backed implementation and bounded clients
   scripts/
-    git/status/versions/1.0.0/  built-in Git status proof
+    git/status/       built-in Git status proof
   testing/
-    core/       public contract-test mechanics and deterministic fakes
+    runtime/       public runtime contract mechanics and deterministic clocks/sinks
+    providers/git/ public bounded Git provider fakes
 
 test/
   unit/          focused pure and adapter behavior
   contract/      runtime and per-script observable contracts
-  package-smoke.test.ts  source entrypoint and package metadata contract
+  integration/
+    consumer/    public facade flows with injected host/provider boundaries
+    providers/   production adapters against controlled system fixtures
+  package/       source entrypoint and package metadata contracts
   support/       private deterministic test mechanics
 
 docs/
@@ -62,119 +77,148 @@ Directories and public entrypoints are created only with their first real owner.
 or broad barrels to make the target tree appear complete. GitHub areas are therefore deferred until their first
 bounded script or provider contract is implemented.
 
-## Target layout
+## Growth layout
 
 The Draft target adds areas only with their first implementation:
 
 ```text
 src/
-  core/
+  runtime/
     spec/       portable script contracts
-    runtime/    provider-neutral low-level execution
-    registry/   explicit exact-version definition and provider registries
-  host/         privileged host/provider integration contracts
-  facade/       createRevoScripts composition and generic execute path
+    definition/ definition construction and validation
+    registry/   explicit exact-version definition registry
+    execution/  provider-neutral low-level execution
+    validation/ dependency-neutral validation primitives
+    index.ts    curated public low-level entrypoint
+  host/
+    bindings/     immutable execution bindings
+    credentials/  credential integration contracts
+    workspaces/   workspace integration contracts
+    providers/    trusted provider module SPI
+  application/
+    contracts/    createRevoScripts facade contracts
+    registration/ definition module composition
+    providers/    provider catalog and execution preparation
+    execution/    generic execute path
 
   providers/
     git/
       contracts/
-        v1/     bounded Git client protocol
+        bounded Git client protocol
       adapters/
         node/
-          revisions/
-            r1/ immutable process-backed implementation revision
+          status/ bounded status client and Git protocol parser
     github/
       contracts/
-        v1/     bounded GitHub client protocol
+        bounded GitHub client protocol
       adapters/
-        api/
-          revisions/
-            r1/ immutable GitHub API implementation revision
+        api/    bounded GitHub API implementation
 
   scripts/
     git/
       status/
-        versions/
-          1.0.0/
       diff-summary/
-        versions/
-          1.0.0/
     github/
       pull-request/
         readiness/
-          versions/
-            1.0.0/
         upsert/
-          versions/
-            1.0.0/
       review-threads/
         respond/
-          versions/
-            1.0.0/
         resolve/
-          versions/
-            1.0.0/
 
   testing/
-    core/       runtime and registry contract mechanics
+    runtime/    runtime and registry contract mechanics
     providers/  provider contract suites and fakes
     scripts/    script contract suites and fixtures
 ```
 
-`core`, `providers`, and `scripts` are separate ownership areas. A provider contract or adapter MUST NOT be placed in
-the same directory as a concrete script. A script category groups bounded operations by domain; it does not own the
-provider implementation. A `providers/shared/` area MAY be created only when two real provider families share one
-stable abstraction. It MUST NOT become a generic utilities directory.
+`runtime`, `host`, `application`, `providers`, `scripts`, and `testing` are the top-level ownership areas. Runtime
+contains provider-neutral contracts and one-script mechanics; its `index.ts` is only the curated low-level public
+entrypoint. Host owns privileged ports, while application owns the consumer facade and is the composition root. A
+provider contract or adapter MUST NOT be placed in the same directory as a concrete script. A script category groups
+bounded operations by domain; it does not own the provider implementation. A `providers/shared/` area MAY be created
+only when two real provider families share one stable abstraction. It MUST NOT become a generic utilities directory.
 
-Each exact published script version has its own immutable implementation directory. Categories and intermediate
-directories are created only with their first owner; the tree above is a map, not a request for empty placeholders.
-Provider adapter revisions are also immutable. Their internal revision names are storage identities, not public
-compatibility versions; execution still pins the generated digest. A new adapter implementation adds a revision beside
-retained revisions. Removing one requires the same live-pin audit as removing a script version.
+Categories and intermediate directories are created only with their first owner; the tree above is a map, not a
+request for empty placeholders. Each operation currently has one flat implementation directory that separates its
+contract and implementation:
+
+```text
+<operation>/
+  README.md
+  types.ts
+  schemas.ts
+  manifest.ts
+  <operation>.handler.ts
+  script.ts
+```
+
+`script.ts` is the version composition root only. The handler is a stateless class with one `execute` method. Types,
+schemas, manifest policy, and provider mechanics MUST NOT be mixed into the composition file.
+
+Script SemVer and provider implementation identity remain contract data, not folder naming. The package currently
+ships one implementation per operation/provider id. A physical retention scheme for multiple implementations is
+deferred until a real coexistence requirement is designed and accepted; do not introduce `versions/` or `revisions/`
+folders speculatively.
+
+Every built-in operation and concrete provider adapter keeps a README card based on `docs/authoring/`. A file owns one
+concrete class. Public reusable contracts and unrelated policies stay in separate files; small cohesive pure helpers
+may remain together.
 
 ## Dependency direction
 
 ```text
-core/spec <- core/registry <- core/runtime
-core/spec <- host
-core/spec <- providers/*/contracts
-core/spec + host + providers/*/contracts <- providers/*/adapters
-core/spec + core/runtime + providers/*/contracts <- scripts/*
-core/runtime + core/registry + host + providers/*/adapters + scripts/* <- facade
-core + host + facade + providers + scripts <- testing
+runtime/spec <- runtime/definition
+runtime/spec <- runtime/registry
+runtime/spec + runtime/registry + runtime/validation <- runtime/execution
+runtime/definition + runtime/registry + runtime/execution <- runtime/index
+runtime/spec <- host
+runtime/spec <- providers/*/contracts
+runtime/spec + host + providers/*/contracts <- providers/*/adapters
+runtime/spec + runtime/definition + providers/*/contracts <- scripts/*
+runtime + host + providers/*/adapters + scripts/* <- application
+runtime + host + application + providers + scripts <- testing
 ```
 
-- `core/spec` is the dependency leaf.
-- Runtime is provider-neutral and does not import built-in Git or GitHub definitions.
+- `runtime/spec` and `runtime/validation` are dependency leaves; spec owns contracts and validation owns only neutral
+  primitives.
+- Runtime definition, registry, and execution have separate reasons to change. The public `runtime/index.ts` entrypoint
+  curates them without becoming a new implementation owner.
+- Execution is provider-neutral and does not import definition construction, built-in Git, or GitHub definitions.
 - `host` owns privileged integration types but no host implementation or resource lifecycle.
-- Only `facade` composes host resolvers, exact registries, provider adapters, and definition modules.
+- Only `application` composes host resolvers, exact registries, provider adapters, and definition modules.
 - Git and GitHub do not import one another.
 - Production source never imports `testing`, test support, build output, or repository scripts.
 - Tests import explicit modules; there is no broad test-support barrel.
 - Public consumers use the export map and never deep-import internal files.
 
-`.oxlintrc.architecture.json` enforces this graph and zero value or type dependency cycles through Oxlint's module
-graph. Published boundaries are enforced independently through explicit exports, declarations, package smoke tests,
-`publint`, Are The Types Wrong, and pack-content validation.
+`.oxlintrc.architecture.json` enforces this graph, curated consumer test imports, and zero value or type dependency
+cycles through Oxlint's module graph. Architecture-rule changes require a temporary negative probe proving that the
+intended override rejects a representative forbidden import. Published boundaries are enforced independently through
+explicit exports, declarations, packed-consumer execution, `publint`, Are The Types Wrong, and pack-content
+validation.
 
 The full Draft target preserves the same direction as more provider families and scripts are added:
 
 ```text
-core/spec <- core/registry <- core/runtime
-core/spec <- host
-core/spec <- providers/*/contracts
-core/spec + host + providers/*/contracts <- providers/*/adapters
-core/spec + core/runtime + providers/*/contracts <- scripts/*
-core/runtime + core/registry + host + providers/*/adapters + scripts/* <- facade
-core + providers + scripts <- testing
+runtime/spec <- runtime/definition
+runtime/spec <- runtime/registry
+runtime/spec + runtime/registry + runtime/validation <- runtime/execution
+runtime/definition + runtime/registry + runtime/execution <- runtime/index
+runtime/spec <- host
+runtime/spec <- providers/*/contracts
+runtime/spec + host + providers/*/contracts <- providers/*/adapters
+runtime/spec + runtime/definition + providers/*/contracts <- scripts/*
+runtime + host + providers/*/adapters + scripts/* <- application
+runtime + application + providers + scripts <- testing
 ```
 
-Scripts may depend only on `core/spec`, the provider-neutral execution surface, and handler-safe bounded provider
-contracts in their own category. They MUST NOT import provider adapters, privileged host contracts, another provider
-family, or facade composition. Providers MUST NOT import concrete scripts. Provider adapters construct bounded clients
-but MUST NOT decide script result schemas, stale-state policy, idempotency, or business outcomes. The facade is the
-composition root and the only production area allowed to join host resolvers, provider adapters, registries, and script
-modules.
+Scripts may depend only on `runtime/spec`, runtime definition construction, and handler-safe bounded provider contracts in their own
+category. They MUST NOT import the execution implementation, provider adapters, privileged host contracts, another
+provider family, or application composition. Providers MUST NOT import concrete scripts. Provider adapters construct
+bounded clients but MUST NOT decide script result schemas, stale-state policy, idempotency, or business outcomes. The
+application layer is the composition root and the only production area allowed to join host resolvers, provider adapters,
+registries, and script modules.
 
 Provider contract directories MUST NOT import `host` or export adapter construction types. The trusted provider module
 SPI belongs to `host`; an adapter implements it while importing its family's handler-safe contract.
@@ -188,17 +232,22 @@ The package owns script definition, one-script execution, each built-in operatio
 used by built-in Git and GitHub scripts. It does not own pipeline routing, durable workflow state, workspace lifecycle,
 credential storage or account-selection policy, human gates, artifact persistence, DBOS, Prisma, or NestJS.
 
-Provider contracts, adapters, and retained revisions are released from this repository through explicit package
-subpaths. They are not separate npm packages and do not have independent release cycles.
+Provider contracts and adapters are released from this repository through explicit package subpaths. They are not
+separate npm packages and do not have independent release cycles.
 
 The host exposes stable privileged resolvers for opaque workspace ids and credential aliases. Package-owned providers
 may use resolved paths, credentials, process execution, or transports internally. Provider clients returned to
-handlers are bounded domain ports and hide those values in private closure state. Raw process execution, workspace
+handlers are bounded domain ports and hide those values in private instance state. Raw process execution, workspace
 paths, environment maps, tokens, generic HTTP or GraphQL clients, and global mutable loggers are never handler
 capabilities.
 
+Stateful runtime components use classes with TypeScript `private` members; ECMAScript `#private` fields are not used.
+Manifests, plans, pins, results, failures, and events are TypeScript `readonly` transport values. Construction
+snapshots retained input collections, but production code does not use `Object.freeze`; persisted or externally
+restored values are validated at their owning boundary.
+
 Adding a script within an installed provider family must not require a host executor change. Adding a provider family
-requires an explicit trusted provider module and configuration. Host-core code changes only when the provider needs a
+requires an explicit trusted provider module and configuration. Host-layer code changes only when the provider needs a
 new resource lifecycle that the stable host integration contract cannot represent.
 
 ## Package surface
@@ -226,8 +275,8 @@ The target export map keeps physical ownership and consumer intent distinct:
 | `@revisium/revo-scripts/providers/github` | GitHub contract and trusted provider-family factory                  |
 | `@revisium/revo-scripts/testing`          | Contract suites, deterministic fakes, clocks, and recording sinks    |
 
-Provider factories are not re-exported from the Git or GitHub script entrypoints. Internal version directories remain
-behind the export map; consumers choose a script through its exact manifest identity rather than a deep import.
+Provider factories are not re-exported from the Git or GitHub script entrypoints. Consumers choose a script through
+its exact manifest identity rather than a deep import or a filesystem path.
 
 ## Change routing
 

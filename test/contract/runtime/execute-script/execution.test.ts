@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 
-import { defineScript } from '../../../../src/core/runtime/define-script.js';
-import type { ScriptSchema } from '../../../../src/core/spec/script-schema.js';
+import { defineScript } from '../../../../src/runtime/definition/define-script.js';
+import type { ScriptSchema } from '../../../../src/runtime/spec/schema/index.js';
 import { echoDefinition, echoResultSchema } from '../../../support/runtime/echo-script-fixture.js';
 import { executeRuntimeScenario } from '../../../support/runtime/runtime-mechanics.js';
 
@@ -47,7 +47,8 @@ test('executes one registered script and returns its typed result', async () => 
 
 test('rejects an invalid handler result through the declared result schema', async () => {
   const rejectingResultSchema: ScriptSchema<{ echoed: string }> = {
-    ...echoResultSchema,
+    id: echoResultSchema.id,
+    toJsonSchema: () => echoResultSchema.toJsonSchema(),
     validate: async () => ({
       ok: false,
       issues: [{ message: 'Expected one echoed string.', path: ['echoed'] }],
@@ -82,8 +83,10 @@ test('does not expose an unknown handler error through the package boundary', as
   const unknownFailureDefinition = defineScript({
     ...echoDefinition,
     implementation: { id: '@revisium/revo-scripts/test/unknown-failure', version: '1.0.0' },
-    handler: async () => {
-      throw new Error('secret provider diagnostics');
+    handler: {
+      execute: async () => {
+        throw new Error('secret provider diagnostics');
+      },
     },
   });
   const { result } = await executeRuntimeScenario(unknownFailureDefinition, {

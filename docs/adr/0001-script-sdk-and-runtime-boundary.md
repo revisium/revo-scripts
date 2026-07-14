@@ -42,11 +42,17 @@ the host's behalf. Package-provided family definition modules will avoid per-scr
 forcing a Git-only host to install GitHub infrastructure. An all-built-ins module remains a convenience for hosts that
 select every family.
 
-The source tree will separate three ownership areas: provider-neutral system code under `src/core`, trusted provider
-contracts and adapters under `src/providers/<family>`, and concrete versioned operations under
-`src/scripts/<category>/<operation>/versions/<semver>`. A concrete script may depend on a bounded provider contract but
-never on an adapter implementation or privileged host resolver. Providers never import scripts. The facade is the
-composition root that joins these areas.
+The source tree will separate provider-neutral contracts, definition construction, registration, and execution under
+`src/runtime`; privileged integration ports under `src/host`; consumer use cases and facade composition under
+`src/application`; trusted provider contracts and adapters under `src/providers/<family>`; and concrete operations
+under `src/scripts/<category>/<operation>`. `src/runtime/index.ts` is only the curated low-level public entrypoint. A
+concrete script may depend on definition construction and a bounded provider contract but never on execution internals,
+an adapter implementation, a privileged host resolver, or application composition. Providers never import scripts.
+The application layer behind the public facade is the composition root that joins these areas.
+
+Script versions remain exact manifest identities rather than directory names. The repository currently retains one
+implementation per script/provider id; a multi-version source-retention scheme requires a separate proven design and
+must not be introduced speculatively.
 
 Package, script, provider-contract, and provider-implementation identity are deliberately separate:
 
@@ -61,11 +67,10 @@ sufficient for deterministic execution and recovery, while the contract major ex
 compilation selects one configured compatible provider for a new run and records the exact pin. Execution and recovery
 never choose `latest`, use a range, or fall back to another implementation.
 
-V1 retains built-in provider implementations as immutable in-package adapter revisions. A provider-family factory
-registers the current new-plan default and every retained revision, while plans continue to pin only the exact digest
-and provenance. A revision is removed only after an external audit proves that no supported or recoverable plan pins
-it. Provider contracts, adapters, and retained revisions remain subpaths of `@revisium/revo-scripts`; separate provider
-npm packages are outside this architecture.
+V1 currently keeps one built-in implementation per provider id. A provider-family factory registers the current
+new-plan implementation, while plans pin its exact digest and provenance. Multiple retained implementations require a
+separate accepted design and external pin-audit policy. Provider contracts and adapters remain subpaths of
+`@revisium/revo-scripts`; separate provider npm packages are outside this architecture.
 
 Orchestration, durable workflow state, workspace lifecycle, credentials, human gates, and artifact persistence remain
 outside the package. The host supplies logical resource and credential aliases from its immutable execution plan; the
@@ -136,13 +141,12 @@ cross-repository supersession.
 - A new script inside an installed provider family changes package code and pipeline data, not the host executor.
 - A new provider family requires an explicit trusted provider module, credential/resource policy, and configuration;
   it does not require a concrete-id branch in the host executor.
-- A host-core change is justified only when a provider needs a resource lifecycle the stable host contract cannot
+- A host-layer change is justified only when a provider needs a resource lifecycle the stable host contract cannot
   express, not merely because the provider adds another operation.
 - The package must maintain production provider adapters, normalize their failure modes, and prove them with real local
   or provider-contract fixtures.
 - Hosts must implement the stable infrastructure services and explicitly manage which definition/provider modules are
   trusted.
 - Provider adapter changes that preserve the declared provider contract do not force a script version change. New
-  execution plans pin the new adapter revision's digest; recoverable old plans resolve an immutable retained revision.
-- Provider contracts, adapters, retained revisions, verification, and releases remain owned by this package and its
-  release cycle.
+  execution plans pin the new adapter digest; recovery retention remains a separately designed obligation.
+- Provider contracts, adapters, verification, and releases remain owned by this package and its release cycle.

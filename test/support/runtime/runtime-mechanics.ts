@@ -1,10 +1,10 @@
-import { createScriptRegistry } from '../../../src/core/registry/script-registry.js';
-import { executeScript } from '../../../src/core/runtime/execute-script.js';
-import type { ScriptDefinition } from '../../../src/core/spec/script-definition.js';
-import type { EventSink, ScriptEvent } from '../../../src/core/spec/script-events.js';
-import type { ScriptClock } from '../../../src/core/spec/script-execution.js';
-import type { ScriptResourceMap } from '../../../src/core/spec/script-resources.js';
-import type { ScriptExecutionResult } from '../../../src/core/spec/script-result.js';
+import { executeScript } from '../../../src/runtime/execution/execute-script.js';
+import { createScriptRegistry } from '../../../src/runtime/registry/create-script-registry.js';
+import type { ScriptDefinition } from '../../../src/runtime/spec/definition/index.js';
+import type { EventSink, ScriptEvent } from '../../../src/runtime/spec/events/index.js';
+import type { ScriptClock } from '../../../src/runtime/spec/execution/index.js';
+import type { ScriptResourceMap } from '../../../src/runtime/spec/resources/index.js';
+import type { ScriptExecutionResult } from '../../../src/runtime/spec/result/index.js';
 
 export const createRecordingEventSink = (): {
   readonly events: ScriptEvent[];

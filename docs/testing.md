@@ -69,6 +69,17 @@ CLI, and durable-recovery test layers do not belong in this package.
 Unit and contract tests may share deterministic builders and recording fakes from explicit support modules. There is no
 broad test barrel. Production modules never import test support.
 
+Consumer integration tests construct the same `createRevoScripts` object as a host application and execute scripts
+through public package entrypoints. System behavior is replaced at the narrow package-owned boundary, such as
+`ProcessExecutor`, `WorkspaceResolver`, or `CredentialResolver`; tests do not globally mock `node:child_process`, the
+filesystem, or private implementation classes. Each production adapter also keeps the smallest useful real-system
+contract, such as a temporary local Git repository, to prove that its boundary wiring is executable.
+
+The packed-consumer gate builds a tarball, extracts that exact artifact into an isolated consumer project, typechecks
+its public declarations, runs one script through injected ports, and proves that an undeclared deep import is rejected.
+It remains outside semantic coverage ownership because it proves packaging and consumer resolution rather than source
+branches.
+
 ## Runtime proof
 
 The runtime foundation requires tests for:
@@ -80,7 +91,7 @@ The runtime foundation requires tests for:
 - build-generated definition identity freshness and digest participation;
 - duplicate registration, sealing, exact lookup, and missing-definition failures;
 - coexistence and exact lookup of two immutable versions of one script id;
-- input immutability and one-handler invocation per attempt;
+- readonly handler input and one-handler invocation per attempt;
 - wall-clock timeout and abort propagation;
 - a never-settling handler or event sink remains bounded by the platform wall-clock deadline;
 - bounded retry of typed transient failures only;
@@ -154,14 +165,13 @@ Every package-owned provider requires tests proving:
 - real local or provider-contract fixtures exercise the production adapter without requiring host operation logic;
 - provider contract majors are selected by manifest requirements, while execution resolves the exact implementation
   id, digest, and package provenance pinned in the plan;
-- multiple retained implementations or contract majors never introduce implicit latest selection or fallback;
+- multiple implementations or contract majors never introduce implicit latest selection or fallback;
 - changing the new-plan default does not change execution or recovery for an existing exact pin.
-- an explicit retained-revision override changes only new plan compilation and still produces exactly one default.
 
 The consumer compatibility suite requires at least two arbitrary definitions in one provider family and proves that:
 
 - both execute through the same `createRevoScripts().execute(...)` path;
-- the facade, host services, and provider registry contain no concrete script-id branch;
+- the application layer, host services, and provider registry contain no concrete script-id branch;
 - adding the second definition requires no per-operation host capability or registration call;
 - adding a new script under an existing provider contract requires no consumer executor change;
 - a selected definition family whose provider contract is absent fails at startup;
@@ -174,10 +184,12 @@ new-plan default and all retained immutable revisions are registered without con
 version, provider contract major, or exact provider implementation requires external pin-audit evidence; a local green
 suite alone is not evidence that no pipeline or recoverable run still references it.
 
-Architecture tests MUST distinguish `core`, provider contracts, provider adapters, and concrete scripts. They enforce
-that provider contracts cannot import privileged host types, scripts import only bounded contracts in their own
-provider category, adapters never import scripts, provider families do not import one another, only the facade composes
-adapters with definitions, and production never imports testing.
+Architecture tests MUST distinguish runtime, host ports, application composition, provider contracts, provider
+adapters, and concrete scripts. They enforce that provider contracts cannot import privileged host types, scripts
+import only bounded contracts in their own provider category, adapters never import scripts, provider families do not
+import one another, only application composes adapters with definitions, and production never imports testing.
+An architecture configuration change MUST be verified with a temporary representative forbidden import. A green run
+against a graph that happens to contain no violation does not prove that an override or path pattern is active.
 
 ## Coverage and quality metrics
 

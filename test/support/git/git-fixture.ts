@@ -1,6 +1,3 @@
-import type { ScriptEvent } from '../../../src/core/spec/script-events.js';
-import type { ScriptClock } from '../../../src/core/spec/script-execution.js';
-import type { ScriptEffect } from '../../../src/core/spec/script-manifest.js';
 import type {
   CredentialResolver,
   RevoScriptsHost,
@@ -11,6 +8,12 @@ import {
   nodeGitProviders,
   type NodeGitProvidersOptions,
 } from '../../../src/providers/git/index.js';
+import type {
+  EventSink,
+  ScriptClock,
+  ScriptEffect,
+  ScriptEvent,
+} from '../../../src/runtime/spec/index.js';
 
 export const gitTestHeadSha = '0123456789abcdef0123456789abcdef01234567';
 
@@ -68,6 +71,7 @@ export interface GitHostOptions {
   readonly resolveWorkspace?: WorkspaceResolver['resolve'];
   readonly resolveCredential?: CredentialResolver['resolve'];
   readonly clock?: ScriptClock;
+  readonly onEvent?: EventSink['emit'];
 }
 
 export interface GitHostFixture {
@@ -97,6 +101,7 @@ export const createGitHost = (options: GitHostOptions = {}): GitHostFixture => {
     events: {
       emit: async (event) => {
         events.push(event);
+        await options.onEvent?.(event);
       },
     },
     ...(options.clock === undefined ? {} : { clock: options.clock }),

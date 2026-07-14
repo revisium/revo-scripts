@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { redactValue } from '../../../src/core/runtime/redact.js';
+import { redactValue } from '../../../src/runtime/execution/redaction/redact.js';
 
 test('redacts declared JSON Pointer paths without mutating the source value', () => {
   const source = {

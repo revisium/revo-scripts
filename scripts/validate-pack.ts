@@ -36,10 +36,10 @@ const paths = manifest.files.map((file) => file.path).sort();
 const requiredPaths = [
   'LICENSE',
   'README.md',
-  'dist/core/runtime/index.d.ts',
-  'dist/core/runtime/index.js',
-  'dist/core/spec/index.d.ts',
-  'dist/core/spec/index.js',
+  'dist/runtime/index.d.ts',
+  'dist/runtime/index.js',
+  'dist/runtime/spec/index.d.ts',
+  'dist/runtime/spec/index.js',
   'dist/index.d.ts',
   'dist/index.js',
   'dist/providers/git/index.d.ts',
@@ -54,6 +54,11 @@ const requiredPaths = [
 for (const requiredPath of requiredPaths) {
   assert.ok(paths.includes(requiredPath), `Package is missing ${requiredPath}`);
 }
+
+const stalePaths = paths.filter((path) =>
+  /^(?:dist\/(?:core|spec|definition|registry|execution|validation|facade))(?:\/|$)/.test(path),
+);
+assert.deepEqual(stalePaths, [], `Package contains stale build paths: ${stalePaths.join(', ')}`);
 
 const unexpectedPaths = paths.filter(
   (path) =>

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 
-import { validateScriptManifest } from '../../../src/core/runtime/validate-manifest.js';
-import { ScriptFault } from '../../../src/core/spec/script-errors.js';
+import { validateScriptManifest } from '../../../src/runtime/definition/validation/manifest/validate-manifest.js';
+import { ScriptFault } from '../../../src/runtime/spec/errors/index.js';
 import { echoManifest as validManifest } from '../../support/runtime/echo-definition-input.js';
 
 const captureManifestFault = (value: unknown) => {

@@ -1,10 +1,10 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 
-import { createScriptRegistry } from '../../../src/core/registry/script-registry.js';
-import { createScriptSchema } from '../../../src/core/runtime/create-script-schema.js';
-import { defineScript } from '../../../src/core/runtime/define-script.js';
-import { ScriptFault } from '../../../src/core/spec/script-errors.js';
+import { defineScript } from '../../../src/runtime/definition/define-script.js';
+import { createScriptSchema } from '../../../src/runtime/definition/schema/create-script-schema.js';
+import { createScriptRegistry } from '../../../src/runtime/registry/create-script-registry.js';
+import { ScriptFault } from '../../../src/runtime/spec/errors/index.js';
 
 const emptySchema = createScriptSchema({
   id: 'revo.script.test.empty/v1',
@@ -41,7 +41,7 @@ const createDefinition = (id: `script:test/${string}`, version: string) =>
     inputSchema: emptySchema,
     resultSchema: emptySchema,
     implementation: { id: '@revisium/revo-scripts/test/registry', version: '1.0.0' },
-    handler: async () => ({ value: {} }),
+    handler: { execute: async () => ({ value: {} }) },
   });
 
 const captureFault = (operation: () => unknown) => {

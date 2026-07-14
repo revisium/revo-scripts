@@ -156,10 +156,10 @@ implementation MUST be marked `useForNewPlans` when that contract is available f
 host composition policy, not provider-module metadata. Execution resolves only exact plan pins; it MUST NOT consult the
 new-plan default or fall back to another implementation.
 
-A package provider-family factory chooses its current revision by default. Trusted startup configuration MAY override
-that choice with one retained internal revision id, such as `r1`; the factory validates the id and returns exactly one
-`useForNewPlans` registration. Revision ids are local composition values, not provider contract versions, pipeline
-data, or execution pins.
+A package provider-family factory returns the configured implementation for new plans. The current package contains
+one implementation per provider id and does not expose an internal revision selector. Supporting multiple retained
+implementations requires a separate accepted source-retention and composition design; revision folder names MUST NOT
+be inferred as provider contract versions, pipeline data, or execution pins.
 
 `resolveForPlan` is the generic compilation seam. It resolves an exact script definition, matches every manifest
 provider requirement to the one configured new-plan default for that contract, and returns immutable definition and
@@ -316,15 +316,14 @@ path, length, and byte framing used for a definition build digest. It excludes u
 generated metadata. CI MUST reproduce and compare it. A changed adapter closure produces a new digest even when it
 still implements the same provider contract major.
 
-Built-in adapter implementations are retained as immutable source revisions under paths such as
-`src/providers/git/adapters/node/revisions/r1/`. A provider-family factory MUST return registrations for the current
-new-plan default and every retained revision, so a consumer does not enumerate implementation digests manually. A new
-adapter change adds a revision and moves the default; it MUST NOT overwrite an existing revision. A retained revision
-may be removed only after the required external pin audit. Provider contracts, adapters, and retained revisions MUST
-remain owned and published by `@revisium/revo-scripts`; v1 defines no separately released provider package seam.
+Built-in adapter implementations live under paths such as `src/providers/git/adapters/node/`. The current factory
+returns one new-plan implementation. Before the package retains two implementations for recovery, an accepted design
+MUST define their source ownership, export/composition rules, generated digests, and external pin audit. Provider
+contracts and adapters remain owned and published by `@revisium/revo-scripts`; v1 defines no separately released
+provider package seam.
 
 A new provider family is installed by adding an explicit provider/definition module plus host credential and resource
-configuration. Generic pipeline execution MUST remain unchanged. A host-core change is justified only when the new
+configuration. Generic pipeline execution MUST remain unchanged. A host-layer change is justified only when the new
 provider requires a resource lifecycle that `ScriptExecutionBindings` and the existing resolvers cannot safely
 represent.
 
@@ -501,15 +500,14 @@ type ScriptDefinition<I, O, R extends ScriptResourceMap> = {
   definitionDigest: `sha256:${string}`;
 };
 
-type ScriptHandler<I, O, R extends ScriptResourceMap> = (
-  input: Readonly<I>,
-  context: Readonly<ScriptContext<R>>,
-) => Promise<ScriptHandlerResult<O>>;
+interface ScriptHandler<I, O, R extends ScriptResourceMap> {
+  execute(input: Readonly<I>, context: Readonly<ScriptContext<R>>): Promise<ScriptHandlerResult<O>>;
+}
 ```
 
 `ScriptSchema` MUST remain validation-library-neutral. The initial adapter SHOULD accept Standard Schema V1 validators
 and Standard JSON Schema V1 converters. Built-ins MAY use Zod through that adapter; Zod types MUST NOT become required
-members of the core definition contract.
+members of the runtime definition contract.
 
 JSON Schemas MUST target Draft 2020-12, carry the schema id declared by the manifest, describe JSON-compatible values,
 and reject unknown object properties unless a schema explicitly models a bounded map. Runtime validation and emitted
@@ -517,14 +515,15 @@ JSON Schema MUST describe the same accepted values.
 
 `defineScript` MUST validate the manifest, both schemas, policy coherence, verdict pointer, and implementation
 identity. It MUST compute the definition digest over RFC 8785 canonical JSON containing the manifest, both JSON
-Schemas, implementation id, implementation version, and build digest. It MUST return an immutable definition.
+Schemas, implementation id, implementation version, and build digest. It MUST return a TypeScript-readonly definition
+snapshot that does not retain caller-owned collections.
 
 Handler source and executable schema objects MUST NOT be serialized into a manifest, event, artifact, or definition
 pin. A build digest is generated by the trusted package build rather than hand-authored or recomputed during execution.
 It covers the emitted runtime closure for that exact script definition, including its schemas and transitive owned
 helpers, but excludes unrelated definitions and generated build metadata. Adding an unrelated script MUST NOT change
 an existing definition digest when that existing definition's contract and executable closure are byte-identical.
-Helpers in the runtime closure of a published version are frozen with that version or copied into a new version-owned
+Helpers in the runtime closure of a published version are retained with that version or copied into a new version-owned
 closure before modification. A mutable shared helper MUST NOT silently change an already-published definition digest.
 
 The target generator performs a fresh temporary TypeScript emission, sorts the owned runtime closure by
@@ -550,11 +549,11 @@ A script id is stable across versions. The pipeline MUST name an exact semantic 
 range, tag, or fallback. A published `(id, version)` is immutable. Any change to its manifest, schemas, observable
 result, stable error mapping, effect behavior, or handler implementation requires a new version: breaking contract
 changes increment major, backward-compatible additive changes increment minor, and compatible corrections increment
-patch. A package release MAY contain multiple versions of one script simultaneously.
-
-Exact versions SHOULD be owned in directories such as
-`src/scripts/git/status/versions/1.0.0/` and `src/scripts/git/status/versions/2.0.0/`. Removing a version requires an
-audit proving that no supported pipeline, compiled execution plan, active execution, or recoverable run pins it.
+patch. A future package release MAY contain multiple versions of one script simultaneously after a source-retention
+and export design is accepted. The current implementation keeps one exact version in a flat operation directory such
+as `src/scripts/git/status/`; folder names are not version identities. Removing or replacing a published version
+requires an audit proving that no supported pipeline, compiled execution plan, active execution, or recoverable run
+pins it.
 
 A provider contract uses a major-only ref such as `revo.provider.git/v1`. A script depends on that protocol, not an
 adapter. A breaking bounded-client change creates `v2`; `v1` and `v2` MAY coexist during migration. A provider adapter
@@ -602,8 +601,10 @@ The definition's resource-map generic MUST give each handler a statically typed 
 registry MAY erase that generic internally only after definition validation. A built-in handler MUST NOT cast an
 unknown client into a stronger port.
 
-The runtime MUST pass immutable input and context views. A handler MUST execute one bounded operation and return domain
-data. It MUST NOT start its own retry loop or invoke another registered script.
+The runtime MUST pass TypeScript-readonly input and context views. Runtime `Object.freeze` is not part of the contract;
+the trusted handler MUST NOT mutate either view. A handler is a stateless class instance, MUST execute one bounded
+operation through `execute`, and MUST return domain data. It MUST NOT keep execution state in instance fields, start
+its own retry loop, or invoke another registered script.
 
 ### Results and failures
 
@@ -758,18 +759,18 @@ runtime contract suite MUST fail when a fixture secret remains visible in any ap
 ```ts
 declare const registeredScriptBrand: unique symbol;
 
-type RegisteredScript<I, O, R extends ScriptResourceMap> = {
-  manifest: ScriptManifestV1;
-  definitionDigest: `sha256:${string}`;
-  implementation: { id: string; version: string };
+interface RegisteredScript<I, O, R extends ScriptResourceMap> {
+  readonly manifest: ScriptManifestV1;
+  readonly definitionDigest: `sha256:${string}`;
+  readonly implementation: Readonly<{ id: string; version: string }>;
   readonly [registeredScriptBrand]: {
-    input: I;
-    output: O;
-    resources: R;
+    readonly input: I;
+    readonly output: O;
+    readonly resources: R;
   };
-};
+}
 
-type ScriptRegistry = {
+interface ScriptRegistry {
   register<I, O, R extends ScriptResourceMap>(
     definition: ScriptDefinition<I, O, R>,
   ): RegisteredScript<I, O, R>;
@@ -781,7 +782,7 @@ type ScriptRegistry = {
     digest: `sha256:${string}`,
   ): RegisteredScript<unknown, unknown, ScriptResourceMap>;
   listManifests(): readonly ScriptManifestV1[];
-};
+}
 ```
 
 Registration MUST be explicit. Directory scanning, package discovery, import-time side-effect registration, version
@@ -947,24 +948,29 @@ entrypoints do not expose them.
 The internal dependency graph MUST remain acyclic and follow this direction:
 
 ```text
-core/spec <- core/runtime
-core/spec <- core/registry
-core/spec <- host
-core/spec <- providers/*/contracts
-core/spec + host + providers/*/contracts <- providers/*/adapters
-core/spec + core/runtime + providers/*/contracts <- scripts/*
-core/runtime + core/registry + host + providers/*/adapters + scripts/* <- facade
-core + providers + scripts <- testing
+runtime/spec <- runtime/definition
+runtime/spec <- runtime/registry
+runtime/spec + runtime/registry + runtime/validation <- runtime/execution
+runtime/definition + runtime/registry + runtime/execution <- runtime/index
+runtime/spec <- host
+runtime/spec <- providers/*/contracts
+runtime/spec + host + providers/*/contracts <- providers/*/adapters
+runtime/spec + runtime/definition + providers/*/contracts <- scripts/*
+runtime + host + providers/*/adapters + scripts/* <- application
+runtime + application + providers + scripts <- testing
 ```
 
-`core/spec` MUST NOT import another package area. Runtime and registry MUST NOT import host, providers, scripts, or
-facade code. Host contracts MUST NOT import provider implementations. Provider contract directories MAY import only
+`runtime/spec` and neutral `runtime/validation` primitives MUST NOT import another package area. Runtime definition
+construction MUST NOT import registry or execution. Registry MAY import only portable spec contracts. Execution MAY
+import registry, spec, and neutral validation primitives; it MUST NOT import definition construction, host, providers,
+scripts, or application code. `runtime/index.ts` is a curated public entrypoint and MUST NOT own implementation. Host contracts MUST NOT
+import provider implementations. Provider contract directories MAY import only
 portable spec types; they are handler-safe and MUST NOT export adapter construction or host-resolution types. Adapters
 implement the trusted provider-module SPI from `host`, import their own bounded contract, and MUST NOT import
 concrete scripts. Scripts MAY import their category's bounded provider contracts but MUST NOT import adapters, `/host`,
-process, credential, or workspace-resolution modules. Git and GitHub scripts MUST NOT import one another. The facade is
-the composition root. Production code MUST NOT import testing. Consumers MUST use public subpaths rather than internal
-files.
+process, credential, or workspace-resolution modules. Git and GitHub scripts MUST NOT import one another. The
+application layer behind the consumer facade is the composition root. Production code MUST NOT import testing.
+Consumers MUST use public subpaths rather than internal files.
 
 ### First built-in: Git status
 

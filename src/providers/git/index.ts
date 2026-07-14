@@ -1,6 +1,6 @@
-export type { GitStatusClient, GitStatusSnapshot } from './contracts/v1/index.js';
-export { nodeGitProviders } from './adapters/node/provider-family.js';
-export type { NodeGitProvidersOptions } from './adapters/node/provider-family.js';
+export type { GitStatusClient, GitStatusSnapshot } from './contracts/git-status-client.js';
+export { nodeGitProviders } from './adapters/node/node-git-providers.js';
+export type { NodeGitProvidersOptions } from './adapters/node/node-git-providers.js';
 export type {
   ProcessExecutionRequest,
   ProcessExecutionResult,

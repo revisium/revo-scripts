@@ -1,8 +1,8 @@
 import { expect, test, vi } from 'vitest';
 
-import { defineScript } from '../../../../src/core/runtime/define-script.js';
-import { executeScript } from '../../../../src/core/runtime/execute-script.js';
-import type { EventSink } from '../../../../src/core/spec/script-events.js';
+import { defineScript } from '../../../../src/runtime/definition/define-script.js';
+import { executeScript } from '../../../../src/runtime/execution/execute-script.js';
+import type { EventSink } from '../../../../src/runtime/spec/events/index.js';
 import {
   echoDefinition,
   echoInputSchema,
@@ -29,12 +29,14 @@ test('aborts an active handler at the total wall-clock deadline', async () => {
       inputSchema: echoInputSchema,
       resultSchema: echoResultSchema,
       implementation: { id: '@revisium/revo-scripts/test/timeout', version: '1.0.0' },
-      handler: async (_input, context) =>
-        new Promise((_resolve, reject) => {
-          context.signal.addEventListener('abort', () => reject(context.signal.reason), {
-            once: true,
-          });
-        }),
+      handler: {
+        execute: async (_input, context) =>
+          new Promise((_resolve, reject) => {
+            context.signal.addEventListener('abort', () => reject(context.signal.reason), {
+              once: true,
+            });
+          }),
+      },
     });
     const { registry, script } = registerTestScript(timeoutDefinition);
     const { events, sink } = createRecordingEventSink();
@@ -131,7 +133,7 @@ test('bounds a success EventSink that never settles by the wall-clock deadline',
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
     implementation: { id: '@revisium/revo-scripts/test/hanging-event-sink', version: '1.0.0' },
-    handler: async (input) => ({ value: { echoed: input.message } }),
+    handler: { execute: async (input) => ({ value: { echoed: input.message } }) },
   });
   const { registry, script } = registerTestScript(timeoutDefinition);
   const sink: EventSink = {

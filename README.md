@@ -54,21 +54,38 @@ The target source tree separates system mechanics, infrastructure, and concrete 
 
 ```text
 src/
-  core/                         spec, runtime, registry, host contracts, facade
+  runtime/
+    spec/                       portable script contracts and transport values
+    definition/                 definition construction and schema validation
+    registry/                   explicit exact-version registration and lookup
+    execution/                  provider-neutral execution of one script
+    validation/                 dependency-neutral validation primitives
+    index.ts                    curated low-level public entrypoint
+  host/
+    bindings/                   immutable execution bindings
+    credentials/                credential resolver port and resolved handle
+    workspaces/                 workspace resolver port and trusted allocation
+    providers/                  trusted provider module SPI
+  application/
+    contracts/                  consumer facade request and result contracts
+    registration/               definition modules and registry composition
+    providers/                  provider catalog and execution preparation
+    execution/                  generic one-script coordination
   providers/
     git/contracts/              bounded Git protocol
-    git/adapters/*/revisions/   immutable trusted implementations
+    git/adapters/*/             trusted implementations and bounded clients
     github/contracts/
-    github/adapters/*/revisions/
+    github/adapters/*/
   scripts/
-    git/<operation>/versions/<semver>/
-    github/<area>/<operation>/versions/<semver>/
-  testing/                      core, provider, and script contract mechanics
+    git/<operation>/
+    github/<area>/<operation>/
+  testing/                      runtime, provider, and script contract mechanics
 ```
 
 A script imports its provider's bounded contract, never its adapter. A provider implements infrastructure and never
-imports a concrete script. Only the facade composes host resolvers, exact registries, provider adapters, and script
-modules. See [REPOSITORY.md](REPOSITORY.md) for the complete dependency graph and export-map rules.
+imports a concrete script. Only the application layer behind the consumer facade composes host resolvers, exact
+registries, provider adapters, and script modules. See [REPOSITORY.md](REPOSITORY.md) for the complete dependency graph
+and export-map rules.
 
 ## Mental model
 
@@ -127,14 +144,13 @@ const scripts = createRevoScripts({
 executor, command, environment, or resolved workspace path.
 
 This is the only provider-level composition point. `builtInScripts()` explicitly registers the package's trusted
-definitions as one module; it is convenient for a host that installs every built-in provider. A narrower host uses
-family modules such as `gitScripts()` or `githubScripts()` and does not need providers for unselected families. The
-consumer never adds one `registry.register(...)` call per built-in.
+definitions as one module. The currently implemented narrower family module is `gitScripts()`. A future family module
+is exported only when that family has a real definition; `githubScripts()` does not exist yet. The consumer never adds
+one `registry.register(...)` call per built-in.
 
-Each provider-family factory returns one default for new plans plus any immutable revisions still retained for
-recovery. Upgrading the package does not require the consumer to list implementation digests or wire old adapters. A
-trusted host may explicitly select a retained internal revision as its new-plan default in factory configuration; that
-revision id never enters pipeline data or an execution pin.
+Each provider-family factory currently returns one default implementation for new plans. Upgrading the package does
+not require the consumer to list implementation digests or wire adapters. Multiple retained implementations and their
+selection API require a separate accepted design before they are added.
 
 ### 2. Declare a script node in pipeline data
 
@@ -142,13 +158,10 @@ revision id never enters pipeline data or an execution pin.
 {
   "type": "script",
   "script": {
-    "id": "script:git/diff-summary",
+    "id": "script:git/status",
     "version": "1.0.0"
   },
-  "input": {
-    "base": "origin/master",
-    "head": "HEAD"
-  },
+  "input": {},
   "resources": {
     "repository": {
       "ref": "target",
@@ -189,7 +202,7 @@ const bindings = {
       workspaceId: 'workspace-456',
       access: 'read',
       grant: {
-        permissions: ['git.diff-summary.read'],
+        permissions: ['git.status.read'],
         effects: ['git.read'],
       },
       providerCoordinates: {},
@@ -199,7 +212,12 @@ const bindings = {
 } as const;
 ```
 
-For a GitHub operation, the same plan pins a credential alias rather than a secret:
+Provider coordinates are keyed by the manifest provider-requirement name. The selected provider module owns a closed
+schema for its coordinate. The facade rejects missing, extra, invalid, or oversized coordinates before resolving a
+workspace or credential.
+
+The following GitHub binding illustrates that target contract; it is not executable until a GitHub script and provider
+are implemented:
 
 ```ts
 const githubBindings = {
@@ -235,13 +253,10 @@ new default or fallback.
 
 ```ts
 const result = await scripts.execute({
-  executionId: 'run-123:diff-summary:1',
+  executionId: 'run-123:git-status:1',
   script: executable.script,
   providers: executable.providers,
-  input: {
-    base: 'origin/master',
-    head: 'HEAD',
-  },
+  input: {},
   bindings,
   signal,
 });
@@ -253,7 +268,7 @@ if (result.ok) {
 }
 ```
 
-The executor does not branch on `script:git/diff-summary` or any other concrete id.
+The executor does not branch on `script:git/status` or any other concrete id.
 
 ### 5. What happens inside the package
 
@@ -279,13 +294,14 @@ credential alias
   -> script handler
 ```
 
-Only trusted provider infrastructure sees a resolved path or credential. The handler calls bounded domain methods such
-as `repository.git.status()` or `repository.github.readPullRequest(...)`; the path and credential remain private
-closure state.
+Only trusted provider infrastructure sees a resolved path or credential. The current Git status handler calls
+`context.resources.repository.clients.git.readStatus(context.signal)`; the path remains private closure state. A future
+GitHub handler will use an equally bounded GitHub client rather than a generic transport.
 
 ## Releasing a new script
 
-Suppose package `1.2.0` adds `script:git/diff-summary@1.0.0` using capabilities already supplied by the Git provider.
+This is the intended adoption path for a future script, not a currently exported definition. Suppose package `1.2.0`
+adds `script:git/diff-summary@1.0.0` using capabilities already supplied by the Git provider.
 Adoption requires:
 
 1. update the package version;
@@ -310,27 +326,37 @@ The pipeline specifies only an exact script id and SemVer. It never uses `latest
 script manifest states which provider contract major it requires; generic plan compilation selects and pins a trusted
 compatible implementation.
 
-Multiple script versions can coexist during migration:
+The current repository keeps one implementation in a flat operation directory:
 
 ```text
-src/scripts/git/status/versions/1.0.0/
-src/scripts/git/status/versions/2.0.0/
+src/scripts/git/status/
 ```
 
-An existing pipeline can continue to name `1.0.0` while a new pipeline names `2.0.0`. A published exact version is
-immutable. It is removed only after no supported pipeline, execution plan, active execution, or recoverable run pins
-it. Provider contract majors can coexist for the same reason. Provider adapters do not add another public SemVer in
-v1; an exact implementation digest plus package provenance is persisted in the execution plan.
+The logical version remains explicit in the manifest and execution plan. The folder keeps its public contract visible
+and its composition small:
 
-Provider adapter revisions coexist internally under paths such as
-`src/providers/git/adapters/node/revisions/r1/`. The revision label is not another public SemVer or a pipeline field;
-the execution plan still uses the generated digest. A new revision is added beside retained revisions, and an old one
-is removed only after the same pin audit.
+```text
+status/
+  README.md
+  types.ts
+  schemas.ts
+  manifest.ts
+  git-status.handler.ts
+  script.ts
+```
+
+The handler is a stateless class with one `execute` method. `script.ts` only connects the manifest, schemas,
+implementation identity, and handler instance through `defineScript`.
+
+The contract requires a published exact version to remain immutable. Enforcement of source retention across releases
+and the export design for two simultaneously retained versions are still Draft; the current package does not claim
+that coexistence is implemented. Provider adapters use a stable id and exact digest field, while build-generated digest
+freshness and retention checks remain unfinished.
 
 ## Adding a new provider family
 
 A new provider over the existing repository resource, such as GitLab, needs a trusted coordinate schema, transport,
-and credential adapter:
+and credential adapter. The following is target composition pseudocode: only `nodeGitProviders` is currently exported.
 
 ```ts
 const scripts = createRevoScripts({
@@ -363,16 +389,17 @@ and implicit latest-version selection are forbidden.
 
 ## Current implementation status
 
-| Surface                       | Current state              | Remaining Draft target                                      |
-| ----------------------------- | -------------------------- | ----------------------------------------------------------- |
-| Manifest, schemas, definition | Providers/credentials land | Verdict and build-generated exact identity                  |
-| Sealed explicit registry      | Implemented                | Immutable release-retention checks                          |
-| Low-level `executeScript`     | Implemented                | Stable public low-level foundation                          |
-| `script:git/status`           | Package-owned vertical     | Complete provider failure/timeout contract                  |
-| `createRevoScripts`           | Initial facade implemented | Coordinate, credential, cleanup, and verdict completion     |
-| Git production provider       | Node `r1` implemented      | Generated digest freshness and retained-revision automation |
-| GitHub production providers   | Not implemented            | First bounded GitHub operation                              |
-| npm publication               | Not published              | Separate release approval                                   |
+| Surface                       | Current state                                     | Remaining Draft target                          |
+| ----------------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| Manifest, schemas, definition | Implemented                                       | Verdict and build-generated exact identity      |
+| Sealed explicit registry      | Implemented                                       | Immutable cross-release retention checks        |
+| Low-level `executeScript`     | Implemented                                       | Publication and stable-API approval             |
+| `script:git/status`           | Executable package-owned vertical                 | Accepted stable contract                        |
+| `createRevoScripts`           | Exact pins, bindings, coordinates, lifecycle done | Verdict projection and accepted facade contract |
+| Workspace and credentials     | Resolver contracts and lifecycle implemented      | Production GitHub credential consumer           |
+| Git production provider       | Node adapter implemented                          | Generated digest freshness and retention design |
+| GitHub production providers   | Not implemented                                   | First bounded GitHub operation                  |
+| npm publication               | Not published                                     | Separate release approval                       |
 
 The implemented high-level path resolves an exact script and provider pin, resolves an opaque workspace id through the
 host, constructs the bounded Git client inside the package, executes the handler, and disposes provider resources. A
@@ -436,13 +463,13 @@ Currently implemented entrypoints:
 | `@revisium/revo-scripts/host`          | Privileged host and provider integration contracts        |
 | `@revisium/revo-scripts/git`           | Built-in Git definitions and result types                 |
 | `@revisium/revo-scripts/providers/git` | Git contract and Node provider-family factory             |
-| `@revisium/revo-scripts/testing`       | Contract harness, fixtures, clocks, sinks, and fakes      |
+| `@revisium/revo-scripts/testing`       | Contract harness, deterministic clock, sink, and Git fake |
 
 The GitHub provider entrypoint remains absent until its first real implementation. Provider surfaces are deliberately
 separate from concrete script exports.
 
-Provider contracts, adapters, and retained revisions remain inside this package and share its release cycle. They are
-separate subpath exports, not separate npm packages.
+Provider contracts and adapters remain inside this package and share its release cycle. They are separate subpath
+exports, not separate npm packages.
 
 ## Architecture and contracts
 
@@ -475,17 +502,19 @@ pnpm install --frozen-lockfile
 pnpm verify
 ```
 
-| Command                    | Purpose                                                            |
-| -------------------------- | ------------------------------------------------------------------ |
-| `pnpm build`               | Build ESM JavaScript and TypeScript declarations with TypeScript 7 |
-| `pnpm format`              | Format supported repository files with Oxfmt                       |
-| `pnpm format:check`        | Verify formatting without writing files                            |
-| `pnpm lint`                | Run type-aware Oxlint and TypeScript diagnostics                   |
-| `pnpm test`                | Run focused Vitest unit, contract, and package suites              |
-| `pnpm test:cov`            | Run tests and write LCOV coverage                                  |
-| `pnpm verify:architecture` | Enforce the acyclic source dependency DAG with Oxlint              |
-| `pnpm verify`              | Run the complete local CI gate                                     |
-| `pnpm ci:local:sonar`      | Run verification, Sonar analysis, and open-issue inspection        |
+| Command                     | Purpose                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| `pnpm build`                | Build ESM JavaScript and TypeScript declarations with TypeScript 7                   |
+| `pnpm format`               | Format supported repository files with Oxfmt                                         |
+| `pnpm format:check`         | Verify formatting without writing files                                              |
+| `pnpm lint`                 | Run type-aware Oxlint and TypeScript diagnostics                                     |
+| `pnpm test`                 | Run focused unit, contract, consumer/provider integration, and package source suites |
+| `pnpm test:cov`             | Run tests and write LCOV coverage                                                    |
+| `pnpm test:architecture`    | Enforce imports, public consumer boundaries, and dependency cycles                   |
+| `pnpm test:consumer:packed` | Execute the packed package from an isolated consumer project                         |
+| `pnpm verify:architecture`  | Run the required architecture test alias                                             |
+| `pnpm verify`               | Run the complete local CI gate                                                       |
+| `pnpm ci:local:sonar`       | Run verification, Sonar analysis, and open-issue inspection                          |
 
 ## SonarCloud
 

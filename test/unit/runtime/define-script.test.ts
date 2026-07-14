@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
 
-import { defineScript } from '../../../src/core/runtime/define-script.js';
-import { ScriptFault } from '../../../src/core/spec/script-errors.js';
-import type { ScriptManifestV1 } from '../../../src/core/spec/script-manifest.js';
-import type { ScriptSchema } from '../../../src/core/spec/script-schema.js';
+import { defineScript } from '../../../src/runtime/definition/define-script.js';
+import { ScriptFault } from '../../../src/runtime/spec/errors/index.js';
+import type { ScriptManifestV1 } from '../../../src/runtime/spec/manifest/index.js';
+import type { ScriptSchema } from '../../../src/runtime/spec/schema/index.js';
 import {
   echoHandler as handler,
   echoManifest as manifest,
@@ -30,7 +30,7 @@ const captureFault = (operation: () => unknown) => {
   throw new Error('Expected operation to throw ScriptFault');
 };
 
-test('defines one immutable script with a stable identity digest', () => {
+test('defines one read-only script snapshot with a stable identity digest', () => {
   const definition = defineScript({
     manifest,
     inputSchema,
@@ -53,15 +53,7 @@ test('defines one immutable script with a stable identity digest', () => {
     definitionDigest: 'sha256:d6d2ab007afc8982c38815b1055f220161fe64eafc44cb48cbd6dd36ec11a1bb',
     handler,
   });
-  expect({
-    definition: Object.isFrozen(definition),
-    manifest: Object.isFrozen(definition.manifest),
-    implementation: Object.isFrozen(definition.implementation),
-  }).toEqual({
-    definition: true,
-    manifest: true,
-    implementation: true,
-  });
+  expect(definition.manifest).not.toBe(manifest);
 });
 
 test('rejects duplicate bounded manifest entries with stable diagnostics', () => {
@@ -256,7 +248,7 @@ test('rejects nested object schemas that do not fail closed', () => {
         id: '@revisium/revo-scripts/test/nested-schema',
         version: '1.0.0',
       },
-      handler: async () => ({ value: { echoed: 'valid' } }),
+      handler: { execute: async () => ({ value: { echoed: 'valid' } }) },
     }),
   );
 

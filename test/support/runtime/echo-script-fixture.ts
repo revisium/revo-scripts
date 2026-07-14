@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { createScriptSchema } from '../../../src/core/runtime/create-script-schema.js';
-import { defineScript } from '../../../src/core/runtime/define-script.js';
+import { defineScript } from '../../../src/runtime/definition/define-script.js';
+import { createScriptSchema } from '../../../src/runtime/definition/schema/create-script-schema.js';
 import { echoManifest } from './echo-definition-input.js';
 
 export const echoInputSchema = createScriptSchema({
@@ -21,5 +21,5 @@ export const echoDefinition = defineScript({
   inputSchema: echoInputSchema,
   resultSchema: echoResultSchema,
   implementation: { id: '@revisium/revo-scripts/test/echo', version: '1.0.0' },
-  handler: async (input) => ({ value: { echoed: input.message } }),
+  handler: { execute: async (input) => ({ value: { echoed: input.message } }) },
 });
