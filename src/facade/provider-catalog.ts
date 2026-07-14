@@ -174,8 +174,7 @@ export const requireProvider = (
   pin: ScriptProviderPin | undefined,
 ): ScriptProviderModule => {
   if (
-    pin === undefined ||
-    pin.name !== requirement.name ||
+    pin?.name !== requirement.name ||
     pin.resource !== requirement.resource ||
     pin.contract !== requirement.contract
   ) {
@@ -188,8 +187,7 @@ export const requireProvider = (
   const provider = catalog.exact.get(providerKey(pin));
 
   if (
-    provider === undefined ||
-    provider.workspace !== pin.workspace ||
+    provider?.workspace !== pin.workspace ||
     provider.provenance.packageName !== pin.provenance.packageName ||
     provider.provenance.packageVersion !== pin.provenance.packageVersion
   ) {

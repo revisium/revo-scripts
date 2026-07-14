@@ -18,7 +18,7 @@ const scriptIdPattern = /^script:[a-z][a-z0-9-]*(?:\/[a-z][a-z0-9-]*)+$/;
 const namespacedIdentifierPattern = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/;
 const resourceNamePattern = /^[a-z][a-z0-9-]*$/;
 const providerContractPattern =
-  /^revo\.provider\.[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)*\/v[1-9][0-9]*$/;
+  /^revo\.provider\.[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)*\/v[1-9]\d*$/;
 const mutationEffects = new Set<ScriptEffect>([
   'filesystem.write',
   'git.write',

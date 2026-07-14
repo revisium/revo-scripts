@@ -251,16 +251,22 @@ const toUnexpectedExecutionFault = (error: unknown, message: string): ScriptFaul
     ? error
     : new ScriptFault('revo.script.execution.unexpected', message, { cause: error });
 
+interface RetrySchedule {
+  readonly startedAt: number;
+  readonly attempt: number;
+  readonly backoffMs: number;
+  readonly failure: ScriptFailure;
+}
+
 const scheduleRetry = async <I, O, R extends ScriptResourceMap>(
   definition: ScriptDefinition<I, O, R>,
   request: ExecuteScriptRequest<R>,
   clock: ScriptClock,
   deadline: ScriptDeadline,
-  startedAt: number,
-  attempt: number,
-  backoffMs: number,
-  failure: ScriptFailure,
+  schedule: RetrySchedule,
 ): Promise<ScriptExecutionResult<O> | undefined> => {
+  const { startedAt, attempt, backoffMs, failure } = schedule;
+
   if (backoffMs >= deadline.remainingMs()) {
     const deadlineFailure = toFailure(
       definition,
@@ -375,16 +381,12 @@ const runAttempt = async <I, O, R extends ScriptResourceMap>(
     }
 
     if (canRetry) {
-      const retryResult = await scheduleRetry(
-        definition,
-        request,
-        clock,
-        deadline,
+      const retryResult = await scheduleRetry(definition, request, clock, deadline, {
         startedAt,
         attempt,
         backoffMs,
         failure,
-      );
+      });
 
       return (
         retryResult ??

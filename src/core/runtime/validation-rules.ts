@@ -1,4 +1,4 @@
-const numericIdentifierPattern = /^(?:0|[1-9][0-9]*)$/;
+const numericIdentifierPattern = /^(?:0|[1-9]\d*)$/;
 const alphanumericIdentifierPattern = /^[0-9A-Za-z-]+$/;
 
 const hasSingleSeparator = (value: string, separator: string): boolean =>
@@ -6,7 +6,7 @@ const hasSingleSeparator = (value: string, separator: string): boolean =>
 
 const isPrereleaseIdentifier = (value: string): boolean =>
   alphanumericIdentifierPattern.test(value) &&
-  (!/^[0-9]+$/.test(value) || numericIdentifierPattern.test(value));
+  (!/^\d+$/.test(value) || numericIdentifierPattern.test(value));
 
 const areIdentifiersValid = (
   value: string | undefined,

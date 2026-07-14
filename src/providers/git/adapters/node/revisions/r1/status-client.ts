@@ -30,11 +30,11 @@ const countTrackedEntry = (status: StatusAccumulator, code: string): void => {
     return;
   }
 
-  if (code[0] !== '.') {
+  if (!code.startsWith('.')) {
     status.stagedCount += 1;
   }
 
-  if (code[1] !== '.') {
+  if (!code.endsWith('.')) {
     status.unstagedCount += 1;
   }
 };

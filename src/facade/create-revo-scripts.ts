@@ -230,11 +230,7 @@ const requireBinding = (
 ): ScriptResourceBinding => {
   const binding = request.bindings.resources[requirement.name];
 
-  if (
-    binding === undefined ||
-    binding.kind !== requirement.kind ||
-    binding.access !== requirement.access
-  ) {
+  if (binding?.kind !== requirement.kind || binding.access !== requirement.access) {
     throw new ScriptFault(
       'revo.script.permission.resource',
       `Resource binding ${requirement.name} does not match the manifest.`,
@@ -319,7 +315,7 @@ const resolveCredentials = async (
 
     const binding = request.bindings.credentials[requirement.name];
 
-    if (binding === undefined || binding.provider !== requirement.provider) {
+    if (binding?.provider !== requirement.provider) {
       throw new ScriptFault(
         'revo.script.permission.credential',
         `Credential binding ${requirement.name} does not match the manifest.`,
@@ -415,7 +411,7 @@ const validateCredentialBindings = (
   manifest.credentials.forEach((requirement) => {
     const binding = request.bindings.credentials[requirement.name];
 
-    if (binding === undefined || binding.provider !== requirement.provider) {
+    if (binding?.provider !== requirement.provider) {
       throw new ScriptFault(
         'revo.script.permission.credential',
         `Credential binding ${requirement.name} does not match the manifest.`,
