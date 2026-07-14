@@ -8,7 +8,9 @@ CLI, and durable-recovery test layers do not belong in this package.
 
 ## Principles
 
-- Behavior changes start with a failing test.
+- Behavior changes follow an explicit red -> green -> refactor cycle. The author MUST first run the focused test and
+  confirm that it fails because the requested behavior is absent, then implement the smallest passing change, and only
+  then improve structure without changing behavior.
 - Every behavior has one primary proof layer. Higher layers may corroborate it but must not duplicate its full input
   partition.
 - Tests assert observable results, stable error codes, and causal evidence. A terminal success or failure alone is not
@@ -18,6 +20,19 @@ CLI, and durable-recovery test layers do not belong in this package.
   or hide assertions.
 - Tests use public contracts unless the owning layer is a focused unit test for a private pure function.
 - Skips and quality-rule exclusions require an owner, rationale, and expiry or removal condition.
+
+## Assertion style
+
+- Use `expect(actual).toEqual(expected)` for complete domain objects, results, failures, events, and manifests. Prefer
+  one readable expected value over a sequence of field-by-field assertions.
+- The expected value MUST be written independently of the actual value. Do not spread or otherwise derive the expected
+  object from the value under test.
+- Partial matching is reserved for contracts that intentionally leave unrelated fields open. It MUST NOT conceal a
+  field that is part of the owned contract.
+- Snapshots are reserved for complex, deterministic, serializable representations whose complete diff is easier to
+  review than an object literal. Small objects, stable error codes, and behavior decisions use explicit assertions.
+- A snapshot MUST exclude or normalize timestamps, random identifiers, secrets, machine paths, and other unstable
+  values unless the test specifically owns that representation.
 
 ## Test layers
 
@@ -99,8 +114,9 @@ integration surface and is not required for the first runtime slice.
 
 1. Select the primary test layer.
 2. Add the smallest failing test that expresses the missing behavior.
-3. Confirm the failure is caused by the missing behavior, not a broken fixture.
+3. Run the focused test and confirm the failure is caused by the missing behavior, not a broken fixture or test setup.
 4. Implement the smallest sufficient change.
 5. Run the focused owning suite.
-6. Run `pnpm verify` before handoff, commit, or publication.
-7. Run applicable conditional and remote gates from `VERIFICATION.md`.
+6. Refactor only after the test is green; keep each unit at one abstraction level.
+7. Run `pnpm verify` before handoff, commit, or publication.
+8. Run applicable conditional and remote gates from `VERIFICATION.md`.

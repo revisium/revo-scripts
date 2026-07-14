@@ -10,8 +10,9 @@
     "typeAware": true,
     "typeCheck": true
   },
-  "plugins": ["typescript"],
+  "plugins": ["typescript", "vitest"],
   "rules": {
+    "curly": ["error", "all"],
     "typescript/no-explicit-any": "error",
     "typescript/no-floating-promises": "error",
     "typescript/no-misused-promises": "error",
@@ -20,6 +21,8 @@
     "typescript/no-unsafe-call": "error",
     "typescript/no-unsafe-member-access": "error",
     "typescript/no-unsafe-return": "error",
-    "typescript/switch-exhaustiveness-check": "error"
+    "typescript/switch-exhaustiveness-check": "error",
+    "vitest/no-disabled-tests": "error",
+    "vitest/no-focused-tests": "error"
   }
 }

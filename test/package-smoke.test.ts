@@ -1,26 +1,37 @@
-import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import test from 'node:test';
+
+import { expect, test } from 'vitest';
 
 import * as packageEntry from '../src/index.js';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
-void test('bootstrap entry point has no accidental public API', () => {
-  assert.deepEqual(Object.keys(packageEntry), []);
+test('bootstrap entry point has no accidental public API', () => {
+  expect(Object.keys(packageEntry)).toEqual([]);
 });
 
-void test('package metadata declares the intended package and explicit root export', async () => {
+test('package metadata declares the intended package and explicit root export', async () => {
   const rawPackageJson: unknown = JSON.parse(
     await readFile(new URL('../package.json', import.meta.url), 'utf8'),
   );
 
-  assert.ok(isRecord(rawPackageJson));
-  assert.equal(rawPackageJson.name, '@revisium/revo-scripts');
-  assert.equal(rawPackageJson.type, 'module');
-  assert.ok(isRecord(rawPackageJson.exports));
-  assert.ok(isRecord(rawPackageJson.exports['.']));
-  assert.equal(rawPackageJson.exports['.'].types, './dist/index.d.ts');
-  assert.equal(rawPackageJson.exports['.'].import, './dist/index.js');
+  if (!isRecord(rawPackageJson)) {
+    throw new TypeError('Expected package.json to contain an object');
+  }
+
+  const rootExport = isRecord(rawPackageJson.exports) ? rawPackageJson.exports['.'] : undefined;
+
+  expect({
+    name: rawPackageJson.name,
+    type: rawPackageJson.type,
+    rootExport,
+  }).toEqual({
+    name: '@revisium/revo-scripts',
+    type: 'module',
+    rootExport: {
+      types: './dist/index.d.ts',
+      import: './dist/index.js',
+    },
+  });
 });

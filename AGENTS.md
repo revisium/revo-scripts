@@ -40,7 +40,8 @@ Draft target documents do not describe shipped behavior. Follow the current-vers
 
 ## Engineering rules
 
-- Start behavior changes with a failing test. Prefer contract and observable-behavior tests over implementation-detail assertions.
+- Develop behavior through a verified red -> green -> refactor cycle. Prefer contract and observable-behavior tests
+  over implementation-detail assertions.
 - Give every behavior one primary proof layer as defined in `docs/testing.md`; do not duplicate lower-layer input
   partitions in broader contract or package tests.
 - Keep fixtures production-shaped for every field the implementation reads. Test support owns mechanics and never
@@ -49,6 +50,7 @@ Draft target documents do not describe shipped behavior. Follow the current-vers
 - Use the smallest sufficient implementation. Add abstractions only for an existing boundary, variation, or test seam.
 - Keep each unit at one abstraction level and give it one bounded responsibility.
 - Keep business decisions separate from process, filesystem, network, provider, and presentation mechanics.
+- Use braces for every control-flow body, including a one-statement `if`, `else`, or loop.
 - Model expected failures explicitly with typed results or errors. Never swallow errors silently.
 - Preserve strict types. Do not use `any`, `@ts-ignore`, broad casts, unchecked assertions, or weaker public types to bypass a failing gate.
 - Reject or bound externally supplied collections, strings, artifacts, and payloads at their owning boundary.
@@ -58,6 +60,8 @@ Draft target documents do not describe shipped behavior. Follow the current-vers
 - Do not introduce dependency cycles, deep imports around the export map, or multiple public paths to the same contract.
 - Runtime code must not depend on test helpers, generated output, build scripts, or repository tooling.
 - Generated files, fixtures, coverage, and build output must stay outside production quality metrics without hiding owned production source.
+- Prefer complete `toEqual` assertions for owned object contracts. Use snapshots only for complex deterministic
+  representations under the policy in `docs/testing.md`.
 
 ## Public package contract
 
