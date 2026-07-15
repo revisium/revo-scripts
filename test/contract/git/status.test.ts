@@ -19,7 +19,7 @@ const createGitStatusHarness = (
         name: 'repository',
         kind: 'repository',
         access: 'read',
-        grant: { permissions: ['git.status.read'], effects: ['git.read'] },
+        grant: { permissions: ['git.status.read'], effects: ['filesystem.read', 'git.read'] },
         clients: { git: fake.client },
       },
     },
@@ -42,7 +42,11 @@ test('returns one bounded read-only repository status through the public contrac
     'git-status-contract',
   );
 
-  const execution = await harness.execute({});
+  const execution = await harness.execute({
+    resource: 'repository',
+    baseCapture: 'git-commit:0123456789abcdef0123456789abcdef01234567',
+    headCapture: 'git-tree:89abcdef0123456789abcdef0123456789abcdef',
+  });
 
   expect({ execution, capabilityCalls: fake.callCount() }).toEqual({
     execution: {
@@ -103,7 +107,12 @@ test('rejects unknown input fields before invoking the Git capability', async ()
     'git-status-invalid-input',
   );
 
-  const execution = await harness.execute({ unexpected: true });
+  const execution = await harness.execute({
+    resource: 'repository',
+    baseCapture: 'git-commit:0123456789abcdef0123456789abcdef01234567',
+    headCapture: 'git-tree:89abcdef0123456789abcdef0123456789abcdef',
+    unexpected: true,
+  });
 
   expect({ result: execution.result, capabilityCalls: fake.callCount() }).toEqual({
     result: {

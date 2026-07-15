@@ -8,25 +8,46 @@ import type {
 } from '../../../contracts/github-pull-request-upsert-client.js';
 import type { GitHubRepositoryCoordinates } from '../../../contracts/github-repository-coordinates.js';
 import { GitHubApiClient } from '../github-api-client.js';
+import {
+  githubManagedPullRequestBody,
+  githubManagedPullRequestOperation,
+  githubOperationMarker,
+} from '../github-operation-marker.js';
+import { GitHubPullRequestReader } from './github-pull-request-reader.js';
 import { parseGitHubPullRequest } from './github-pull-request-response.js';
+import { GitHubSourceBranchReader } from './github-source-branch-reader.js';
 
 export class FetchGitHubPullRequestUpsertClient implements GitHubPullRequestUpsertClient {
   private readonly api: GitHubApiClient;
   private readonly coordinates: GitHubRepositoryCoordinates;
+  private readonly reader: GitHubPullRequestReader;
+  private readonly sourceBranch: GitHubSourceBranchReader;
 
   constructor(api: GitHubApiClient, coordinates: GitHubRepositoryCoordinates) {
     this.api = api;
     this.coordinates = coordinates;
+    this.reader = new GitHubPullRequestReader(api, coordinates);
+    this.sourceBranch = new GitHubSourceBranchReader(api, coordinates);
   }
 
   async upsert(request: GitHubPullRequestUpsertRequest): Promise<GitHubPullRequestSnapshot> {
-    const existing = await this.findExisting(request);
-    const snapshot =
-      existing === undefined ? await this.create(request) : await this.update(existing, request);
-    if (snapshot.head.sha !== request.head.sha) {
+    if ((await this.sourceBranch.read(request.head.branch, request.signal)) !== request.head.sha) {
       throw new ScriptFault(
         'revo.script.idempotency.conflict',
-        'The pull request head does not match the pinned revision.',
+        'The live source branch does not match the pinned pull request head.',
+      );
+    }
+    const existing = await this.findExisting(request);
+    const snapshot =
+      existing === undefined
+        ? await this.readBack(await this.create(request), request)
+        : this.matchesRequestedState(existing, request)
+          ? existing
+          : await this.readBack(await this.update(existing, request), request);
+    if (!this.matchesRequestedState(snapshot, request)) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'The pull request readback does not match the requested state.',
       );
     }
     return snapshot;
@@ -58,7 +79,15 @@ export class FetchGitHubPullRequestUpsertClient implements GitHubPullRequestUpse
         'Multiple open pull requests match the requested branches.',
       );
     }
-    return parsed.data[0] === undefined ? undefined : parseGitHubPullRequest(parsed.data[0]);
+    const candidate =
+      parsed.data[0] === undefined ? undefined : parseGitHubPullRequest(parsed.data[0]);
+    if (candidate !== undefined && !this.ownsOperation(candidate, request)) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'A foreign pull request already uses the requested head and base.',
+      );
+    }
+    return candidate;
   }
 
   private async create(
@@ -71,7 +100,10 @@ export class FetchGitHubPullRequestUpsertClient implements GitHubPullRequestUpse
           head: request.head.branch,
           base: request.base.branch,
           title: request.title,
-          body: request.body,
+          body: githubManagedPullRequestBody(request.body, {
+            operationKey: request.operationKey,
+            ...request.marker,
+          }),
           draft: request.draft,
         },
         signal: request.signal,
@@ -89,15 +121,68 @@ export class FetchGitHubPullRequestUpsertClient implements GitHubPullRequestUpse
         'The existing pull request does not match the requested revision or draft state.',
       );
     }
+    if (
+      request.expectedProviderRevision !== undefined &&
+      existing.providerRevision !== request.expectedProviderRevision
+    ) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'The pull request metadata revision no longer matches the pinned revision.',
+      );
+    }
+    if (this.matchesRequestedState(existing, request)) {
+      return existing;
+    }
     return parseGitHubPullRequest(
       await this.api.rest(
         `/repos/${this.coordinates.owner}/${this.coordinates.repository}/pulls/${existing.number}`,
         {
           method: 'PATCH',
-          body: { title: request.title, body: request.body, base: request.base.branch },
+          body: {
+            title: request.title,
+            body: githubManagedPullRequestBody(request.body, {
+              operationKey: request.operationKey,
+              ...request.marker,
+            }),
+            base: request.base.branch,
+          },
           signal: request.signal,
         },
       ),
     );
+  }
+
+  private ownsOperation(
+    snapshot: GitHubPullRequestSnapshot,
+    request: GitHubPullRequestUpsertRequest,
+  ): boolean {
+    return (
+      githubManagedPullRequestOperation(snapshot.body)?.operationMarker ===
+      githubOperationMarker({ operationKey: request.operationKey, ...request.marker }, request.body)
+    );
+  }
+
+  private matchesRequestedState(
+    snapshot: GitHubPullRequestSnapshot,
+    request: GitHubPullRequestUpsertRequest,
+  ): boolean {
+    return (
+      snapshot.state === 'open' &&
+      snapshot.head.branch === request.head.branch &&
+      snapshot.head.sha === request.head.sha &&
+      snapshot.base.branch === request.base.branch &&
+      snapshot.draft === request.draft &&
+      snapshot.title === request.title &&
+      githubManagedPullRequestOperation(snapshot.body)?.businessBody ===
+        request.body.replace(/\r\n?/gu, '\n').trimEnd() &&
+      this.ownsOperation(snapshot, request)
+    );
+  }
+
+  private async readBack(
+    snapshot: GitHubPullRequestSnapshot,
+    request: GitHubPullRequestUpsertRequest,
+  ): Promise<GitHubPullRequestSnapshot> {
+    return await this.reader.read(snapshot.number, request.head.sha, request.signal);
   }
 }

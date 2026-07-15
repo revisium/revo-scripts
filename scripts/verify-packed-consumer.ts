@@ -88,7 +88,11 @@ const result = await scripts.execute({
   executionId: 'packed-consumer',
   script: plan.script,
   providers: plan.providers,
-  input: {},
+  input: {
+    resource: 'repository',
+    baseCapture: \`git-commit:\${headSha}\`,
+    headCapture: \`git-tree:\${treeSha}\`,
+  },
   bindings: {
     resources: {
       repository: {
@@ -99,7 +103,7 @@ const result = await scripts.execute({
         access: 'read',
         grant: {
           permissions: ['git.status.read'],
-          effects: ['git.read'],
+          effects: ['filesystem.read', 'git.read'],
         },
         providerCoordinates: {},
       },
@@ -173,7 +177,11 @@ const request: RevoScriptExecutionRequest = {
   executionId: 'type-consumer',
   script: plan.script,
   providers: plan.providers,
-  input: {},
+  input: {
+    resource: 'repository',
+    baseCapture: 'git-commit:0123456789abcdef0123456789abcdef01234567',
+    headCapture: 'git-tree:89abcdef0123456789abcdef0123456789abcdef',
+  },
   bindings: {
     resources: {
       repository: {
@@ -182,7 +190,7 @@ const request: RevoScriptExecutionRequest = {
         repositoryId: 'repository-123',
         workspaceId: 'workspace-456',
         access: 'read',
-        grant: { permissions: ['git.status.read'], effects: ['git.read'] },
+        grant: { permissions: ['git.status.read'], effects: ['filesystem.read', 'git.read'] },
         providerCoordinates: {},
       },
     },

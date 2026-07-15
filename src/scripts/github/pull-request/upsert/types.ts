@@ -4,11 +4,18 @@ import type { GitHubPullRequestV1 } from '../../shared/types.js';
 
 export interface GitHubPullRequestUpsertInput {
   readonly repositoryId: string;
+  readonly owner: string;
+  readonly repository: string;
   readonly head: Readonly<{ branch: string; sha: string }>;
   readonly base: Readonly<{ branch: string }>;
   readonly title: string;
   readonly body: string;
   readonly draft: boolean;
+  readonly issueRef?:
+    | Readonly<{ owner: string; repository: string; number: number; url: string }>
+    | undefined;
+  readonly issueAction: 'close' | 'refs' | 'none';
+  readonly expectedPullRequestRevision?: string | undefined;
 }
 
 export type GitHubPullRequestUpsertResult = GitHubPullRequestV1;

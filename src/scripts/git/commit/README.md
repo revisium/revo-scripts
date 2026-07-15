@@ -9,8 +9,7 @@
 | Result      | `schema:gitChange/v1`            |
 | Idempotency | required                         |
 
-Creates one commit from the exact approved tree and parent. Input includes bounded author name, email, and ISO-8601
-timestamp; the provider applies that identity to both Git author and committer fields so the commit object is stable
-across a crash before the branch-ref update. The Node provider uses `commit-tree`, records a hashed operation trailer,
-and compare-and-swaps the branch ref. A replay returns or deterministically recreates the same commit; a moved or
-different branch fails with `revo.script.idempotency.conflict`.
+Creates one commit from the exact approved tree and parent on a pinned remote identity. The handler renders the
+business-readable title and optional issue policy; the Node provider normalizes line endings, owns exactly one hashed
+operation trailer, and compare-and-swaps the branch ref. It reconciles only the current branch head; a different head
+fails with `revo.script.idempotency.conflict`.

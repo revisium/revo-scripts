@@ -34,8 +34,4 @@ export type {
   GitHubReviewThreadRespondResources,
   GitHubReviewThreadRespondResult,
 } from './review-thread/respond/types.js';
-export type {
-  GitHubPullRequestV1,
-  GitHubReadinessV1,
-  GitHubReviewThreadV1,
-} from './shared/types.js';
+export type { GitHubPullRequestV1, GitHubReadinessV1 } from './shared/types.js';

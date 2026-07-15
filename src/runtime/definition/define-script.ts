@@ -15,6 +15,7 @@ const snapshotManifest = (manifest: ScriptManifestV1): ScriptManifestV1 => ({
   providers: manifest.providers.map((provider) => ({ ...provider })),
   credentials: manifest.credentials.map((credential) => ({ ...credential })),
   effects: [...manifest.effects],
+  ...(manifest.classification === undefined ? {} : { classification: manifest.classification }),
   timeout: { ...manifest.timeout },
   retry: {
     ...manifest.retry,

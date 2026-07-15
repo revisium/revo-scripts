@@ -2,16 +2,26 @@ import type { GitChangeV1, GitCommitClient } from '../../../providers/git/index.
 import type { ScriptResourceHandle } from '../../../runtime/spec/resources/index.js';
 
 export interface GitCommitInput {
-  readonly repositoryId: string;
+  readonly resource: string;
+  /** Pinned canonical remote identity; never inferred from ambient Git configuration. */
   readonly remoteIdentity: string;
   readonly branch: string;
   readonly expectedParent: string;
   readonly expectedTree: string;
-  readonly message: string;
-  readonly authorship: Readonly<{
-    name: string;
-    email: string;
-    timestamp: string;
+  readonly title: string;
+  readonly issueRef?:
+    | Readonly<{
+        owner: string;
+        repository: string;
+        number: number;
+        url: string;
+      }>
+    | undefined;
+  readonly issueAction: 'close' | 'refs' | 'none';
+  readonly author: Readonly<{
+    readonly name: string;
+    readonly email: string;
+    readonly timestamp: string;
   }>;
 }
 

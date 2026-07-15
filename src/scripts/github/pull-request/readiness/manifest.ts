@@ -6,9 +6,9 @@ import {
 
 export const githubPullRequestReadinessManifest = {
   schemaVersion: 'revo.script.manifest/v1',
-  id: 'script:github/pull-request-readiness',
+  id: 'script:github/pull-request/readiness',
   version: '1.0.0',
-  summary: 'Reads readiness of one exact pull request head.',
+  summary: 'Observes one bounded pull-request readiness snapshot.',
   inputSchemaId: githubPullRequestReadinessInputSchema.id,
   resultSchemaId: githubPullRequestReadinessResultSchema.id,
   effectClass: 'read',
@@ -17,9 +17,10 @@ export const githubPullRequestReadinessManifest = {
   providers: [{ name: 'github', contract: 'revo.provider.github/v1', resource: 'repository' }],
   credentials: [{ name: 'token', provider: 'github', providerRequirement: 'github' }],
   effects: ['github.read'],
-  timeout: { wallClockMs: 20_000 },
-  retry: { mode: 'transient', maxAttempts: 2, backoffMs: [500] },
+  timeout: { wallClockMs: 30_000 },
+  retry: { mode: 'transient', maxAttempts: 3, backoffMs: [250, 1_000] },
   idempotency: 'read-only',
+  classification: '/classification',
   redaction: { inputPaths: [], resultPaths: [], errorPaths: [], eventPaths: [] },
   events: { allowed: [], detailPaths: [] },
 } as const satisfies ScriptManifestV1;

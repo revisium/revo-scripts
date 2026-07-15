@@ -17,7 +17,11 @@ export class RegisteredScriptHandle<I, O, R extends ScriptResourceMap> implement
 
   readonly manifest: ScriptManifestV1;
   readonly definitionDigest: `sha256:${string}`;
-  readonly implementation: Readonly<{ id: string; version: string }>;
+  readonly implementation: Readonly<{
+    id: string;
+    version: string;
+    buildDigest: `sha256:${string}`;
+  }>;
   private readonly definition: ScriptDefinition<I, O, R>;
 
   constructor(definition: ScriptDefinition<I, O, R>) {

@@ -60,7 +60,11 @@ const gitBranchScript = defineScript<
   },
   inputSchema,
   resultSchema,
-  implementation: { id: '@revisium/revo-scripts/test/git-branch', version: '1.0.0' },
+  implementation: {
+    id: '@revisium/revo-scripts/test/git-branch',
+    version: '1.0.0',
+    buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000005',
+  },
   handler: {
     execute: async (_input, context) => {
       const status = await context.resources.repository.clients.git.readStatus(context.signal);
@@ -105,6 +109,7 @@ test('adds a second script on the Git contract without changing the consumer exe
   const result = await scripts.execute(
     createGitScriptRequest(plan, {
       executionId: 'custom-git-branch',
+      input: {},
       permissions: ['git.branch.read'],
     }),
   );

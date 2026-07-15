@@ -57,6 +57,7 @@ const mutationScript = defineScript<
   implementation: {
     id: '@revisium/revo-scripts/test/idempotent-mutation',
     version: '1.0.0',
+    buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000004',
   },
   handler: {
     execute: async (_input, context) => {

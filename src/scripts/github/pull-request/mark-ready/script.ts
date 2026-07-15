@@ -1,4 +1,5 @@
 import { defineScript } from '../../../../runtime/definition/define-script.js';
+import { builtInImplementation } from '../../../../runtime/generated/built-in-implementation.js';
 import { GitHubPullRequestMarkReadyHandler } from './github-pull-request-mark-ready.handler.js';
 import { githubPullRequestMarkReadyManifest } from './manifest.js';
 import {
@@ -19,9 +20,6 @@ export const githubPullRequestMarkReadyScript = defineScript<
   manifest: githubPullRequestMarkReadyManifest,
   inputSchema: githubPullRequestMarkReadyInputSchema,
   resultSchema: githubPullRequestMarkReadyResultSchema,
-  implementation: {
-    id: '@revisium/revo-scripts/github/pull-request-mark-ready',
-    version: '1.0.0',
-  },
+  implementation: builtInImplementation('script:github/pull-request/mark-ready', '1.0.0'),
   handler: new GitHubPullRequestMarkReadyHandler(),
 });

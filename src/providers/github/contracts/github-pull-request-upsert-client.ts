@@ -6,7 +6,14 @@ export interface GitHubPullRequestUpsertRequest {
   readonly title: string;
   readonly body: string;
   readonly draft: boolean;
+  readonly expectedProviderRevision?: string | undefined;
   readonly operationKey: string;
+  readonly marker: Readonly<{
+    readonly headSha: string;
+    readonly title: string;
+    readonly baseBranch: string;
+    readonly draft: boolean;
+  }>;
   readonly signal: AbortSignal;
 }
 

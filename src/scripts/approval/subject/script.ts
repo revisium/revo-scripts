@@ -1,4 +1,5 @@
 import { defineScript } from '../../../runtime/definition/define-script.js';
+import { builtInImplementation } from '../../../runtime/generated/built-in-implementation.js';
 import { ApprovalSubjectHandler } from './approval-subject.handler.js';
 import { approvalSubjectManifest } from './manifest.js';
 import { approvalSubjectInputSchema, approvalSubjectResultSchema } from './schemas.js';
@@ -16,6 +17,6 @@ export const approvalSubjectScript = defineScript<
   manifest: approvalSubjectManifest,
   inputSchema: approvalSubjectInputSchema,
   resultSchema: approvalSubjectResultSchema,
-  implementation: { id: '@revisium/revo-scripts/approval/subject', version: '1.0.0' },
+  implementation: builtInImplementation('script:approval/subject', '1.0.0'),
   handler: new ApprovalSubjectHandler(),
 });

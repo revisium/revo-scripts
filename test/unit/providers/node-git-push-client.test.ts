@@ -42,16 +42,18 @@ const executePush = async (initialRemoteHead: string | undefined) => {
   };
   const client = new NodeGitPushClient(processExecutor, '/trusted/workspace');
 
-  const result = await client.push({
+  const request = {
     remoteIdentity: 'github.com/revisium/revo-scripts',
     branch: 'revo/task',
-    expectedRemoteHead: base,
     headCommit: head,
     operationKey: 'push-operation',
     signal: new AbortController().signal,
-  });
+  };
+  const result = await client.push(
+    initialRemoteHead === undefined ? request : { ...request, expectedRemoteHead: base },
+  );
 
-  const commands = requests.map((request) => request.args);
+  const commands = requests.map((processRequest) => processRequest.args);
   return {
     result,
     mergeBase: commands.find((args) => args[0] === 'merge-base'),
@@ -59,28 +61,18 @@ const executePush = async (initialRemoteHead: string | undefined) => {
   };
 };
 
-test('publishes an existing branch through an exact remote-head lease', async () => {
+test('publishes an existing branch through one normal exact-head push', async () => {
   expect(await executePush(base)).toEqual({
     result: { status: 'pushed', remoteHead: head },
     mergeBase: ['merge-base', base, head],
-    push: [
-      'push',
-      `--force-with-lease=refs/heads/revo/task:${base}`,
-      'origin',
-      `${head}:refs/heads/revo/task`,
-    ],
+    push: ['push', 'origin', `${head}:refs/heads/revo/task`],
   });
 });
 
-test('publishes a new branch through a must-not-exist lease', async () => {
+test('publishes a new branch through one normal create push', async () => {
   expect(await executePush(undefined)).toEqual({
     result: { status: 'pushed', remoteHead: head },
-    mergeBase: ['merge-base', base, head],
-    push: [
-      'push',
-      '--force-with-lease=refs/heads/revo/task:',
-      'origin',
-      `${head}:refs/heads/revo/task`,
-    ],
+    mergeBase: undefined,
+    push: ['push', 'origin', `${head}:refs/heads/revo/task`],
   });
 });

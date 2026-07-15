@@ -1,4 +1,5 @@
 import { defineScript } from '../../../../runtime/definition/define-script.js';
+import { builtInImplementation } from '../../../../runtime/generated/built-in-implementation.js';
 import { GitHubPullRequestMergeHandler } from './github-pull-request-merge.handler.js';
 import { githubPullRequestMergeManifest } from './manifest.js';
 import {
@@ -19,6 +20,6 @@ export const githubPullRequestMergeScript = defineScript<
   manifest: githubPullRequestMergeManifest,
   inputSchema: githubPullRequestMergeInputSchema,
   resultSchema: githubPullRequestMergeResultSchema,
-  implementation: { id: '@revisium/revo-scripts/github/pull-request-merge', version: '1.0.0' },
+  implementation: builtInImplementation('script:github/pull-request/merge', '1.0.0'),
   handler: new GitHubPullRequestMergeHandler(),
 });

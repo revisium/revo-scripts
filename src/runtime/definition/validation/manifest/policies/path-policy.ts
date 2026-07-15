@@ -45,9 +45,13 @@ export const validatePathPolicy = (
   ];
   const redactionPaths = redactionGroups.flat();
   const eventDetailPaths = locatePaths(manifest.events.detailPaths, '/events/detailPaths');
+  const classificationPath =
+    manifest.classification === undefined
+      ? []
+      : [{ value: manifest.classification, path: '/classification' }];
 
   return [
-    ...findInvalidPointerIssues([...redactionPaths, ...eventDetailPaths]),
+    ...findInvalidPointerIssues([...redactionPaths, ...eventDetailPaths, ...classificationPath]),
     ...redactionGroups.flatMap((paths) =>
       findDuplicateIssues(paths, 'Redaction paths must be unique.'),
     ),

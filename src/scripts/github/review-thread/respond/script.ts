@@ -1,4 +1,5 @@
 import { defineScript } from '../../../../runtime/definition/define-script.js';
+import { builtInImplementation } from '../../../../runtime/generated/built-in-implementation.js';
 import { GitHubReviewThreadRespondHandler } from './github-review-thread-respond.handler.js';
 import { githubReviewThreadRespondManifest } from './manifest.js';
 import {
@@ -19,6 +20,6 @@ export const githubReviewThreadRespondScript = defineScript<
   manifest: githubReviewThreadRespondManifest,
   inputSchema: githubReviewThreadRespondInputSchema,
   resultSchema: githubReviewThreadRespondResultSchema,
-  implementation: { id: '@revisium/revo-scripts/github/review-thread-respond', version: '1.0.0' },
+  implementation: builtInImplementation('script:github/review-threads/respond', '1.0.0'),
   handler: new GitHubReviewThreadRespondHandler(),
 });

@@ -61,6 +61,7 @@ const multiProviderScript = defineScript<
   implementation: {
     id: '@revisium/revo-scripts/test/multi-provider',
     version: '1.0.0',
+    buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000003',
   },
   handler: {
     execute: async () => ({ value: { completed: true } }),

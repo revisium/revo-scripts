@@ -23,6 +23,7 @@ const isImplementationId = (value: string): boolean => {
 export const validateImplementationIdentity = (
   id: string,
   version: string,
+  buildDigest: string | undefined,
 ): readonly ManifestValidationIssue[] => {
   const issues: ManifestValidationIssue[] = [];
 
@@ -37,6 +38,13 @@ export const validateImplementationIdentity = (
     issues.push({
       path: '/implementation/version',
       message: 'Implementation version must be an exact semantic version.',
+    });
+  }
+
+  if (buildDigest === undefined || !/^sha256:[0-9a-f]{64}$/.test(buildDigest)) {
+    issues.push({
+      path: '/implementation/buildDigest',
+      message: 'Implementation build digest must be a lowercase SHA-256 digest.',
     });
   }
 

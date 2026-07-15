@@ -3,6 +3,11 @@ export type { GitStatusClientFake } from './providers/git/git-status-client-fake
 export { createScriptContractHarness } from './runtime/create-script-contract-harness.js';
 export { DeterministicScriptClock } from './runtime/deterministic-script-clock.js';
 export { RecordingEventSink } from './runtime/recording-event-sink.js';
+export {
+  verifyCrashReconciliation,
+  verifyRequiredIdempotencyContracts,
+} from './runtime/required-idempotency-contract.js';
+export type { RequiredIdempotencyScenario } from './runtime/required-idempotency-contract.js';
 export type { ScriptContractExecution } from './runtime/script-contract-execution.js';
 export type { ScriptContractHarness } from './runtime/script-contract-harness.js';
 export type { ScriptContractHarnessOptions } from './runtime/script-contract-harness-options.js';

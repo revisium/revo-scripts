@@ -77,6 +77,7 @@ const credentialAliasScript = defineScript<
   implementation: {
     id: '@revisium/revo-scripts/test/credential-alias',
     version: '1.0.0',
+    buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000002',
   },
   handler: {
     execute: async (_input, context) => ({

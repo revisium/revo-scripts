@@ -57,7 +57,11 @@ test('rejects an invalid handler result through the declared result schema', asy
   const invalidResultDefinition = defineScript({
     ...echoDefinition,
     resultSchema: rejectingResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/result', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/result',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000017',
+    },
   });
   const { result } = await executeRuntimeScenario(invalidResultDefinition, {
     executionId: 'execution-invalid-result',
@@ -82,7 +86,11 @@ test('rejects an invalid handler result through the declared result schema', asy
 test('does not expose an unknown handler error through the package boundary', async () => {
   const unknownFailureDefinition = defineScript({
     ...echoDefinition,
-    implementation: { id: '@revisium/revo-scripts/test/unknown-failure', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/unknown-failure',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000018',
+    },
     handler: {
       execute: async () => {
         throw new Error('secret provider diagnostics');

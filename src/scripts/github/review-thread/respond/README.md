@@ -1,5 +1,21 @@
-# `script:github/review-thread-respond`
+# `script:github/review-threads/respond`
 
-Replies once to one review thread belonging to the bound repository, exact pull-request number, and head. The provider
-appends a hashed hidden operation marker and reconciles it on retry, preventing duplicate replies. It requires
-`github.review-thread.respond`, write access, and an idempotency key. Result: `schema:githubReviewThread/v1`.
+| Field                    | Value                                                |
+| ------------------------ | ---------------------------------------------------- |
+| Version                  | `1.0.0`                                              |
+| Effect class and effects | `publish`; `github.read`, `github.write`             |
+| Permission and resource  | `github.review-thread.respond`; `repository` publish |
+| Provider and idempotency | `revo.provider.github/v1`; required                  |
+
+Accepts closed triage for one exact open pull request and processes at most 100 unique selected threads in triage order.
+Only `fix` and `wontfix` items are selected. A `question` item requires a matching bounded continuation resolution;
+without one the input is rejected. The provider re-reads the bound
+repository, pull request, head, and each selected thread before mutation. It appends the canonical terminal marker
+bound to the idempotency key, PR number, head, thread id, and LF-normalized reply body, then reads back exactly one
+reply by the pinned credential actor. Ambiguous, foreign, stale, malformed, or mismatched reply proof blocks.
+
+An existing exact reply returns `already-replied`; a partial crash performs no duplicate write. The bounded result carries
+only thread ids, dispositions, reply ids, marker/fingerprint, and statuses—never reply text, gate notes, actor identity,
+or provider payloads. This operation never resolves threads. Verified by
+`test/contract/github/review-thread-respond.test.ts`,
+`test/integration/providers/fetch-github-review-thread-respond.test.ts`, and `pnpm verify`.

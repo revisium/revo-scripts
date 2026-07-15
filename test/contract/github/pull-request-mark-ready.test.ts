@@ -8,12 +8,17 @@ import { githubResource, pullRequest } from '../../support/github/github-contrac
 test('marks only the pinned pull request revision ready', async () => {
   const readyPullRequest = { ...pullRequest, draft: false };
   const client: GitHubPullRequestReadyClient = {
-    markReady: async () => ({ ...readyPullRequest, nodeId: readyPullRequest.pullRequestId }),
+    markReady: async () => ({
+      ...readyPullRequest,
+      title: 'Bounded scripts',
+      body: 'Implements exact operations.',
+      nodeId: readyPullRequest.pullRequestId,
+    }),
   };
   const harness = createScriptContractHarness(githubPullRequestMarkReadyScript, {
     executionId: 'github-pr-ready',
     idempotencyKey: 'run:pr:ready',
-    resources: { repository: githubResource(client) },
+    resources: { repository: githubResource(client, 'publish') },
   });
 
   const execution = await harness.execute({ pullRequest });

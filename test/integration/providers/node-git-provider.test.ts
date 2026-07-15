@@ -69,6 +69,11 @@ test('executes the production Node Git provider against a real temporary reposit
     const result = await scripts.execute(
       createGitScriptRequest(plan, {
         executionId: 'real-git-status',
+        input: {
+          resource: 'repository',
+          baseCapture: `git-commit:${headSha}`,
+          headCapture: `git-tree:${expectedTree}`,
+        },
         repositoryId: 'temporary-repository',
         workspaceId: 'temporary-workspace',
       }),

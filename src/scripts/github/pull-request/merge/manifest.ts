@@ -6,7 +6,7 @@ import {
 
 export const githubPullRequestMergeManifest = {
   schemaVersion: 'revo.script.manifest/v1',
-  id: 'script:github/pull-request-merge',
+  id: 'script:github/pull-request/merge',
   version: '1.0.0',
   summary: 'Merges one pull request only when its head matches the pinned revision.',
   inputSchemaId: githubPullRequestMergeInputSchema.id,
@@ -17,8 +17,8 @@ export const githubPullRequestMergeManifest = {
   providers: [{ name: 'github', contract: 'revo.provider.github/v1', resource: 'repository' }],
   credentials: [{ name: 'token', provider: 'github', providerRequirement: 'github' }],
   effects: ['github.read', 'github.write'],
-  timeout: { wallClockMs: 30_000 },
-  retry: { mode: 'transient', maxAttempts: 2, backoffMs: [500] },
+  timeout: { wallClockMs: 60_000 },
+  retry: { mode: 'transient', maxAttempts: 3, backoffMs: [250, 1_000] },
   idempotency: 'required',
   redaction: { inputPaths: [], resultPaths: [], errorPaths: [], eventPaths: [] },
   events: { allowed: [], detailPaths: [] },

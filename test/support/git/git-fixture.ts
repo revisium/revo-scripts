@@ -27,7 +27,7 @@ export interface GitScriptRequestOptions {
   readonly workspaceId?: string;
   readonly providers?: RevoScriptExecutionRequest['providers'];
   readonly signal?: AbortSignal;
-  readonly access?: 'read' | 'write' | 'publish';
+  readonly access?: 'read' | 'write' | 'publish' | 'admin';
   readonly idempotencyKey?: string;
 }
 
@@ -38,7 +38,11 @@ export const createGitScriptRequest = (
   executionId: options.executionId,
   script: plan.script,
   providers: options.providers ?? plan.providers,
-  input: options.input ?? {},
+  input: options.input ?? {
+    resource: 'repository',
+    baseCapture: `git-commit:${gitTestHeadSha}`,
+    headCapture: `git-tree:${gitTestHeadSha}`,
+  },
   bindings: {
     resources: {
       repository: {
@@ -49,7 +53,7 @@ export const createGitScriptRequest = (
         access: options.access ?? 'read',
         grant: {
           permissions: options.permissions ?? ['git.status.read'],
-          effects: options.effects ?? ['git.read'],
+          effects: options.effects ?? ['filesystem.read', 'git.read'],
         },
         providerCoordinates: options.providerCoordinates ?? {},
       },

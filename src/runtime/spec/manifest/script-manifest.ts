@@ -24,6 +24,8 @@ export interface ScriptManifestV1 {
     backoffMs: readonly number[];
   }>;
   readonly idempotency: 'read-only' | 'required' | 'not-retryable';
+  /** Optional RFC 6901 pointer to a result classification consumed by the host. */
+  readonly classification?: string | undefined;
   readonly redaction: Readonly<{
     inputPaths: readonly string[];
     resultPaths: readonly string[];

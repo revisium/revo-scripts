@@ -1,18 +1,26 @@
 export interface GitHubReviewThreadRespondRequest {
   readonly pullRequestNumber: number;
   readonly expectedHeadSha: string;
-  readonly threadId: string;
-  readonly body: string;
+  readonly items: readonly Readonly<{
+    threadId: string;
+    disposition: 'fix' | 'wontfix';
+    replyBody: string;
+  }>[];
   readonly operationKey: string;
   readonly signal: AbortSignal;
 }
 
 export interface GitHubReviewThreadRespondSnapshot {
   readonly threadId: string;
+  readonly disposition: 'fix' | 'wontfix';
+  readonly status: 'replied' | 'already-replied';
   readonly replyId: string;
-  readonly resolved: boolean;
+  readonly marker: string;
+  readonly markerFingerprint: string;
 }
 
 export interface GitHubReviewThreadRespondClient {
-  respond(request: GitHubReviewThreadRespondRequest): Promise<GitHubReviewThreadRespondSnapshot>;
+  respondBatch(
+    request: GitHubReviewThreadRespondRequest,
+  ): Promise<readonly GitHubReviewThreadRespondSnapshot[]>;
 }

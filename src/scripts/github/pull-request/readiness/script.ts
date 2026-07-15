@@ -1,4 +1,5 @@
 import { defineScript } from '../../../../runtime/definition/define-script.js';
+import { builtInImplementation } from '../../../../runtime/generated/built-in-implementation.js';
 import { GitHubPullRequestReadinessHandler } from './github-pull-request-readiness.handler.js';
 import { githubPullRequestReadinessManifest } from './manifest.js';
 import {
@@ -19,6 +20,6 @@ export const githubPullRequestReadinessScript = defineScript<
   manifest: githubPullRequestReadinessManifest,
   inputSchema: githubPullRequestReadinessInputSchema,
   resultSchema: githubPullRequestReadinessResultSchema,
-  implementation: { id: '@revisium/revo-scripts/github/pull-request-readiness', version: '1.0.0' },
+  implementation: builtInImplementation('script:github/pull-request/readiness', '1.0.0'),
   handler: new GitHubPullRequestReadinessHandler(),
 });

@@ -127,12 +127,15 @@ Every built-in script has contract tests proving:
 
 Git commit, Git push, GitHub pull-request, review-thread, and merge suites make the mutation requirements executable.
 They prove stale precondition rejection, exact-head behavior, replay reconciliation, and no duplicate external effect.
+`verifyRequiredIdempotencyContracts` derives required writes from the registry. Each scenario executes the whole
+operation twice with one key, discards the first host result after the effect, asserts the typed adopted result, and
+counts exactly one provider mutation.
 
 ## Git status proof
 
 `script:git/status` proves the safe read-only workspace-capture path. Its complete contract requires that it:
 
-- accepts a closed empty input and one prepared repository resource named `repository`;
+- accepts a closed input and one prepared repository resource named `repository`;
 - uses only a bounded read-only package-owned Git client;
 - returns exact `git-commit:*` and `git-tree:*` captures, cleanliness, and at most 2,048 bounded changed paths;
 - captures the workspace tree through a temporary Git index without changing the real index;
@@ -162,6 +165,8 @@ Every package-owned provider requires tests proving:
 - provider construction, calls, and disposal obey the one execution deadline and abort signal;
 - provider-specific transient failures map to stable package faults before central retry;
 - real local or provider-contract fixtures exercise the production adapter without requiring host operation logic;
+- Fetch readiness observes branch protection plus the credential-scoped applied repository and organization rulesets,
+  preserving complete, unavailable, and truncated required-check identity evidence;
 - provider contract majors are selected by manifest requirements, while execution resolves the exact implementation
   id, digest, and package provenance pinned in the plan;
 - multiple implementations or contract majors never introduce implicit latest selection or fallback;

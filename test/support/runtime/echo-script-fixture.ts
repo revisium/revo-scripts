@@ -20,6 +20,10 @@ export const echoDefinition = defineScript({
   manifest: echoManifest,
   inputSchema: echoInputSchema,
   resultSchema: echoResultSchema,
-  implementation: { id: '@revisium/revo-scripts/test/echo', version: '1.0.0' },
+  implementation: {
+    id: '@revisium/revo-scripts/test/echo',
+    version: '1.0.0',
+    buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000001',
+  },
   handler: { execute: async (input) => ({ value: { echoed: input.message } }) },
 });

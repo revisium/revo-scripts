@@ -81,6 +81,10 @@ docs/
 Directories and public entrypoints are created only with their first real owner. Do not add empty placeholder modules
 or broad barrels to make a target tree appear complete.
 
+Consumer integration tests keep one `createRevoScripts` composition for a complete typed flow. They may control a
+provider transport, but do not replace the host or provider catalog between scripts; provider-only tests own adapter
+protocol partitions.
+
 ## Growth layout
 
 New areas are added only with their first implementation. The current family layout is:

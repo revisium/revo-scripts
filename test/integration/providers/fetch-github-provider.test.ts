@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 
 import type { RevoScriptsHost } from '../../../src/host/index.js';
 import { createRevoScripts, githubScripts } from '../../../src/index.js';
+import { githubManagedPullRequestBody } from '../../../src/providers/github/adapters/fetch/github-operation-marker.js';
 import { fetchGitHubProviders } from '../../../src/providers/github/index.js';
 import { requestUrl } from '../../support/github/github-provider-consumer-fixture.js';
 
@@ -17,6 +18,8 @@ const pullRequestResponse = {
   merged: false,
   merged_at: null,
   merge_commit_sha: null,
+  title: 'Bounded scripts',
+  body: 'Exact provider execution.',
 };
 
 test('resolves a credential and executes pull-request upsert through the bounded provider', async () => {
@@ -28,7 +31,31 @@ test('resolves a credential and executes pull-request upsert through the bounded
       method: init?.method ?? 'GET',
       ...(typeof init?.body === 'string' ? { body: init.body } : {}),
     });
-    const value = init?.method === 'POST' ? pullRequestResponse : [];
+    const managedPullRequest = {
+      ...pullRequestResponse,
+      body: githubManagedPullRequestBody('Exact provider execution.', {
+        operationKey: 'github-upsert-operation',
+        headSha,
+        title: 'Bounded scripts',
+        baseBranch: 'master',
+        draft: true,
+      }),
+    };
+    if (url === 'https://api.github.com/graphql') {
+      return new Response(
+        JSON.stringify({ data: { repository: { ref: { target: { oid: headSha } } } } }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      );
+    }
+    const value =
+      init?.method === 'POST'
+        ? managedPullRequest
+        : url.includes('/pulls?')
+          ? []
+          : managedPullRequest;
     return new Response(JSON.stringify(value), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -59,7 +86,7 @@ test('resolves a credential and executes pull-request upsert through the bounded
     host,
   });
   const plan = scripts.resolveForPlan({
-    id: 'script:github/pull-request-upsert',
+    id: 'script:github/pull-request/upsert',
     version: '1.0.0',
   });
 
@@ -69,11 +96,14 @@ test('resolves a credential and executes pull-request upsert through the bounded
     providers: plan.providers,
     input: {
       repositoryId: 'repository-123',
+      owner: 'revisium',
+      repository: 'revo-scripts',
       head: { branch: 'revo/task', sha: headSha },
       base: { branch: 'master' },
       title: 'Bounded scripts',
       body: 'Exact provider execution.',
       draft: true,
+      issueAction: 'none',
     },
     idempotencyKey: 'github-upsert-operation',
     bindings: {
@@ -82,7 +112,7 @@ test('resolves a credential and executes pull-request upsert through the bounded
           resourceId: 'target',
           kind: 'repository',
           repositoryId: 'repository-123',
-          access: 'write',
+          access: 'publish',
           grant: {
             permissions: ['github.pull-request.upsert'],
             effects: ['github.read', 'github.write'],
@@ -109,11 +139,28 @@ test('resolves a credential and executes pull-request upsert through the bounded
         base: { branch: 'master' },
         state: 'open',
         draft: true,
+        owner: 'revisium',
+        repository: 'revo-scripts',
+        providerRevision:
+          'github-pr-metadata/v1:sha256:b898f3ceef807331a6e1beebeaa2a0db7cf61b55e21b98a8b948f0b6f0b96f5a',
       },
       evidence: [],
       attempts: 1,
     },
     requests: [
+      {
+        url: 'https://api.github.com/graphql',
+        method: 'POST',
+        body: JSON.stringify({
+          query:
+            'query SourceBranch($owner: String!, $repository: String!, $qualifiedName: String!) {\n  repository(owner: $owner, name: $repository) {\n    ref(qualifiedName: $qualifiedName) { target { ... on Commit { oid } } }\n  }\n}',
+          variables: {
+            owner: 'revisium',
+            repository: 'revo-scripts',
+            qualifiedName: 'refs/heads/revo/task',
+          },
+        }),
+      },
       {
         url: 'https://api.github.com/repos/revisium/revo-scripts/pulls?state=open&head=revisium%3Arevo%2Ftask&base=master&per_page=2',
         method: 'GET',
@@ -125,9 +172,19 @@ test('resolves a credential and executes pull-request upsert through the bounded
           head: 'revo/task',
           base: 'master',
           title: 'Bounded scripts',
-          body: 'Exact provider execution.',
+          body: githubManagedPullRequestBody('Exact provider execution.', {
+            operationKey: 'github-upsert-operation',
+            headSha,
+            title: 'Bounded scripts',
+            baseBranch: 'master',
+            draft: true,
+          }),
           draft: true,
         }),
+      },
+      {
+        url: 'https://api.github.com/repos/revisium/revo-scripts/pulls/42',
+        method: 'GET',
       },
     ],
     credentialDisposals: 1,

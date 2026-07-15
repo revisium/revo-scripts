@@ -68,7 +68,11 @@ test('rejects a missing prepared resource before invoking the handler', async ()
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/resource', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/resource',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000011',
+    },
     handler: {
       execute: async (input) => {
         invoked = true;
@@ -109,7 +113,11 @@ test('converts an unexpected input-validator rejection into a preflight failure'
   const validatorDefinition = defineScript({
     ...echoDefinition,
     inputSchema: rejectingInputSchema,
-    implementation: { id: '@revisium/revo-scripts/test/validator', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/validator',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000012',
+    },
   });
   const { events, result } = await executeRuntimeScenario(validatorDefinition, {
     executionId: 'execution-validator-rejection',

@@ -11,7 +11,11 @@ import * as specEntry from '../../src/runtime/spec/index.js';
 import type { ScriptDefinition } from '../../src/runtime/spec/index.js';
 import * as approvalEntry from '../../src/scripts/approval/index.js';
 import * as gitEntry from '../../src/scripts/git/index.js';
-import type { GitStatusResources, GitStatusResult } from '../../src/scripts/git/index.js';
+import type {
+  GitStatusInput,
+  GitStatusResources,
+  GitStatusResult,
+} from '../../src/scripts/git/index.js';
 import * as githubEntry from '../../src/scripts/github/index.js';
 import * as testingEntry from '../../src/testing/index.js';
 
@@ -64,13 +68,15 @@ test('entry points expose only their curated runtime values', () => {
       'RecordingEventSink',
       'createGitStatusClientFake',
       'createScriptContractHarness',
+      'verifyCrashReconciliation',
+      'verifyRequiredIdempotencyContracts',
     ],
   });
 });
 
 test('preserves the built-in Git status type surface through its public entrypoint', () => {
   expectTypeOf(gitEntry.gitStatusScript).toMatchTypeOf<
-    ScriptDefinition<Record<string, never>, GitStatusResult, GitStatusResources>
+    ScriptDefinition<GitStatusInput, GitStatusResult, GitStatusResources>
   >();
 });
 

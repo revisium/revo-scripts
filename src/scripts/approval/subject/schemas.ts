@@ -23,6 +23,11 @@ const subjectFields = {
   risk: z.string().min(1).max(4_096).optional(),
 };
 
+export const approvalSubjectResultShape = {
+  schemaVersion: z.literal('approval-subject/v1'),
+  ...subjectFields,
+};
+
 export const approvalSubjectInputSchema = createScriptSchema({
   id: 'revo.script.approval.subject.input/v1',
   schema: z.strictObject(subjectFields),
@@ -31,6 +36,6 @@ export const approvalSubjectInputSchema = createScriptSchema({
 
 export const approvalSubjectResultSchema = createScriptSchema({
   id: 'schema:approvalSubject/v1',
-  schema: z.strictObject({ schemaVersion: z.literal('approval-subject/v1'), ...subjectFields }),
+  schema: z.strictObject(approvalSubjectResultShape),
   jsonSchema: 'output',
 });

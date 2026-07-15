@@ -8,6 +8,7 @@ import type {
 import type { GitHubPullRequestSnapshot } from '../../../contracts/github-pull-request-snapshot.js';
 import type { GitHubRepositoryCoordinates } from '../../../contracts/github-repository-coordinates.js';
 import { GitHubApiClient } from '../github-api-client.js';
+import { githubManagedPullRequestOperation } from '../github-operation-marker.js';
 import { GitHubPullRequestReader } from './github-pull-request-reader.js';
 import { parseGitHubPullRequest } from './github-pull-request-response.js';
 
@@ -47,6 +48,24 @@ export class FetchGitHubPullRequestReadyClient implements GitHubPullRequestReady
 
   async markReady(request: GitHubPullRequestReadyRequest): Promise<GitHubPullRequestSnapshot> {
     const current = await this.reader.read(request.number, request.expectedHeadSha, request.signal);
+    if (current.providerRevision !== request.expectedProviderRevision) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'The pull request metadata revision no longer matches the pinned revision.',
+      );
+    }
+    if (githubManagedPullRequestOperation(current.body) === undefined) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'The pull request is not managed by this package.',
+      );
+    }
+    if (current.state !== 'open') {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'The pull request is not open at the pinned revision.',
+      );
+    }
     if (!current.draft) {
       return current;
     }
@@ -60,7 +79,7 @@ export class FetchGitHubPullRequestReadyClient implements GitHubPullRequestReady
       );
     }
     const pullRequest = response.data.data.markPullRequestReadyForReview.pullRequest;
-    return parseGitHubPullRequest({
+    const mutationSnapshot = parseGitHubPullRequest({
       number: pullRequest.number,
       node_id: pullRequest.id,
       html_url: pullRequest.url,
@@ -70,6 +89,46 @@ export class FetchGitHubPullRequestReadyClient implements GitHubPullRequestReady
       draft: pullRequest.isDraft,
       merged: pullRequest.merged,
       merge_commit_sha: pullRequest.mergeCommit?.oid ?? null,
+      title: current.title,
+      body: current.body,
     });
+    if (!this.isExactReadyState(mutationSnapshot, current)) {
+      throw new ScriptFault(
+        'revo.script.provider.invalid_response',
+        'GitHub did not confirm ready-for-review state.',
+      );
+    }
+    const snapshot = await this.reader.read(
+      request.number,
+      request.expectedHeadSha,
+      request.signal,
+    );
+    if (
+      !this.isExactReadyState(snapshot, current) ||
+      githubManagedPullRequestOperation(snapshot.body) === undefined
+    ) {
+      throw new ScriptFault(
+        'revo.script.provider.invalid_response',
+        'GitHub did not persist the managed ready-for-review state.',
+      );
+    }
+    return snapshot;
+  }
+
+  private isExactReadyState(
+    snapshot: GitHubPullRequestSnapshot,
+    expected: GitHubPullRequestSnapshot,
+  ): boolean {
+    return (
+      snapshot.state === 'open' &&
+      !snapshot.draft &&
+      snapshot.number === expected.number &&
+      snapshot.nodeId === expected.nodeId &&
+      snapshot.url === expected.url &&
+      snapshot.head.branch === expected.head.branch &&
+      snapshot.head.sha === expected.head.sha &&
+      snapshot.base.branch === expected.base.branch &&
+      snapshot.providerRevision === expected.providerRevision
+    );
   }
 }

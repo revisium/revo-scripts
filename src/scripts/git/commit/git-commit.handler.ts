@@ -18,23 +18,72 @@ export class GitCommitHandler implements ScriptHandler<
       );
     }
 
+    if (input.resource !== context.resources.repository.name) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'The Git resource does not match the pinned resource.',
+      );
+    }
     const snapshot = await context.resources.repository.clients.git.commit({
-      remoteIdentity: input.remoteIdentity,
       branch: input.branch,
+      remoteIdentity: input.remoteIdentity,
       expectedParent: input.expectedParent,
       expectedTree: input.expectedTree,
-      message: input.message,
-      authorship: input.authorship,
+      message: this.message(input),
       operationKey: context.idempotencyKey,
+      author: input.author,
       signal: context.signal,
     });
 
     return {
       value: {
         schemaVersion: 'git-change/v1',
-        repositoryId: input.repositoryId,
+        repositoryId: input.resource,
         ...snapshot,
       },
     };
+  }
+
+  private message(input: Readonly<GitCommitInput>): string {
+    const title = input.title.replace(/\r\n?/gu, '\n').trim();
+    if (input.issueAction === 'none') {
+      if (input.issueRef !== undefined) {
+        throw new ScriptFault(
+          'revo.script.validation.input',
+          'Issue reference is not permitted for issue action none.',
+        );
+      }
+      return `feat: ${title}`;
+    }
+    if (input.issueRef === undefined) {
+      throw new ScriptFault(
+        'revo.script.validation.input',
+        'Issue reference is required by the selected issue action.',
+      );
+    }
+    const remote = this.repository(input.remoteIdentity);
+    const issue =
+      input.issueRef.owner === remote.owner && input.issueRef.repository === remote.repository
+        ? `#${input.issueRef.number}`
+        : `${input.issueRef.owner}/${input.issueRef.repository}#${input.issueRef.number}`;
+    return `feat: ${issue} ${title}`;
+  }
+
+  private repository(remoteIdentity: string): Readonly<{ owner: string; repository: string }> {
+    const parts = remoteIdentity
+      .replace(/^[a-z][a-z0-9+.-]*:\/\//iu, '')
+      .replace(/^[^@]+@/u, '')
+      .replace(/:/u, '/')
+      .split('/')
+      .filter((part) => part.length > 0);
+    const owner = parts.at(-2);
+    const repository = parts.at(-1)?.replace(/\.git$/u, '');
+    if (owner === undefined || repository === undefined || repository.length === 0) {
+      throw new ScriptFault(
+        'revo.script.validation.input',
+        'The pinned remote identity does not identify a repository.',
+      );
+    }
+    return { owner, repository };
   }
 }

@@ -36,38 +36,30 @@ export class NodeGitPushClient implements GitPushClient {
       );
     }
 
-    const mergeBase = (
-      await this.runner.execute(
-        ['merge-base', request.expectedRemoteHead, request.headCommit],
-        request.signal,
-      )
-    ).stdout.trim();
-    if (mergeBase !== request.expectedRemoteHead) {
-      throw new ScriptFault(
-        'revo.script.idempotency.conflict',
-        'The pinned Git commit is not a fast-forward from the expected remote head.',
-      );
-    }
-
     const remoteHead = await this.readRemoteHead(remote, request.branch, request.signal);
     if (remoteHead === request.headCommit) {
       return { status: 'already-published', remoteHead };
     }
-    if (remoteHead !== undefined && remoteHead !== request.expectedRemoteHead) {
+    if (remoteHead !== request.expectedRemoteHead) {
       throw new ScriptFault(
         'revo.script.idempotency.conflict',
         'The remote Git branch already points to a different commit.',
       );
     }
+    if (remoteHead !== undefined) {
+      const mergeBase = (
+        await this.runner.execute(['merge-base', remoteHead, request.headCommit], request.signal)
+      ).stdout.trim();
+      if (mergeBase !== remoteHead) {
+        throw new ScriptFault(
+          'revo.script.idempotency.conflict',
+          'The pinned Git commit is not a fast-forward from the expected remote head.',
+        );
+      }
+    }
 
-    const leaseHead = remoteHead === undefined ? '' : request.expectedRemoteHead;
     await this.runner.execute(
-      [
-        'push',
-        `--force-with-lease=refs/heads/${request.branch}:${leaseHead}`,
-        remote,
-        `${request.headCommit}:refs/heads/${request.branch}`,
-      ],
+      ['push', remote, `${request.headCommit}:refs/heads/${request.branch}`],
       request.signal,
     );
     const publishedHead = await this.readRemoteHead(remote, request.branch, request.signal);
