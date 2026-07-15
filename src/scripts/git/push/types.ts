@@ -3,6 +3,8 @@ import type { ScriptResourceHandle } from '../../../runtime/spec/resources/index
 
 export interface GitPushInput {
   readonly change: GitChangeV1;
+  /** Omitted only when the pinned remote branch must be created. */
+  readonly expectedRemoteHead?: string | undefined;
 }
 
 export type GitPushResult = GitChangeV1;

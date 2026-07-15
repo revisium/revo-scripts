@@ -83,7 +83,7 @@ export class FetchGitHubProvider implements ScriptProviderModule {
       case 'github.pull-request.mark-ready':
         return new FetchGitHubPullRequestReadyClient(api, coordinates);
       case 'github.pull-request.readiness':
-        return new FetchGitHubPullRequestReadinessClient(api, coordinates);
+        return new FetchGitHubPullRequestReadinessClient(api, coordinates, this.options.now);
       case 'github.review-thread.respond':
         return new FetchGitHubReviewThreadRespondClient(api, coordinates);
       case 'github.review-thread.resolve':

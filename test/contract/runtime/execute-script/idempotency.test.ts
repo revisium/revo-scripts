@@ -28,7 +28,11 @@ const createMutationScenario = () => {
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/mutation', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/mutation',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000019',
+    },
     handler: {
       execute: async (input, context) => {
         receivedKeys.push(context.idempotencyKey ?? '[MISSING]');

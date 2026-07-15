@@ -40,7 +40,11 @@ const createDefinition = (id: `script:test/${string}`, version: string) =>
     },
     inputSchema: emptySchema,
     resultSchema: emptySchema,
-    implementation: { id: '@revisium/revo-scripts/test/registry', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/registry',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000006',
+    },
     handler: { execute: async () => ({ value: {} }) },
   });
 

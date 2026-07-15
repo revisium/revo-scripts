@@ -25,9 +25,16 @@ export class GitHubPullRequestMarkReadyHandler implements ScriptHandler<
     const snapshot = await context.resources.repository.clients.github.markReady({
       number: input.pullRequest.number,
       expectedHeadSha: input.pullRequest.head.sha,
-      operationKey: context.idempotencyKey,
+      expectedProviderRevision: input.pullRequest.providerRevision,
       signal: context.signal,
     });
-    return { value: toGitHubPullRequest(input.pullRequest.repositoryId, snapshot) };
+    return {
+      value: toGitHubPullRequest(
+        input.pullRequest.repositoryId,
+        input.pullRequest.owner,
+        input.pullRequest.repository,
+        snapshot,
+      ),
+    };
   }
 }

@@ -1,6 +1,8 @@
 export type {
   GitHubPullRequestMergeClient,
+  GitHubPullRequestMergeIssueRef,
   GitHubPullRequestMergeRequest,
+  GitHubPullRequestMergeSnapshot,
 } from './contracts/github-pull-request-merge-client.js';
 export type {
   GitHubPullRequestReadinessClient,

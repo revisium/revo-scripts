@@ -132,6 +132,7 @@ export const scriptManifestSchema: z.ZodType<ScriptManifestV1> = z.strictObject(
     ),
   }),
   idempotency: z.enum(['read-only', 'required', 'not-retryable']),
+  classification: jsonPointerSchema.optional(),
   redaction: z.strictObject({
     inputPaths: z.array(jsonPointerSchema).max(128),
     resultPaths: z.array(jsonPointerSchema).max(128),

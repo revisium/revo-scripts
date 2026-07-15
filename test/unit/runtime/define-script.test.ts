@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 
 import { defineScript } from '../../../src/runtime/definition/define-script.js';
+import { validateImplementationIdentity } from '../../../src/runtime/definition/validation/implementation-identity-validator.js';
 import { ScriptFault } from '../../../src/runtime/spec/errors/index.js';
 import type { ScriptManifestV1 } from '../../../src/runtime/spec/manifest/index.js';
 import type { ScriptSchema } from '../../../src/runtime/spec/schema/index.js';
@@ -38,6 +39,7 @@ test('defines one read-only script snapshot with a stable identity digest', () =
     implementation: {
       id: '@revisium/revo-scripts/test/echo',
       version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000040',
     },
     handler,
   });
@@ -49,11 +51,65 @@ test('defines one read-only script snapshot with a stable identity digest', () =
     implementation: {
       id: '@revisium/revo-scripts/test/echo',
       version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000040',
     },
-    definitionDigest: 'sha256:d6d2ab007afc8982c38815b1055f220161fe64eafc44cb48cbd6dd36ec11a1bb',
+    definitionDigest: 'sha256:5b44ad0fbcf54250101bee9b5545575e60bed01155fb25c13866d21274d2b6e5',
     handler,
   });
   expect(definition.manifest).not.toBe(manifest);
+});
+
+test('rejects a missing or malformed executable build digest', () => {
+  expect({
+    missing: validateImplementationIdentity('@revisium/revo-scripts/test/echo', '1.0.0', undefined),
+    malformed: validateImplementationIdentity(
+      '@revisium/revo-scripts/test/echo',
+      '1.0.0',
+      'sha256:ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD',
+    ),
+  }).toEqual({
+    missing: [
+      {
+        path: '/implementation/buildDigest',
+        message: 'Implementation build digest must be a lowercase SHA-256 digest.',
+      },
+    ],
+    malformed: [
+      {
+        path: '/implementation/buildDigest',
+        message: 'Implementation build digest must be a lowercase SHA-256 digest.',
+      },
+    ],
+  });
+});
+
+test('pins the executable build digest into the definition digest', () => {
+  const base = {
+    manifest,
+    inputSchema,
+    resultSchema,
+    handler,
+  };
+  const first = defineScript({
+    ...base,
+    implementation: {
+      id: '@revisium/revo-scripts/test/echo',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000043',
+    },
+  });
+  const second = defineScript({
+    ...base,
+    implementation: {
+      id: '@revisium/revo-scripts/test/echo',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000044',
+    },
+  });
+
+  expect({ sameDefinitionDigest: first.definitionDigest === second.definitionDigest }).toEqual({
+    sameDefinitionDigest: false,
+  });
 });
 
 test('rejects duplicate bounded manifest entries with stable diagnostics', () => {
@@ -73,6 +129,7 @@ test('rejects duplicate bounded manifest entries with stable diagnostics', () =>
       implementation: {
         id: '@revisium/revo-scripts/test/echo',
         version: '1.0.0',
+        buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000040',
       },
       handler,
     }),
@@ -115,6 +172,7 @@ test('rejects incoherent effect, retry, and idempotency policies', () => {
       implementation: {
         id: '@revisium/revo-scripts/test/echo',
         version: '1.0.0',
+        buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000040',
       },
       handler,
     }),
@@ -172,6 +230,7 @@ test('rejects schema and implementation identities that diverge from the definit
       implementation: {
         id: 'implementation with spaces',
         version: 'latest',
+        buildDigest: 'sha256:ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD',
       },
       handler,
     }),
@@ -211,6 +270,10 @@ test('rejects schema and implementation identities that diverge from the definit
           path: '/implementation/version',
           message: 'Implementation version must be an exact semantic version.',
         },
+        {
+          path: '/implementation/buildDigest',
+          message: 'Implementation build digest must be a lowercase SHA-256 digest.',
+        },
       ],
     },
   });
@@ -247,6 +310,7 @@ test('rejects nested object schemas that do not fail closed', () => {
       implementation: {
         id: '@revisium/revo-scripts/test/nested-schema',
         version: '1.0.0',
+        buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000041',
       },
       handler: { execute: async () => ({ value: { echoed: 'valid' } }) },
     }),
@@ -291,6 +355,7 @@ test('does not interpret JSON Schema annotation values as nested schemas', () =>
     implementation: {
       id: '@revisium/revo-scripts/test/annotated-schema',
       version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000042',
     },
     handler,
   });

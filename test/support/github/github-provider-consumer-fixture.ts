@@ -5,9 +5,10 @@ import { fetchGitHubProviders } from '../../../src/providers/github/index.js';
 export interface GitHubProviderScenario {
   readonly scriptId: `script:github/${string}`;
   readonly input: unknown;
-  readonly access: 'read' | 'write' | 'publish';
+  readonly access: 'read' | 'write' | 'publish' | 'admin';
   readonly permission: string;
   readonly fetch: typeof globalThis.fetch;
+  readonly now?: () => Date;
   readonly idempotencyKey?: string;
 }
 
@@ -30,7 +31,10 @@ export const executeGitHubProviderScenario = async (scenario: GitHubProviderScen
   };
   const scripts = createRevoScripts({
     definitions: [githubScripts()],
-    providers: fetchGitHubProviders({ fetch: scenario.fetch }),
+    providers: fetchGitHubProviders({
+      fetch: scenario.fetch,
+      ...(scenario.now === undefined ? {} : { now: scenario.now }),
+    }),
     host,
   });
   const plan = scripts.resolveForPlan({ id: scenario.scriptId, version: '1.0.0' });

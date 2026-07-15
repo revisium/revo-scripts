@@ -13,7 +13,7 @@ export const gitStatusManifest = {
   resources: [{ name: 'repository', kind: 'repository', access: 'read' }],
   providers: [{ name: 'git', contract: 'revo.provider.git/v1', resource: 'repository' }],
   credentials: [],
-  effects: ['git.read'],
+  effects: ['filesystem.read', 'git.read'],
   timeout: { wallClockMs: 5_000 },
   retry: { mode: 'never', maxAttempts: 1, backoffMs: [] },
   idempotency: 'read-only',

@@ -21,7 +21,11 @@ export const validateDefinition = <I, O, R extends ScriptResourceMap>(
   const issues = [
     ...inputSchema.issues,
     ...resultSchema.issues,
-    ...validateImplementationIdentity(input.implementation.id, input.implementation.version),
+    ...validateImplementationIdentity(
+      input.implementation.id,
+      input.implementation.version,
+      input.implementation.buildDigest,
+    ),
   ];
 
   if (issues.length > 0) {

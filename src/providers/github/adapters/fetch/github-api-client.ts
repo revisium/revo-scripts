@@ -8,6 +8,11 @@ export interface GitHubApiClientOptions {
   readonly userAgent: string;
 }
 
+export interface GitHubRestPage {
+  readonly value: unknown;
+  readonly hasNextPage: boolean;
+}
+
 export class GitHubApiClient {
   private readonly options: GitHubApiClientOptions;
 
@@ -18,14 +23,30 @@ export class GitHubApiClient {
   async rest(
     path: string,
     request: Readonly<{
-      method?: 'GET' | 'POST' | 'PATCH' | 'PUT';
+      method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
       body?: Readonly<Record<string, unknown>>;
+      allowEmptyResponse?: boolean;
       signal: AbortSignal;
     }>,
   ): Promise<unknown> {
+    return (
+      await this.request(`${this.options.apiBaseUrl}${path}`, {
+        method: request.method ?? 'GET',
+        ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
+        ...(request.allowEmptyResponse === true ? { allowEmptyResponse: true } : {}),
+        signal: request.signal,
+      })
+    ).value;
+  }
+
+  async restPage(
+    path: string,
+    request: Readonly<{
+      signal: AbortSignal;
+    }>,
+  ): Promise<GitHubRestPage> {
     return await this.request(`${this.options.apiBaseUrl}${path}`, {
-      method: request.method ?? 'GET',
-      ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
+      method: 'GET',
       signal: request.signal,
     });
   }
@@ -41,24 +62,29 @@ export class GitHubApiClient {
       signal,
     });
     if (
-      typeof response === 'object' &&
-      response !== null &&
-      'errors' in response &&
-      Array.isArray(response.errors) &&
-      response.errors.length > 0
+      typeof response.value === 'object' &&
+      response.value !== null &&
+      'errors' in response.value &&
+      Array.isArray(response.value.errors) &&
+      response.value.errors.length > 0
     ) {
       throw new ScriptFault(
         'revo.script.provider.request_failed',
         'GitHub GraphQL returned an operation error.',
       );
     }
-    return response;
+    return response.value;
   }
 
   private async request(
     url: string,
-    request: Readonly<{ method: string; body?: string; signal: AbortSignal }>,
-  ): Promise<unknown> {
+    request: Readonly<{
+      method: string;
+      body?: string;
+      allowEmptyResponse?: boolean | undefined;
+      signal: AbortSignal;
+    }>,
+  ): Promise<GitHubRestPage> {
     let response: Response;
     try {
       response = await this.options.fetch(url, {
@@ -108,8 +134,15 @@ export class GitHubApiClient {
       );
     }
 
+    if (response.status === 204 && request.allowEmptyResponse === true) {
+      return { value: {}, hasNextPage: false };
+    }
+
     try {
-      return await response.json();
+      return {
+        value: await response.json(),
+        hasNextPage: /(?:^|,)\s*<[^>]+>;\s*rel="?next"?/u.test(response.headers.get('link') ?? ''),
+      };
     } catch (cause: unknown) {
       throw new ScriptFault(
         'revo.script.provider.invalid_response',

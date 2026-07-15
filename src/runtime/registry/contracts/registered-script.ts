@@ -6,7 +6,11 @@ export const registeredScriptBrand: unique symbol = Symbol('revo.registered-scri
 export interface RegisteredScript<I, O, R extends ScriptResourceMap> {
   readonly manifest: ScriptManifestV1;
   readonly definitionDigest: `sha256:${string}`;
-  readonly implementation: Readonly<{ id: string; version: string }>;
+  readonly implementation: Readonly<{
+    id: string;
+    version: string;
+    buildDigest: `sha256:${string}`;
+  }>;
   readonly [registeredScriptBrand]: {
     readonly input: I;
     readonly output: O;

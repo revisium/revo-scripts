@@ -33,6 +33,7 @@ const createResourceScenario = () => {
     implementation: {
       id: '@revisium/revo-scripts/test/resource-contract',
       version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000034',
     },
     handler: {
       execute: async (input) => {

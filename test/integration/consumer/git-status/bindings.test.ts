@@ -92,7 +92,7 @@ test('rejects non-exact resource, provider and effect grants before host access'
         ok: false,
         error: {
           code: 'revo.script.permission.effect',
-          message: 'Resource binding repository is missing effect git.read.',
+          message: 'Resource binding repository is missing effect filesystem.read.',
           retryable: false,
         },
         attempts: 0,

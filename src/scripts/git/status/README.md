@@ -5,7 +5,7 @@
 | Script id         | `script:git/status`             |
 | Version           | `1.0.0`                         |
 | Effect class      | `read`                          |
-| Effects           | `git.read`                      |
+| Effects           | `filesystem.read`, `git.read`   |
 | Permission        | `git.status.read`               |
 | Resource          | `repository` with `read` access |
 | Provider contract | `revo.provider.git/v1`          |
@@ -13,9 +13,9 @@
 
 ## Operation
 
-Captures the current workspace as an immutable `git-tree:*` without mutating the real Git index. It returns the base
-`git-commit:*`, at most 2,048 sorted changed paths, and `clean`. It performs no Git or GitHub mutation and returns no
-workspace path or execution provenance.
+Re-observes the pinned `resource`, `git-commit:*`, and `git-tree:*` inputs without mutating the real Git index. A
+moved capture fails closed. It returns the base, at most 2,048 sorted changed paths, and `clean`, with no workspace
+path or execution provenance.
 
 ## Files
 

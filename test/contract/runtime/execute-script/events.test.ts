@@ -33,7 +33,11 @@ test('redacts custom events and typed failure details before they leave the runt
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/failure', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/failure',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000020',
+    },
     handler: {
       execute: async (input, context) => {
         await context.emit({
@@ -139,7 +143,11 @@ test('returns an event-sink failure without invoking the handler or re-emitting'
 test('rejects an undeclared custom event before it reaches the sink', async () => {
   const eventDefinition = defineScript({
     ...echoDefinition,
-    implementation: { id: '@revisium/revo-scripts/test/undeclared-event', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/undeclared-event',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000021',
+    },
     handler: {
       execute: async (input, context) => {
         await context.emit({ name: 'test.undeclared' });
@@ -170,7 +178,11 @@ test('rejects an undeclared custom event before it reaches the sink', async () =
 test('returns an event-sink failure when the terminal failure event is rejected', async () => {
   const failingDefinition = defineScript({
     ...echoDefinition,
-    implementation: { id: '@revisium/revo-scripts/test/terminal-event', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/terminal-event',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000022',
+    },
     handler: {
       execute: async () => {
         throw new ScriptFault('revo.script.provider.unavailable', 'Provider is unavailable.');
@@ -219,7 +231,11 @@ test('rejects an undeclared empty-container event detail path', async () => {
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/empty-event-detail', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/empty-event-detail',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000023',
+    },
     handler: {
       execute: async (input, context) => {
         await context.emit({ name: 'test.empty-detail', details: { privateMetadata: {} } });
@@ -258,7 +274,11 @@ test('returns a stable event-validation failure for non-JSON custom details', as
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/non-json-event', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/non-json-event',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000024',
+    },
     handler: {
       execute: async (input, context) => {
         await context.emit({ name: 'test.non-json', details: { count: 1n } });
@@ -296,7 +316,11 @@ test('returns a stable event-validation failure for cyclic custom details', asyn
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/cyclic-event', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/cyclic-event',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000025',
+    },
     handler: {
       execute: async (input, context) => {
         const details: Record<string, unknown> = {};

@@ -1,4 +1,5 @@
 import { defineScript } from '../../../../runtime/definition/define-script.js';
+import { builtInImplementation } from '../../../../runtime/generated/built-in-implementation.js';
 import { GitHubPullRequestUpsertHandler } from './github-pull-request-upsert.handler.js';
 import { githubPullRequestUpsertManifest } from './manifest.js';
 import {
@@ -19,6 +20,6 @@ export const githubPullRequestUpsertScript = defineScript<
   manifest: githubPullRequestUpsertManifest,
   inputSchema: githubPullRequestUpsertInputSchema,
   resultSchema: githubPullRequestUpsertResultSchema,
-  implementation: { id: '@revisium/revo-scripts/github/pull-request-upsert', version: '1.0.0' },
+  implementation: builtInImplementation('script:github/pull-request/upsert', '1.0.0'),
   handler: new GitHubPullRequestUpsertHandler(),
 });

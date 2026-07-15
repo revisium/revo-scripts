@@ -26,7 +26,11 @@ test('retries only an explicitly transient typed failure within the manifest pol
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/retry', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/retry',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000013',
+    },
     handler: {
       execute: async (input, context) => {
         invocationCount += 1;
@@ -124,7 +128,11 @@ test('does not start retry backoff that cannot fit inside the total deadline', a
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/retry-deadline', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/retry-deadline',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000014',
+    },
     handler: {
       execute: async () => {
         throw new ScriptFault('revo.script.provider.transient', 'Provider is busy.', {
@@ -173,7 +181,11 @@ test('returns an event-sink failure when the retrying event is rejected', async 
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/retry-event', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/retry-event',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000015',
+    },
     handler: {
       execute: async () => {
         invocationCount += 1;
@@ -232,7 +244,11 @@ test('converts an unexpected retry scheduler failure into a terminal failure', a
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/retry-scheduler', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/retry-scheduler',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000016',
+    },
     handler: {
       execute: async () => {
         throw new ScriptFault('revo.script.provider.transient', 'Provider is busy.', {

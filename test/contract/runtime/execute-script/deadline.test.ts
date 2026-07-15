@@ -28,7 +28,11 @@ test('aborts an active handler at the total wall-clock deadline', async () => {
       },
       inputSchema: echoInputSchema,
       resultSchema: echoResultSchema,
-      implementation: { id: '@revisium/revo-scripts/test/timeout', version: '1.0.0' },
+      implementation: {
+        id: '@revisium/revo-scripts/test/timeout',
+        version: '1.0.0',
+        buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000032',
+      },
       handler: {
         execute: async (_input, context) =>
           new Promise((_resolve, reject) => {
@@ -132,7 +136,11 @@ test('bounds a success EventSink that never settles by the wall-clock deadline',
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/hanging-event-sink', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/hanging-event-sink',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000033',
+    },
     handler: { execute: async (input) => ({ value: { echoed: input.message } }) },
   });
   const { registry, script } = registerTestScript(timeoutDefinition);

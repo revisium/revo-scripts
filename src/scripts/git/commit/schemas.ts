@@ -8,23 +8,23 @@ export { gitChangeSchema as gitCommitResultSchema } from '../shared/git-change-s
 export const gitCommitInputSchema = createScriptSchema({
   id: 'revo.script.git.commit.input/v1',
   schema: z.strictObject({
-    repositoryId: z.string().min(1).max(256),
+    resource: z.string().min(1).max(256),
     remoteIdentity: z.string().min(1).max(512),
     branch: z.string().min(1).max(256),
     expectedParent: gitObjectIdSchema,
     expectedTree: gitObjectIdSchema,
-    message: z.string().min(1).max(16_384),
-    authorship: z.strictObject({
-      name: z
-        .string()
-        .min(1)
-        .max(256)
-        .refine(
-          (value) =>
-            !value.includes('\r') &&
-            !value.includes('\n') &&
-            !value.includes(String.fromCodePoint(0)),
-        ),
+    title: z.string().min(1).max(16_384),
+    issueRef: z
+      .strictObject({
+        owner: z.string().min(1).max(100),
+        repository: z.string().min(1).max(100),
+        number: z.number().int().positive(),
+        url: z.url().max(2_048),
+      })
+      .optional(),
+    issueAction: z.enum(['close', 'refs', 'none']),
+    author: z.strictObject({
+      name: z.string().min(1).max(256),
       email: z.email().max(320),
       timestamp: z.iso.datetime({ offset: true }),
     }),

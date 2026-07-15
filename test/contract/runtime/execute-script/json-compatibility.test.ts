@@ -80,6 +80,7 @@ test('converts a non-JSON handler value into a structured result failure', async
     implementation: {
       id: '@revisium/revo-scripts/test/non-json-result',
       version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000010',
     },
     handler: {
       execute: async () => ({ value: { value: 1n } }),

@@ -1,4 +1,5 @@
 import { defineScript } from '../../../runtime/definition/define-script.js';
+import { builtInImplementation } from '../../../runtime/generated/built-in-implementation.js';
 import { GitCommitHandler } from './git-commit.handler.js';
 import { gitCommitManifest } from './manifest.js';
 import { gitCommitInputSchema, gitCommitResultSchema } from './schemas.js';
@@ -8,6 +9,6 @@ export const gitCommitScript = defineScript<GitCommitInput, GitCommitResult, Git
   manifest: gitCommitManifest,
   inputSchema: gitCommitInputSchema,
   resultSchema: gitCommitResultSchema,
-  implementation: { id: '@revisium/revo-scripts/git/commit', version: '1.0.0' },
+  implementation: builtInImplementation('script:git/commit', '1.0.0'),
   handler: new GitCommitHandler(),
 });

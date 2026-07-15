@@ -1,4 +1,5 @@
 import { defineScript } from '../../../runtime/definition/define-script.js';
+import { builtInImplementation } from '../../../runtime/generated/built-in-implementation.js';
 import { GitStatusHandler } from './git-status.handler.js';
 import { gitStatusManifest } from './manifest.js';
 import { gitStatusInputSchema, gitStatusResultSchema } from './schemas.js';
@@ -10,6 +11,6 @@ export const gitStatusScript = defineScript<GitStatusInput, GitStatusResult, Git
   manifest: gitStatusManifest,
   inputSchema: gitStatusInputSchema,
   resultSchema: gitStatusResultSchema,
-  implementation: { id: '@revisium/revo-scripts/git/status', version: '1.0.0' },
+  implementation: builtInImplementation('script:git/status', '1.0.0'),
   handler: new GitStatusHandler(),
 });

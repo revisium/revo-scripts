@@ -6,14 +6,14 @@ import {
 
 export const githubPullRequestMarkReadyManifest = {
   schemaVersion: 'revo.script.manifest/v1',
-  id: 'script:github/pull-request-mark-ready',
+  id: 'script:github/pull-request/mark-ready',
   version: '1.0.0',
   summary: 'Marks one exact draft pull request revision ready for review.',
   inputSchemaId: githubPullRequestMarkReadyInputSchema.id,
   resultSchemaId: githubPullRequestMarkReadyResultSchema.id,
-  effectClass: 'write',
+  effectClass: 'publish',
   permissions: ['github.pull-request.mark-ready'],
-  resources: [{ name: 'repository', kind: 'repository', access: 'write' }],
+  resources: [{ name: 'repository', kind: 'repository', access: 'publish' }],
   providers: [{ name: 'github', contract: 'revo.provider.github/v1', resource: 'repository' }],
   credentials: [{ name: 'token', provider: 'github', providerRequirement: 'github' }],
   effects: ['github.read', 'github.write'],

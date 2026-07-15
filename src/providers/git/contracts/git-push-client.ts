@@ -1,7 +1,7 @@
 export interface GitPushRequest {
   readonly remoteIdentity: string;
   readonly branch: string;
-  readonly expectedRemoteHead: string;
+  readonly expectedRemoteHead?: string;
   readonly headCommit: string;
   readonly operationKey: string;
   readonly signal: AbortSignal;

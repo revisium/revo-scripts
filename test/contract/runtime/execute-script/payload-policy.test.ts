@@ -52,7 +52,11 @@ test('fails an oversized custom event before it reaches the event sink', async (
     },
     inputSchema: echoInputSchema,
     resultSchema: echoResultSchema,
-    implementation: { id: '@revisium/revo-scripts/test/event-limit', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/event-limit',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000026',
+    },
     handler: {
       execute: async (input, context) => {
         await context.emit({ name: 'test.large', details: { payload: 'x'.repeat(65_536) } });
@@ -84,7 +88,11 @@ test('fails an oversized custom event before it reaches the event sink', async (
 test('rejects evidence that exceeds its bounded item count', async () => {
   const evidenceDefinition = defineScript({
     ...echoDefinition,
-    implementation: { id: '@revisium/revo-scripts/test/evidence-limit', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/evidence-limit',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000027',
+    },
     handler: {
       execute: async (input) => ({
         value: { echoed: input.message },
@@ -116,7 +124,11 @@ test('rejects evidence that exceeds its bounded item count', async () => {
 test('rejects a result payload larger than one mebibyte', async () => {
   const largeResultDefinition = defineScript({
     ...echoDefinition,
-    implementation: { id: '@revisium/revo-scripts/test/result-limit', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/result-limit',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000028',
+    },
     handler: { execute: async () => ({ value: { echoed: 'x'.repeat(1_048_577) } }) },
   });
   const { result } = await executeRuntimeScenario(largeResultDefinition, {
@@ -140,7 +152,11 @@ test('rejects a result payload larger than one mebibyte', async () => {
 test('rejects an evidence reference longer than its Unicode code-point limit', async () => {
   const evidenceDefinition = defineScript({
     ...echoDefinition,
-    implementation: { id: '@revisium/revo-scripts/test/evidence-ref', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/evidence-ref',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000029',
+    },
     handler: {
       execute: async (input) => ({
         value: { echoed: input.message },
@@ -169,7 +185,11 @@ test('rejects an evidence reference longer than its Unicode code-point limit', a
 test('rejects an evidence summary longer than its Unicode code-point limit', async () => {
   const evidenceDefinition = defineScript({
     ...echoDefinition,
-    implementation: { id: '@revisium/revo-scripts/test/evidence-summary', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/evidence-summary',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000030',
+    },
     handler: {
       execute: async (input) => ({
         value: { echoed: input.message },
@@ -198,7 +218,11 @@ test('rejects an evidence summary longer than its Unicode code-point limit', asy
 test('fails closed when typed fault details are not JSON-compatible', async () => {
   const failingDefinition = defineScript({
     ...echoDefinition,
-    implementation: { id: '@revisium/revo-scripts/test/fault-details', version: '1.0.0' },
+    implementation: {
+      id: '@revisium/revo-scripts/test/fault-details',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000031',
+    },
     handler: {
       execute: async () => {
         throw new ScriptFault('revo.script.provider.unavailable', 'Provider is unavailable.', {

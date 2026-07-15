@@ -18,7 +18,7 @@ export class NodeGitProvider implements ScriptProviderModule {
     packageName: '@revisium/revo-scripts',
     packageVersion: '0.0.0',
   };
-  readonly effects = ['git.read', 'git.write', 'git.remote-write'] as const;
+  readonly effects = ['filesystem.read', 'git.read', 'git.write', 'git.remote-write'] as const;
   readonly workspace = 'required';
   private readonly processExecutor: ProcessExecutor;
 

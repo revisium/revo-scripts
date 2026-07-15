@@ -41,7 +41,7 @@ test('publishes only the exact pinned head and returns the same Git change', asy
     commits: [headCommit],
   };
 
-  const execution = await harness.execute({ change });
+  const execution = await harness.execute({ change, expectedRemoteHead: baseCommit });
 
   expect({ result: execution.result, requests }).toEqual({
     result: { ok: true, value: change, evidence: [], attempts: 1 },

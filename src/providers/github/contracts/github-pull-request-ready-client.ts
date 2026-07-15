@@ -3,7 +3,7 @@ import type { GitHubPullRequestSnapshot } from './github-pull-request-snapshot.j
 export interface GitHubPullRequestReadyRequest {
   readonly number: number;
   readonly expectedHeadSha: string;
-  readonly operationKey: string;
+  readonly expectedProviderRevision: string;
   readonly signal: AbortSignal;
 }
 

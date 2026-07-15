@@ -106,7 +106,7 @@ port.
 
 ```ts
 const executable = scripts.resolveForPlan({
-  id: 'script:github/pull-request-upsert',
+  id: 'script:github/pull-request/upsert',
   version: '1.0.0',
 });
 ```
@@ -160,7 +160,7 @@ if (result.ok) {
 }
 ```
 
-The executor contains no branch for `script:github/pull-request-upsert`. Adding another operation that uses
+The executor contains no branch for `script:github/pull-request/upsert`. Adding another operation that uses
 `revo.provider.github/v1` changes this package and pipeline data, not the host executor.
 
 ## Result contracts
@@ -231,27 +231,85 @@ Readiness is a separate read-only result so policy blockers remain explicit:
 {
   "schemaVersion": "github-readiness/v1",
   "repositoryId": "repository-123",
-  "pullRequestNumber": 42,
-  "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "ready": false,
-  "blockers": ["check:verify:failure"]
+  "pullRequest": {
+    "owner": "revisium",
+    "repository": "revo-scripts",
+    "number": 42,
+    "url": "https://github.com/revisium/revo-scripts/pull/42"
+  },
+  "headCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "providerRevision": "github-readiness/v1:sha256:...",
+  "completeness": { "checks": "complete", "requiredChecks": "complete", "threads": "complete" },
+  "classification": "clean"
 }
 ```
 
-Review-thread reply and resolution return the pinned thread receipt. `replyId` is present only when the operation
-created or reconciled a reply:
+When a manifest declares `classification`, it is a generic RFC 6901 pointer into the validated result. The readiness
+operation uses `/classification` (`clean`, `recheck`, `ci_changes`, `review_changes`, `closed`, `merged`, or
+`unclassifiable`); consumers do not branch on a script id. A moved pull-request head is recorded as the observed
+head, not rejected as stale input. Required-check identity, check collection, and thread collection each report their
+own bounded completeness evidence. The Fetch provider combines matching branch protection with GitHub's
+credential-scoped evaluated branch rules, including repository and organization rulesets; unavailable or truncated
+identity is never treated as zero configured checks.
+
+### Pull-request merge
+
+`script:github/pull-request/merge` accepts the exact PR artifact, approval subject, active gate resolution, and a
+post-gate readiness artifact. It returns a dedicated merge receipt rather than a mutable PR artifact:
 
 ```json
 {
-  "schemaVersion": "github-review-thread/v1",
+  "schemaVersion": "github-pull-request-merge-result/v1",
   "repositoryId": "repository-123",
-  "pullRequestNumber": 42,
-  "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "threadId": "PRRT_kwDOExample",
-  "replyId": "PRRC_kwDOExample",
-  "resolved": false
+  "owner": "revisium",
+  "repository": "revo-scripts",
+  "number": 42,
+  "pullRequestId": "PR_kwDOExample",
+  "url": "https://github.com/revisium/revo-scripts/pull/42",
+  "approvedHeadCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "mergedHeadCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "mergeCommit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "method": "squash",
+  "status": "merged",
+  "sourceBranchDeleted": true
 }
 ```
+
+The operation accepts only clean normal approval, or an override with bounded advisory evidence and an exact sorted
+unresolved-thread audit. It asks GitHub to squash-merge the exact head, deletes the exact source ref, then reads back
+the merged PR and source-branch state. An exact already-merged PR is adopted without another merge request.
+
+Review-thread operations use independent ordered batches. Response returns only selected `fix`/`wontfix` thread proofs;
+resolution consumes those proofs and reports its separate status. Neither result exposes reply body, actor identity, or
+raw provider data:
+
+```json
+{
+  "schemaVersion": "github-review-threads-respond-result/v1",
+  "pullRequest": {
+    "owner": "revisium",
+    "repository": "revo-scripts",
+    "number": 42,
+    "headCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "threads": [
+    {
+      "threadId": "PRRT_kwDOExample",
+      "disposition": "fix",
+      "status": "replied",
+      "replyId": "PRRC_kwDOExample",
+      "marker": "<!-- revo-thread-reply:v1 key=sha256:... -->",
+      "markerFingerprint": "sha256:..."
+    }
+  ]
+}
+```
+
+## Recovery and consumer proof
+
+The public testing entrypoint derives required crash-reconciliation scenarios from the sealed built-in registry. Every
+write executes once with its host result lost, then again with the same key, proving one mutation and its exact typed
+adopted result. The suite covers Git commit/push, PR upsert/mark-ready/merge, and review response/resolution batches.
 
 ### Approval subject
 
@@ -322,18 +380,18 @@ inside a script payload.
 
 ## Built-in operations
 
-| Script                                        | Effect  | Result schema                  | Safety fence                                  |
-| --------------------------------------------- | ------- | ------------------------------ | --------------------------------------------- |
-| `script:approval/subject@1.0.0`               | pure    | `schema:approvalSubject/v1`    | closed provider-neutral input                 |
-| `script:git/status@1.0.0`                     | read    | `schema:workspaceChange/v1`    | immutable commit/tree captures                |
-| `script:git/commit@1.0.0`                     | write   | `schema:gitChange/v1`          | exact parent/tree + operation marker          |
-| `script:git/push@1.0.0`                       | publish | `schema:gitChange/v1`          | ancestry proof + exact remote-head CAS lease  |
-| `script:github/pull-request-upsert@1.0.0`     | write   | `schema:githubPullRequest/v1`  | head/draft fence + metadata reconciliation    |
-| `script:github/pull-request-mark-ready@1.0.0` | write   | `schema:githubPullRequest/v1`  | exact PR head                                 |
-| `script:github/pull-request-readiness@1.0.0`  | read    | `schema:githubReadiness/v1`    | exact PR head                                 |
-| `script:github/review-thread-respond@1.0.0`   | write   | `schema:githubReviewThread/v1` | exact PR head + operation marker              |
-| `script:github/review-thread-resolve@1.0.0`   | write   | `schema:githubReviewThread/v1` | exact PR head + resolved-state reconciliation |
-| `script:github/pull-request-merge@1.0.0`      | publish | `schema:githubPullRequest/v1`  | GitHub merge request includes exact head SHA  |
+| Script                                        | Effect  | Result schema                            | Safety fence                                                                        |
+| --------------------------------------------- | ------- | ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| `script:approval/subject@1.0.0`               | pure    | `schema:approvalSubject/v1`              | closed provider-neutral input                                                       |
+| `script:git/status@1.0.0`                     | read    | `schema:workspaceChange/v1`              | immutable commit/tree captures                                                      |
+| `script:git/commit@1.0.0`                     | write   | `schema:gitChange/v1`                    | exact parent/tree + operation marker                                                |
+| `script:git/push@1.0.0`                       | publish | `schema:gitChange/v1`                    | ancestry proof + exact remote-head CAS lease                                        |
+| `script:github/pull-request/upsert@1.0.0`     | publish | `schema:githubPullRequest/v1`            | head/draft fence + metadata reconciliation                                          |
+| `script:github/pull-request/mark-ready@1.0.0` | publish | `schema:githubPullRequest/v1`            | exact PR head                                                                       |
+| `script:github/pull-request/readiness@1.0.0`  | read    | `schema:githubReadiness/v1`              | exact PR head                                                                       |
+| `script:github/review-threads/respond@1.0.0`  | publish | `schema:githubReviewThreadsRespond/v1`   | selected PR/head + canonical reply marker/readback                                  |
+| `script:github/review-threads/resolve@1.0.0`  | publish | `schema:githubReviewThreadsResolve/v1`   | response proof + exact resolution readback                                          |
+| `script:github/pull-request/merge@1.0.0`      | publish | `schema:githubPullRequestMergeResult/v1` | approval/readiness equality, exact-head squash, and source-branch deletion readback |
 
 ## Versioning
 
@@ -341,7 +399,7 @@ Four identities stay separate:
 
 | Identity                | Example                        | Purpose                                 |
 | ----------------------- | ------------------------------ | --------------------------------------- |
-| npm package             | `@revisium/revo-scripts@1.2.0` | release vehicle for many operations     |
+| npm package             | `@revisium/revo-scripts@0.0.0` | current unreleased package metadata     |
 | script                  | `script:git/status@1.0.0`      | immutable observable operation contract |
 | provider contract       | `revo.provider.git/v1`         | bounded client protocol compatibility   |
 | provider implementation | `provider:git/node` + digest   | exact adapter pinned into a plan        |

@@ -27,6 +27,24 @@ test('accepts the closed v1 manifest shape', () => {
   expect(validateScriptManifest(validManifest)).toEqual(validManifest);
 });
 
+test('validates a generic classification pointer without selecting a script id', () => {
+  expect({
+    accepted: validateScriptManifest({ ...validManifest, classification: '/classification' })
+      .classification,
+    rejected: captureManifestFault({ ...validManifest, classification: 'classification' }),
+  }).toEqual({
+    accepted: '/classification',
+    rejected: {
+      code: 'revo.script.validation.manifest',
+      message: 'Script manifest is invalid.',
+      retryable: false,
+      details: {
+        issues: [{ path: '/classification', message: 'Path must be an RFC 6901 JSON Pointer.' }],
+      },
+    },
+  });
+});
+
 test('rejects unknown fields before policy validation', () => {
   const fault = captureManifestFault({ ...validManifest, nextNode: 'publish' });
 

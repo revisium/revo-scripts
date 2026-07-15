@@ -18,14 +18,18 @@ export class GitPushHandler implements ScriptHandler<
       );
     }
 
-    const published = await context.resources.repository.clients.git.push({
+    const request = {
       remoteIdentity: input.change.remoteIdentity,
       branch: input.change.branch,
-      expectedRemoteHead: input.change.baseCommit,
       headCommit: input.change.headCommit,
       operationKey: context.idempotencyKey,
       signal: context.signal,
-    });
+    };
+    const published = await context.resources.repository.clients.git.push(
+      input.expectedRemoteHead === undefined
+        ? request
+        : { ...request, expectedRemoteHead: input.expectedRemoteHead },
+    );
 
     if (published.remoteHead !== input.change.headCommit) {
       throw new ScriptFault(

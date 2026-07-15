@@ -8,21 +8,17 @@ import type {
 } from '../../../contracts/git-commit-client.js';
 import { NodeGitCommandRunner } from '../node-git-command-runner.js';
 import type { ProcessExecutor } from '../process-executor.js';
-import { NodeGitRemoteResolver } from '../remote/node-git-remote-resolver.js';
 
 const objectIdPattern = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 export class NodeGitCommitClient implements GitCommitClient {
   private readonly runner: NodeGitCommandRunner;
-  private readonly remoteResolver: NodeGitRemoteResolver;
 
   constructor(processExecutor: ProcessExecutor, absolutePath: string) {
     this.runner = new NodeGitCommandRunner(processExecutor, absolutePath);
-    this.remoteResolver = new NodeGitRemoteResolver(this.runner);
   }
 
   async commit(request: GitCommitRequest): Promise<GitCommitSnapshot> {
-    await this.remoteResolver.resolveName(request.remoteIdentity, request.signal);
     await this.runner.execute(['check-ref-format', '--branch', request.branch], request.signal);
     await this.runner.execute(['cat-file', '-e', `${request.expectedTree}^{tree}`], request.signal);
     const currentHead = await this.readBranchHead(request.branch, request.signal);
@@ -32,28 +28,19 @@ export class NodeGitCommitClient implements GitCommitClient {
     }
 
     const marker = this.operationMarker(request.operationKey);
-    const environment = {
-      GIT_AUTHOR_NAME: request.authorship.name,
-      GIT_AUTHOR_EMAIL: request.authorship.email,
-      GIT_AUTHOR_DATE: request.authorship.timestamp,
-      GIT_COMMITTER_NAME: request.authorship.name,
-      GIT_COMMITTER_EMAIL: request.authorship.email,
-      GIT_COMMITTER_DATE: request.authorship.timestamp,
-    };
+    const message = this.withMarker(request.message, marker);
     const commit = (
       await this.runner.execute(
-        [
-          'commit-tree',
-          request.expectedTree,
-          '-p',
-          request.expectedParent,
-          '-m',
-          request.message,
-          '-m',
-          `Revo-Operation-Key: ${marker}`,
-        ],
+        ['commit-tree', request.expectedTree, '-p', request.expectedParent, '-m', message],
         request.signal,
-        environment,
+        {
+          GIT_AUTHOR_NAME: request.author.name,
+          GIT_AUTHOR_EMAIL: request.author.email,
+          GIT_AUTHOR_DATE: request.author.timestamp,
+          GIT_COMMITTER_NAME: request.author.name,
+          GIT_COMMITTER_EMAIL: request.author.email,
+          GIT_COMMITTER_DATE: request.author.timestamp,
+        },
       )
     ).stdout.trim();
     this.assertObjectId(commit);
@@ -69,16 +56,18 @@ export class NodeGitCommitClient implements GitCommitClient {
     request: GitCommitRequest,
     currentHead: string,
   ): Promise<GitCommitSnapshot> {
-    const format = '%P%n%T%n%(trailers:key=Revo-Operation-Key,valueonly)';
+    const format = '%P%n%T%n%B';
     const output = (
       await this.runner.execute(['show', '-s', `--format=${format}`, currentHead], request.signal)
     ).stdout.trimEnd();
-    const [parents = '', tree = '', marker = ''] = output.split('\n');
+    const [parents = '', tree = '', ...body] = output.split('\n');
+    const markers = body.filter((line) => line.startsWith('Revo-Operation-Key:'));
 
     if (
       parents === request.expectedParent &&
       tree === request.expectedTree &&
-      marker.trim() === this.operationMarker(request.operationKey)
+      markers.length === 1 &&
+      markers[0] === `Revo-Operation-Key: ${this.operationMarker(request.operationKey)}`
     ) {
       return this.snapshot(request, currentHead);
     }
@@ -99,6 +88,16 @@ export class NodeGitCommitClient implements GitCommitClient {
 
   private operationMarker(operationKey: string): string {
     return `sha256:${createHash('sha256').update(operationKey).digest('hex')}`;
+  }
+
+  private withMarker(message: string, marker: string): string {
+    const normalized = message
+      .replace(/\r\n?/gu, '\n')
+      .split('\n')
+      .filter((line) => !line.startsWith('Revo-Operation-Key:'))
+      .join('\n')
+      .trimEnd();
+    return `${normalized}\n\nRevo-Operation-Key: ${marker}`;
   }
 
   private snapshot(request: GitCommitRequest, headCommit: string): GitCommitSnapshot {

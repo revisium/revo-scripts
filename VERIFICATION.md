@@ -36,6 +36,9 @@ Runtime and built-in script changes also follow the test ownership and proof rul
 [`docs/testing.md`](./docs/testing.md). That document defines what must be proven; this file remains authoritative for
 the commands that execute the proof.
 
+For required writes, report the registry-derived crash suite and mutation count. Readiness changes also report
+ruleset-completeness evidence.
+
 ## Required commands
 
 | Capability   | Command                           | Expected evidence                                                               |
