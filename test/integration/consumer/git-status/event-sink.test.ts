@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { builtInScripts, createRevoScripts } from '../../../../src/index.js';
+import { createRevoScripts, gitScripts } from '../../../../src/index.js';
 import { nodeGitProviders } from '../../../../src/providers/git/index.js';
 import {
   createGitHost,
@@ -17,12 +17,15 @@ test('returns a structured failure when the host rejects the terminal event', as
     },
   });
   const scripts = createRevoScripts({
-    definitions: [builtInScripts()],
+    definitions: [gitScripts()],
     providers: nodeGitProviders({
       processExecutor: {
-        execute: async () => ({
+        execute: async (request) => ({
           exitCode: 0,
-          stdout: [`# branch.oid ${gitTestHeadSha}`, '# branch.head master', ''].join('\0'),
+          stdout:
+            request.args[0] === 'rev-parse' || request.args[0] === 'write-tree'
+              ? gitTestHeadSha
+              : '',
           stderr: '',
         }),
       },

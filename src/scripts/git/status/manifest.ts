@@ -5,7 +5,7 @@ export const gitStatusManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:git/status',
   version: '1.0.0',
-  summary: 'Reads bounded repository status counts.',
+  summary: 'Reads one immutable bounded workspace-change snapshot.',
   inputSchemaId: gitStatusInputSchema.id,
   resultSchemaId: gitStatusResultSchema.id,
   effectClass: 'read',

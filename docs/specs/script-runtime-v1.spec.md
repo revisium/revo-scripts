@@ -1,6 +1,6 @@
 # Script runtime v1 specification
 
-- **Status:** Draft
+- **Status:** Accepted
 - **Version:** v1
 - **Owners:** package SDK, runtime, registry, and built-in scripts
 - **Related ADR:** [ADR-0001](../adr/0001-script-sdk-and-runtime-boundary.md)
@@ -12,7 +12,7 @@
 This specification defines the proposed stable public SDK and runtime for one bounded Revo script: serializable
 manifests, runtime schemas and definitions, explicit registration, the high-level consumer facade, host bindings,
 provider modules, execution context and result, errors, events, redaction, payload bounds, extension trust, public
-entrypoints, and the first built-in operation.
+entrypoints, and the bounded built-in operations shipped by this repository.
 
 It does not define pipeline routing, durable workflow state, human gates, workspace allocation, credential storage,
 artifact persistence, provider account selection policy, or automatic plugin discovery. It defines how opaque
@@ -23,20 +23,20 @@ BCP 14 when, and only when, they appear in all capitals.
 
 ## Current Contract
 
-The repository implements the root, `spec`, `runtime`, `host`, `git`, `providers/git`, and `testing` entrypoints; the
-initial `createRevoScripts` facade and definition/provider modules; and a read-only `script:git/status` proof backed by
-the package-owned Node Git provider against a real temporary repository. The host supplies a stable process executor
-and resolves an opaque workspace id, but does not construct a per-script client. Verdict extraction, complete
-coordinate and credential enforcement, build-generated exact implementation identity, automated revision retention,
-and package-owned GitHub providers remain Draft work. The npm package is not published. This Draft remains the target
-stable contract; implemented behavior is available for review but has no published compatibility commitment.
+The repository implements the root, `spec`, `runtime`, `host`, `approval`, `git`, `github`, `providers/git`,
+`providers/github`, and `testing` entrypoints; the `createRevoScripts` facade; package-owned Node Git and Fetch GitHub
+providers; and the approval-subject, Git status/commit/push, pull-request upsert/ready/readiness/merge, and review-thread
+reply/resolve operations. Coordinate and credential enforcement, exact provider pins, declarations, exports, package
+content, architecture boundaries, local Git integration, and mocked GitHub provider contracts are executable gates.
+The npm package is not published. Multi-version source retention, a stable external custom-script distribution
+contract, and orchestrator cutover remain deferred.
 
 ## Target Contract
 
 ### Package responsibility
 
 The package MUST define, validate, register, test, and execute one bounded script. It MAY ship independently versioned
-built-ins that use the same public definition contract as custom scripts. A built-in MUST own its complete observable
+built-ins that use the same definition contract. A built-in MUST own its complete observable
 operation, including provider calls, normalization, stale-state checks, idempotency and crash reconciliation,
 provider-error mapping, and result construction.
 
@@ -136,7 +136,7 @@ declare function createRevoScripts(options: RevoScriptsOptions): RevoScripts;
 ```
 
 `createRevoScripts` MUST explicitly enumerate every trusted definition and provider module. Package-provided
-`gitScripts()` and `githubScripts()` modules register one selected family; `builtInScripts()` is a convenience
+`approvalScripts()`, `gitScripts()`, and `githubScripts()` modules register one selected family; `builtInScripts()` is a convenience
 composition of every built-in family for hosts that install every corresponding provider. A host MUST NOT need a
 provider for an unselected definition family. The callback shape preserves each concrete definition's input, output,
 and resource generics without `any`, unsafe casts, or an impossible heterogeneous array type. This is explicit module
@@ -337,7 +337,6 @@ type ScriptManifestV1 = {
   summary: string;
   inputSchemaId: string;
   resultSchemaId: string;
-  verdict?: { jsonPointer: string };
   effectClass: 'pure' | 'read' | 'write' | 'publish' | 'admin';
   permissions: readonly string[];
   resources: readonly ScriptResourceRequirement[];
@@ -416,23 +415,19 @@ provider requirements, 16 credential requirements, 64 permissions, 64 custom eve
 paths; each path MUST be no longer than 512 Unicode code points. No extension point may accept an unbounded string,
 collection, or arbitrary nested payload.
 
-`verdict.jsonPointer`, when present, follows RFC 6901 and MUST resolve in the closed result schema to a required string
-enum. The low-level executor owns generic extraction after result validation and includes the value in the successful
-execution result; the high-level facade forwards it unchanged. Generic host routing consumes the extracted value and
-MUST NOT compare a concrete script id.
-
 Effect-class coherence is fixed by this table:
 
-| Effect class | Maximum resource access | Permitted effects                                                             |
-| ------------ | ----------------------- | ----------------------------------------------------------------------------- |
-| `pure`       | no resource             | none                                                                          |
-| `read`       | `read`                  | `filesystem.read`, `git.read`, `github.read`                                  |
-| `write`      | `write`                 | `filesystem.read`, `git.read`, `github.read`, `filesystem.write`, `git.write` |
-| `publish`    | `publish`               | every `write` effect, `git.remote-write`, `github.write`                      |
-| `admin`      | `admin`                 | every `publish` effect                                                        |
+| Effect class | Maximum resource access | Permitted effects                                                                             |
+| ------------ | ----------------------- | --------------------------------------------------------------------------------------------- |
+| `pure`       | no resource             | none                                                                                          |
+| `read`       | `read`                  | `filesystem.read`, `git.read`, `github.read`                                                  |
+| `write`      | `write`                 | `filesystem.read`, `git.read`, `github.read`, `filesystem.write`, `git.write`, `github.write` |
+| `publish`    | `publish`               | every `write` effect and `git.remote-write`                                                   |
+| `admin`      | `admin`                 | every `publish` effect                                                                        |
 
-`admin` is distinguished by its resource access and operation permission rather than a generic provider effect. It is
-REQUIRED for an irreversible administrative operation such as merging a pull request. The mutation-effect set is
+`admin` is distinguished by its resource access and operation permission rather than a generic provider effect.
+Pull-request merge is a `publish` operation in v1 because it publishes an exact reviewed revision without repository
+administration. The mutation-effect set is
 exactly `filesystem.write`, `git.write`, `git.remote-write`, and `github.write`.
 
 Effect ownership describes the bounded surface exposed to a handler, not every implementation detail used inside a
@@ -513,7 +508,7 @@ JSON Schemas MUST target Draft 2020-12, carry the schema id declared by the mani
 and reject unknown object properties unless a schema explicitly models a bounded map. Runtime validation and emitted
 JSON Schema MUST describe the same accepted values.
 
-`defineScript` MUST validate the manifest, both schemas, policy coherence, verdict pointer, and implementation
+`defineScript` MUST validate the manifest, both schemas, policy coherence, and implementation
 identity. It MUST compute the definition digest over RFC 8785 canonical JSON containing the manifest, both JSON
 Schemas, implementation id, implementation version, and build digest. It MUST return a TypeScript-readonly definition
 snapshot that does not retain caller-owned collections.
@@ -618,7 +613,6 @@ type ScriptExecutionResult<O> =
   | {
       ok: true;
       value: O;
-      verdict?: string;
       evidence: readonly ScriptEvidence[];
       attempts: number;
     }
@@ -879,8 +873,8 @@ fingerprint contract.
 6. emit the started event;
 7. execute with one total wall-clock deadline and an abort signal;
 8. retry only typed transient failures permitted by the manifest;
-9. validate and bound the handler result and extract an optional schema-declared verdict;
-10. preserve the validated typed result and verdict and redact declared event/diagnostic projections, failures, evidence, and
+9. validate and bound the handler result;
+10. preserve the validated typed result and redact declared event/diagnostic projections, failures, evidence, and
     events;
 11. emit succeeded or failed;
 12. return the typed execution result.
@@ -895,20 +889,27 @@ it MUST return `revo.script.timeout.deadline` and record the total attempts alre
 The total wall-clock timeout includes identity and input validation, registry resolution, all attempts, backoff, result
 validation, custom events, and lifecycle event emission. A never-settling `EventSink` MUST NOT outlive the deadline.
 
-The runtime does not persist results or events. A host MAY persist the validated domain output through its own adapter.
-Any event or diagnostic projection persisted by a host MUST use the runtime-redacted projection.
+The runtime does not persist results or events. A result MUST contain only the schema-declared domain payload. It MUST
+NOT contain a run id, node id, ordinal, attempt id, workspace id, execution-plan hash, artifact id, or output
+provenance.
 
-### Custom scripts and trust
+A host MAY persist the validated domain output through its own adapter. A durable host MAY wrap it in one generic
+`ArtifactEnvelope` whose schema identity and digest come from the compiled plan and whose `OutputProvenance` comes from
+durable execution context. That envelope is not a script result and is not defined by this package. The wrapping MUST
+NOT compare a concrete script id or duplicate provenance inside the domain payload. Any event or diagnostic projection
+persisted by a host MUST use the runtime-redacted projection.
 
-A consumer MAY define a script in its own repository or package. It MUST use the same manifest, schema, definition,
-registry, execution, and contract-test APIs as a built-in.
+### Trusted modules and deferred custom-script contract
+
+The runtime accepts explicitly imported trusted definition modules for internal composition and contract testing. V1
+does not define a stable external custom-script distribution, compatibility, or trust contract.
 
 The host owns installation trust. It MUST explicitly import definition and provider modules during startup composition.
 The package MUST NOT download code, evaluate source text, resolve module paths from manifests, hot-load packages, or
 read mutable configuration to discover executable definitions.
 
-A custom script using an installed provider family MUST consume that family's bounded contract and MUST NOT require a
-new host capability. A custom effect family requires an explicit provider contract and trusted implementation. A
+A future custom-script contract may reuse an installed provider family's bounded contract, but it requires a separate
+accepted design. A custom effect family still requires an explicit provider contract and trusted implementation. A
 provider module is trusted executable host infrastructure, not pipeline data. Its contract requirement appears in the
 manifest; its exact id, implementation digest, and package provenance appear only in the compiled execution plan.
 
@@ -922,6 +923,7 @@ The target entrypoints are:
 | `@revisium/revo-scripts/spec`             | Manifest, schema, definition, result, and error contracts.                |
 | `@revisium/revo-scripts/runtime`          | Definition, registry, validation, redaction, events, and execution.       |
 | `@revisium/revo-scripts/host`             | Privileged host/provider integration contracts.                           |
+| `@revisium/revo-scripts/approval`         | Approval-subject definition and domain result types.                      |
 | `@revisium/revo-scripts/git`              | Built-in Git definitions and domain result types.                         |
 | `@revisium/revo-scripts/github`           | Built-in GitHub definitions and domain result types.                      |
 | `@revisium/revo-scripts/providers/git`    | Bounded Git contract and trusted provider-family factory.                 |
@@ -931,8 +933,8 @@ The target entrypoints are:
 Only implemented entrypoints MAY appear in `package.json`. The GitHub entrypoint MUST NOT be published as an empty
 placeholder. Filesystem layout alone MUST NOT make a module public. Deep imports around the export map are unsupported.
 
-The target root entrypoint exports `createRevoScripts`, `builtInScripts`, and the four primary low-level runtime
-functions as a curated convenience API. Provider factories remain on explicit `/providers/*` subpaths so script and
+The root entrypoint exports `createRevoScripts`, `approvalScripts`, `builtInScripts`, `gitScripts`, `githubScripts`, and the four primary
+low-level runtime functions as a curated convenience API. Provider factories remain on explicit `/providers/*` subpaths so script and
 provider ownership are not mixed. The root MUST NOT re-export faults, individual domain definitions, testing
 mechanics, privileged resolved bindings, or every internal module. Production script entrypoints MUST NOT export
 process execution, raw credentials, resolved workspace paths, or unrestricted provider clients. The privileged `/host`
@@ -972,62 +974,58 @@ process, credential, or workspace-resolution modules. Git and GitHub scripts MUS
 application layer behind the consumer facade is the composition root. Production code MUST NOT import testing.
 Consumers MUST use public subpaths rather than internal files.
 
-### First built-in: Git status
+### Built-in operation contracts
 
-The first built-in id is `script:git/status` at version `1.0.0`. It is a read-only operation over one prepared
-repository binding and one package-owned bounded Git client.
+Every built-in has one exact `1.0.0` identity, a closed input schema, a closed result schema, one operation-specific
+permission, and only the provider client required for that operation. The current inventory is:
 
-Its manifest declares:
+| Script                                  | Effect class | Result schema                  | Required fence                                 |
+| --------------------------------------- | ------------ | ------------------------------ | ---------------------------------------------- |
+| `script:approval/subject`               | `pure`       | `schema:approvalSubject/v1`    | closed provider-neutral input                  |
+| `script:git/status`                     | `read`       | `schema:workspaceChange/v1`    | immutable commit and tree captures             |
+| `script:git/commit`                     | `write`      | `schema:gitChange/v1`          | exact parent, tree, and operation marker       |
+| `script:git/push`                       | `publish`    | `schema:gitChange/v1`          | ancestry proof and exact remote-head CAS lease |
+| `script:github/pull-request-upsert`     | `write`      | `schema:githubPullRequest/v1`  | head/draft fence and metadata reconciliation   |
+| `script:github/pull-request-mark-ready` | `write`      | `schema:githubPullRequest/v1`  | exact pull-request head                        |
+| `script:github/pull-request-readiness`  | `read`       | `schema:githubReadiness/v1`    | exact pull-request head                        |
+| `script:github/review-thread-respond`   | `write`      | `schema:githubReviewThread/v1` | exact head and operation marker                |
+| `script:github/review-thread-resolve`   | `write`      | `schema:githubReviewThread/v1` | exact head and resolved-state reconciliation   |
+| `script:github/pull-request-merge`      | `publish`    | `schema:githubPullRequest/v1`  | exact head SHA supplied to GitHub merge        |
 
-- effect class `read`;
-- permission `git.status.read`;
-- resource `repository` with read access;
-- provider requirement `git` attached to resource `repository` with contract `revo.provider.git/v1`;
-- no credential requirement;
-- effect `git.read`;
-- a 5,000 ms total wall-clock timeout;
-- transient retry with at most three attempts and backoffs of 100 ms and 500 ms;
-- read-only idempotency;
-- no custom events and no redaction paths.
-
-The input is a closed empty object. The prepared resource map contains exactly one repository resource named
-`repository`. The exact result is:
+`script:git/status` has closed empty input, permission `git.status.read`, one read-only repository resource,
+`revo.provider.git/v1`, effect `git.read`, a 5,000 ms wall-clock timeout, no retry, and read-only idempotency. Its exact
+result is:
 
 ```ts
 type GitStatusResultV1 = {
-  branch: string | null;
-  headSha: string | null;
-  detached: boolean;
+  schemaVersion: 'workspace-change/v1';
+  baseCapture: `git-commit:${string}`;
+  headCapture: `git-tree:${string}`;
+  changedPaths: readonly {
+    path: string;
+    status: 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked';
+  }[];
   clean: boolean;
-  stagedCount: number;
-  unstagedCount: number;
-  untrackedCount: number;
-  conflictedCount: number;
 };
 ```
 
-Each count MUST be a non-negative safe integer. The result MUST NOT contain file paths, raw command output, credentials,
-or an unbounded collection.
+Commit and tree object ids MUST be lowercase hexadecimal with 40 or 64 characters. Each path MUST contain between one
+and 4,096 characters; the array MUST contain at most 2,048 items and be sorted by path. `clean` is true exactly when
+the array is empty. The provider MUST capture `headCapture` through a temporary Git index and MUST NOT mutate the real
+index. The result MUST NOT contain raw Git output, a workspace path, a credential, or execution provenance.
 
-The branch value MUST be no longer than 255 Unicode code points. A head SHA MUST be lowercase hexadecimal with exactly
-40 or 64 characters. `clean` is true exactly when all four change counts are zero. `detached` is true exactly when
-`branch` is null and `headSha` is non-null. An unborn repository has a null head, a non-null branch, and `detached`
-false. A result with both branch and head null is invalid.
+Git commit input includes bounded author name, email, and ISO-8601 timestamp. The provider MUST apply the same explicit
+identity to author and committer fields so recreating an unreferenced commit after a crash produces the same object id;
+mutable repository identity or wall-clock time MUST NOT affect it. Git mutation results use `git-change/v1` and
+preserve repository identity, remote identity, branch, base commit, exact head commit, and a bounded commit list.
+GitHub pull-request results preserve repository id, `pullRequestId`, number, URL, exact
+head/base, state, draft state, and optional merge commit. Readiness returns explicit bounded blockers. Review-thread
+operations return only the pinned thread receipt. Exact JSON examples are normative documentation in the root README
+and are validated by the corresponding contract suites.
 
-One renamed entry contributes one count in the side where Git reports the rename. An unmerged entry contributes one
-`conflictedCount` and does not also increment staged or unstaged counts. The package-owned Git provider parses bounded
-argv-safe Git output; the script handler owns the public status normalization and result contract. Fake and
-process-backed provider fixtures MUST expose the same bounded private client contract.
-
-The operation MUST call the read-only Git client at most once per attempt. It MUST NOT receive a Git write or
-remote-write client. Missing access MUST fail before workspace resolution or a provider call. Provider failures MUST
-map to the provider error family. The operation MAY be retried only when the provider marks a failure transient and the
-manifest permits it.
-
-The target vertical proof includes a package-owned process-backed Git provider using argv-safe execution against a real
-temporary repository. The consumer supplies only the workspace binding and host resolver. A recording fake remains
-the primary no-call/access proof, while the temporary-repository contract proves the package can execute Git status
-without a consumer-provided `readStatus` implementation.
+Provider adapters MUST construct operation-specific clients from declared permissions and access. They MUST NOT select
+behavior by concrete script id. Missing access MUST fail before workspace or credential resolution. Mutation retries
+are allowed only with a host-derived idempotency key and provider-owned reconciliation that prevents duplicate effects.
 
 ## Validation
 
@@ -1037,11 +1035,12 @@ export validation, package content validation, and a pack dry-run before the run
 
 Consumer compatibility proof MUST demonstrate that two arbitrary scripts in the same provider family execute through
 one facade path without a concrete-id branch or per-operation host capability. Provider proof MUST demonstrate that
-invalid input or grants resolve no privileged host binding, handlers cannot observe resolved paths or credentials, and
-the real Git status proof needs no consumer-provided status implementation.
+invalid input or grants resolve no privileged host binding, handlers cannot observe resolved paths or credentials,
+real Git status/commit/push proofs need no consumer-provided Git implementation, and GitHub provider tests exercise
+the same facade with a transport double at the package-owned Fetch boundary.
 
-The first implementation MUST remain unpublished until the runtime entrypoints and Git status contract pass the full
-local gates, hosted CI, static analysis, and review.
+The package MUST remain unpublished until its runtime entrypoints and every exported built-in pass the full local
+gates, hosted CI, static analysis, and review. Publishing requires a separate human approval.
 
 ## Compatibility
 
@@ -1056,6 +1055,8 @@ path. New-plan provider defaults never participate in execution or recovery look
 
 ## Future Work
 
-- Mutation reconciliation harness and the first Git write operation.
-- GitHub provider module and bounded GitHub operations.
+- Multi-version source retention and external pin-audit workflow.
+- Stable external custom-script distribution and trust contract.
+- Live GitHub provider compatibility workflow in a dedicated test repository.
+- Direct orchestrator cutover to the package-owned contracts without compatibility fallbacks.
 - Consumer compatibility workflow against retained package versions.

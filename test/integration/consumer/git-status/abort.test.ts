@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { builtInScripts, createRevoScripts } from '../../../../src/index.js';
+import { createRevoScripts, gitScripts } from '../../../../src/index.js';
 import { nodeGitProviders } from '../../../../src/providers/git/index.js';
 import { createGitHost, createGitScriptRequest } from '../../../support/git/git-fixture.js';
 
@@ -13,7 +13,7 @@ test('rejects an already-aborted execution before privileged host access', async
     },
   });
   const scripts = createRevoScripts({
-    definitions: [builtInScripts()],
+    definitions: [gitScripts()],
     providers: nodeGitProviders({
       processExecutor: { execute: async () => ({ exitCode: 0, stdout: '', stderr: '' }) },
     }),

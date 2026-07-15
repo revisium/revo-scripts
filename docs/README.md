@@ -4,11 +4,10 @@ This directory owns the package architecture and exact target contracts.
 
 ## Current state
 
-The repository contains the one-script runtime, initial `createRevoScripts` facade, public testing mechanics, and the
-read-only `script:git/status` vertical proof backed by the package-owned Node Git provider. The host supplies a stable
-process executor and resolves an opaque workspace id; it does not construct a per-script client. The npm package
-remains unpublished. Documents marked `Draft` include target contract work beyond the implemented and tested surface,
-including coordinate/credential completion and build-generated exact implementation identity.
+The repository contains the one-script runtime, `createRevoScripts` facade, public testing mechanics, bounded Git and
+GitHub operations, and package-owned Node Git and Fetch GitHub providers. The host supplies stable infrastructure ports
+and opaque bindings; it does not construct per-script clients. The npm package remains unpublished. Documents marked
+`Draft` still include pre-publication decisions such as source retention for simultaneous script versions.
 
 ## Architecture
 

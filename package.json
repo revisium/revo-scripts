@@ -41,9 +41,21 @@
       "types": "./dist/scripts/git/index.d.ts",
       "import": "./dist/scripts/git/index.js"
     },
+    "./approval": {
+      "types": "./dist/scripts/approval/index.d.ts",
+      "import": "./dist/scripts/approval/index.js"
+    },
     "./providers/git": {
       "types": "./dist/providers/git/index.d.ts",
       "import": "./dist/providers/git/index.js"
+    },
+    "./github": {
+      "types": "./dist/scripts/github/index.d.ts",
+      "import": "./dist/scripts/github/index.js"
+    },
+    "./providers/github": {
+      "types": "./dist/providers/github/index.d.ts",
+      "import": "./dist/providers/github/index.js"
     },
     "./testing": {
       "types": "./dist/testing/index.d.ts",

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { builtInScripts, createRevoScripts } from '../../../../src/index.js';
+import { createRevoScripts, gitScripts } from '../../../../src/index.js';
 import { nodeGitProviders } from '../../../../src/providers/git/index.js';
 import { createGitHost, createGitScriptRequest } from '../../../support/git/git-fixture.js';
 
@@ -14,7 +14,7 @@ test('rejects every mutable provider pin field before privileged host access', a
     },
   });
   const scripts = createRevoScripts({
-    definitions: [builtInScripts()],
+    definitions: [gitScripts()],
     providers: nodeGitProviders({
       processExecutor: {
         execute: async () => {

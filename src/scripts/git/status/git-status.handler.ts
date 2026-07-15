@@ -1,12 +1,5 @@
-import type { GitStatusSnapshot } from '../../../providers/git/contracts/git-status-client.js';
 import type { ScriptContext, ScriptHandler } from '../../../runtime/spec/definition/index.js';
 import type { GitStatusInput, GitStatusResources, GitStatusResult } from './types.js';
-
-const isClean = (status: GitStatusSnapshot): boolean =>
-  status.stagedCount === 0 &&
-  status.unstagedCount === 0 &&
-  status.untrackedCount === 0 &&
-  status.conflictedCount === 0;
 
 export class GitStatusHandler implements ScriptHandler<
   GitStatusInput,
@@ -21,8 +14,8 @@ export class GitStatusHandler implements ScriptHandler<
 
     return {
       value: {
+        schemaVersion: 'workspace-change/v1',
         ...status,
-        clean: isClean(status),
       },
     };
   }

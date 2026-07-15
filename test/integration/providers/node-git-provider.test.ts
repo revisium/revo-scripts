@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 
 import { expect, test } from 'vitest';
 
-import { builtInScripts, createRevoScripts } from '../../../src/index.js';
+import { createRevoScripts, gitScripts } from '../../../src/index.js';
 import { nodeGitProviders, type ProcessExecutor } from '../../../src/providers/git/index.js';
 import { createGitHost, createGitScriptRequest } from '../../support/git/git-fixture.js';
 
@@ -19,6 +19,7 @@ const processExecutor: ProcessExecutor = {
       encoding: 'utf8',
       maxBuffer: request.maxOutputBytes,
       signal: request.signal,
+      env: { ...process.env, ...request.environment },
     });
 
     return { exitCode: 0, stdout: result.stdout, stderr: result.stderr };
@@ -49,6 +50,8 @@ test('executes the production Node Git provider against a real temporary reposit
     const headSha = await git(repository, ['rev-parse', 'HEAD']);
     await writeFile(join(repository, 'tracked.txt'), 'changed\n');
     await writeFile(join(repository, 'untracked.txt'), 'new\n');
+    await git(repository, ['add', '-A']);
+    const expectedTree = await git(repository, ['write-tree']);
 
     const { host } = createGitHost({
       resolveWorkspace: async (workspaceId) => ({
@@ -58,7 +61,7 @@ test('executes the production Node Git provider against a real temporary reposit
       }),
     });
     const scripts = createRevoScripts({
-      definitions: [builtInScripts()],
+      definitions: [gitScripts()],
       providers: nodeGitProviders({ processExecutor }),
       host,
     });
@@ -74,13 +77,13 @@ test('executes the production Node Git provider against a real temporary reposit
     expect(result).toEqual({
       ok: true,
       value: {
-        branch: 'master',
-        headSha,
-        detached: false,
-        stagedCount: 0,
-        unstagedCount: 1,
-        untrackedCount: 1,
-        conflictedCount: 0,
+        schemaVersion: 'workspace-change/v1',
+        baseCapture: `git-commit:${headSha}`,
+        headCapture: `git-tree:${expectedTree}`,
+        changedPaths: [
+          { path: 'tracked.txt', status: 'modified' },
+          { path: 'untracked.txt', status: 'added' },
+        ],
         clean: false,
       },
       evidence: [],

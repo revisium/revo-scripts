@@ -13,7 +13,9 @@
 
 ## Operation
 
-Reads one repository status snapshot and returns branch/head identity plus staged, unstaged, untracked, and conflicted counts. It performs no Git or GitHub mutation.
+Captures the current workspace as an immutable `git-tree:*` without mutating the real Git index. It returns the base
+`git-commit:*`, at most 2,048 sorted changed paths, and `clean`. It performs no Git or GitHub mutation and returns no
+workspace path or execution provenance.
 
 ## Files
 
@@ -31,7 +33,8 @@ script.ts -> manifest.ts
           -> GitStatusHandler -> GitStatusClient contract
 ```
 
-The handler receives the prepared `repository.clients.git` capability. It never receives a workspace path, process executor, token, or provider adapter.
+The handler receives the prepared `repository.clients.git` capability. It never receives a workspace path, process
+executor, token, or provider adapter.
 
 ## Verification
 

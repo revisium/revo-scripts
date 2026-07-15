@@ -37,9 +37,12 @@ test('validates script input once before constructing provider clients', async (
     definitions: [definitions],
     providers: nodeGitProviders({
       processExecutor: {
-        execute: async () => ({
+        execute: async (request) => ({
           exitCode: 0,
-          stdout: '# branch.oid (initial)\0# branch.head master\0',
+          stdout:
+            request.args[0] === 'rev-parse' || request.args[0] === 'write-tree'
+              ? '0123456789abcdef0123456789abcdef01234567'
+              : '',
           stderr: '',
         }),
       },
@@ -56,14 +59,11 @@ test('validates script input once before constructing provider clients', async (
     result: {
       ok: true,
       value: {
-        branch: 'master',
-        headSha: null,
-        detached: false,
+        schemaVersion: 'workspace-change/v1',
+        baseCapture: 'git-commit:0123456789abcdef0123456789abcdef01234567',
+        headCapture: 'git-tree:0123456789abcdef0123456789abcdef01234567',
+        changedPaths: [],
         clean: true,
-        stagedCount: 0,
-        unstagedCount: 0,
-        untrackedCount: 0,
-        conflictedCount: 0,
       },
       evidence: [],
       attempts: 1,

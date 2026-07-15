@@ -31,13 +31,13 @@ const createGitStatusHarness = (
 test('returns one bounded read-only repository status through the public contract harness', async () => {
   const { fake, harness } = createGitStatusHarness(
     {
-      branch: 'feat/runtime-foundation',
-      headSha: '0123456789abcdef0123456789abcdef01234567',
-      detached: false,
-      stagedCount: 2,
-      unstagedCount: 3,
-      untrackedCount: 1,
-      conflictedCount: 0,
+      baseCapture: 'git-commit:0123456789abcdef0123456789abcdef01234567',
+      headCapture: 'git-tree:89abcdef0123456789abcdef0123456789abcdef',
+      changedPaths: [
+        { path: 'README.md', status: 'modified' },
+        { path: 'src/new-file.ts', status: 'untracked' },
+      ],
+      clean: false,
     },
     'git-status-contract',
   );
@@ -49,14 +49,14 @@ test('returns one bounded read-only repository status through the public contrac
       result: {
         ok: true,
         value: {
-          branch: 'feat/runtime-foundation',
-          headSha: '0123456789abcdef0123456789abcdef01234567',
-          detached: false,
+          schemaVersion: 'workspace-change/v1',
+          baseCapture: 'git-commit:0123456789abcdef0123456789abcdef01234567',
+          headCapture: 'git-tree:89abcdef0123456789abcdef0123456789abcdef',
+          changedPaths: [
+            { path: 'README.md', status: 'modified' },
+            { path: 'src/new-file.ts', status: 'untracked' },
+          ],
           clean: false,
-          stagedCount: 2,
-          unstagedCount: 3,
-          untrackedCount: 1,
-          conflictedCount: 0,
         },
         evidence: [],
         attempts: 1,
@@ -95,13 +95,10 @@ test('returns one bounded read-only repository status through the public contrac
 test('rejects unknown input fields before invoking the Git capability', async () => {
   const { fake, harness } = createGitStatusHarness(
     {
-      branch: null,
-      headSha: '0123456789abcdef0123456789abcdef01234567',
-      detached: true,
-      stagedCount: 0,
-      unstagedCount: 0,
-      untrackedCount: 0,
-      conflictedCount: 0,
+      baseCapture: 'git-commit:0123456789abcdef0123456789abcdef01234567',
+      headCapture: 'git-tree:89abcdef0123456789abcdef0123456789abcdef',
+      changedPaths: [],
+      clean: true,
     },
     'git-status-invalid-input',
   );

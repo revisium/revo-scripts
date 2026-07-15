@@ -4,6 +4,7 @@ export interface ProcessExecutionRequest {
   readonly cwd: string;
   readonly maxOutputBytes: number;
   readonly signal: AbortSignal;
+  readonly environment?: Readonly<Record<string, string>>;
 }
 
 export interface ProcessExecutionResult {

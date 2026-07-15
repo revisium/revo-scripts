@@ -30,26 +30,30 @@ const linkPackage = async (
 const runtimeConsumer = `
 import assert from 'node:assert/strict';
 
-import { builtInScripts, createRevoScripts } from '@revisium/revo-scripts';
+import { createRevoScripts, gitScripts } from '@revisium/revo-scripts';
 import { nodeGitProviders } from '@revisium/revo-scripts/providers/git';
 
 const headSha = '0123456789abcdef0123456789abcdef01234567';
+const treeSha = '89abcdef0123456789abcdef0123456789abcdef';
 const processRequests = [];
 const events = [];
 const scripts = createRevoScripts({
-  definitions: [builtInScripts()],
+  definitions: [gitScripts()],
   providers: nodeGitProviders({
     processExecutor: {
       execute: async (request) => {
         processRequests.push(request);
+        const operation = request.args.join(' ');
+        const stdout = operation === 'status --porcelain=v2 --branch -z'
+          ? '? untracked.txt\\0'
+          : operation === 'rev-parse HEAD'
+            ? \`\${headSha}\\n\`
+            : operation === 'write-tree'
+              ? \`\${treeSha}\\n\`
+              : '';
         return {
           exitCode: 0,
-          stdout: [
-            \`# branch.oid \${headSha}\`,
-            '# branch.head packed-consumer',
-            '? untracked.txt',
-            '',
-          ].join('\\0'),
+          stdout,
           stderr: '',
         };
       },
@@ -107,13 +111,10 @@ const result = await scripts.execute({
 assert.deepEqual(result, {
   ok: true,
   value: {
-    branch: 'packed-consumer',
-    headSha,
-    detached: false,
-    stagedCount: 0,
-    unstagedCount: 0,
-    untrackedCount: 1,
-    conflictedCount: 0,
+    schemaVersion: 'workspace-change/v1',
+    baseCapture: \`git-commit:\${headSha}\`,
+    headCapture: \`git-tree:\${treeSha}\`,
+    changedPaths: [{ path: 'untracked.txt', status: 'untracked' }],
     clean: false,
   },
   evidence: [],
@@ -124,12 +125,18 @@ assert.deepEqual(processRequests.map(({ command, args, cwd, maxOutputBytes }) =>
   args,
   cwd,
   maxOutputBytes,
-})), [{
+})), [
+  ['status', '--porcelain=v2', '--branch', '-z'],
+  ['rev-parse', 'HEAD'],
+  ['read-tree', 'HEAD'],
+  ['add', '-A'],
+  ['write-tree'],
+].map((args) => ({
   command: 'git',
-  args: ['status', '--porcelain=v2', '--branch', '-z'],
+  args,
   cwd: '/trusted/packed-consumer-worktree',
   maxOutputBytes: 1_048_576,
-}]);
+})));
 assert.deepEqual(events.map((event) => event.name), [
   'revo.script.started',
   'revo.script.succeeded',
@@ -143,8 +150,8 @@ await assert.rejects(
 
 const typeConsumer = `
 import {
-  builtInScripts,
   createRevoScripts,
+  gitScripts,
   type RevoScriptExecutionRequest,
 } from '@revisium/revo-scripts';
 import type { RevoScriptsHost } from '@revisium/revo-scripts/host';
@@ -157,7 +164,7 @@ declare const host: RevoScriptsHost;
 declare const processExecutor: ProcessExecutor;
 
 const scripts = createRevoScripts({
-  definitions: [builtInScripts()],
+  definitions: [gitScripts()],
   providers: nodeGitProviders({ processExecutor }),
   host,
 });

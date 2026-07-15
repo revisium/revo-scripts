@@ -23,13 +23,13 @@ const inputSchema = createScriptSchema({
 });
 const resultSchema = createScriptSchema({
   id: 'revo.script.test.git-branch.result/v1',
-  schema: z.strictObject({ branch: z.string(), headSha: z.string().nullable() }),
+  schema: z.strictObject({ baseCapture: z.string() }),
   jsonSchema: 'output',
 });
 
 const gitBranchScript = defineScript<
   Record<string, never>,
-  Readonly<{ branch: string; headSha: string | null }>,
+  Readonly<{ baseCapture: string }>,
   Readonly<{
     repository: ScriptResourceHandle<Readonly<{ git: GitStatusClient }>>;
   }>
@@ -38,7 +38,7 @@ const gitBranchScript = defineScript<
     schemaVersion: 'revo.script.manifest/v1',
     id: 'script:test/git-branch',
     version: '1.0.0',
-    summary: 'Reads the current branch through the shared Git provider contract.',
+    summary: 'Reads the current base capture through the shared Git provider contract.',
     inputSchemaId: inputSchema.id,
     resultSchemaId: resultSchema.id,
     effectClass: 'read',
@@ -64,12 +64,7 @@ const gitBranchScript = defineScript<
   handler: {
     execute: async (_input, context) => {
       const status = await context.resources.repository.clients.git.readStatus(context.signal);
-
-      if (status.detached) {
-        throw new Error('Test fixture must be attached to a branch.');
-      }
-
-      return { value: { branch: status.branch, headSha: status.headSha } };
+      return { value: { baseCapture: status.baseCapture } };
     },
   },
 });
@@ -92,11 +87,16 @@ test('adds a second script on the Git contract without changing the consumer exe
     definitions: [twoGitScripts()],
     providers: nodeGitProviders({
       processExecutor: {
-        execute: async () => ({
-          exitCode: 0,
-          stdout: [`# branch.oid ${gitTestHeadSha}`, '# branch.head feature', ''].join('\0'),
-          stderr: '',
-        }),
+        execute: async (request) => {
+          const operation = request.args[0];
+          const stdout =
+            operation === 'rev-parse'
+              ? gitTestHeadSha
+              : operation === 'write-tree'
+                ? gitTestHeadSha
+                : '';
+          return { exitCode: 0, stdout, stderr: '' };
+        },
       },
     }),
     host,
@@ -116,7 +116,7 @@ test('adds a second script on the Git contract without changing the consumer exe
     manifests: ['script:git/status', 'script:test/git-branch'],
     result: {
       ok: true,
-      value: { branch: 'feature', headSha: gitTestHeadSha },
+      value: { baseCapture: `git-commit:${gitTestHeadSha}` },
       evidence: [],
       attempts: 1,
     },

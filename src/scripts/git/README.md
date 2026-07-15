@@ -6,6 +6,8 @@ Git scripts may depend on runtime spec/definition and handler-safe Git contracts
 
 Current operations:
 
-- [`status`](./status/README.md) — one read-only repository status snapshot.
+- [`status`](./status/README.md) — one read-only immutable workspace capture.
+- `commit` — one exact-parent, exact-tree local commit with replay reconciliation.
+- `push` — one exact-head publication with ancestry proof and an atomic remote-base lease.
 
 New operations use [the script card](../../../docs/authoring/script-readme.template.md). A new script version remains a manifest identity (`id` + exact SemVer + digest); the repository does not create physical version directories until a proven multi-version retention design is accepted.
