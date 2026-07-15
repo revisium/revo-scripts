@@ -53,7 +53,7 @@ test('entry points expose only their curated runtime values', () => {
     runtime: ['createScriptRegistry', 'createScriptSchema', 'defineScript', 'executeScript'],
     host: [],
     git: ['gitCommitScript', 'gitPushScript', 'gitStatusScript'],
-    gitProvider: ['nodeGitProviders'],
+    gitProvider: ['NodeProcessExecutor', 'nodeGitProviders'],
     github: [
       'githubPullRequestMarkReadyScript',
       'githubPullRequestMergeScript',

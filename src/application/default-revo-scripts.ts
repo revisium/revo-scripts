@@ -3,7 +3,7 @@ import type { ScriptRegistry } from '../runtime/registry/contracts/script-regist
 import type { ScriptManifestV1 } from '../runtime/spec/manifest/index.js';
 import type { ScriptExecutionResult } from '../runtime/spec/result/index.js';
 import type { RevoScriptExecutionRequest } from './contracts/revo-script-execution-request.js';
-import type { RevoScriptsOptions } from './contracts/revo-scripts-options.js';
+import type { ResolvedRevoScriptsOptions } from './contracts/revo-scripts-options.js';
 import type { RevoScripts } from './contracts/revo-scripts.js';
 import type { ScriptPlanDescriptor } from './contracts/script-plan-descriptor.js';
 import { ScriptExecutionCoordinator } from './execution/script-execution-coordinator.js';
@@ -16,7 +16,7 @@ export class DefaultRevoScripts implements RevoScripts {
   private readonly catalog: ProviderCatalog;
   private readonly coordinator: ScriptExecutionCoordinator;
 
-  constructor(options: RevoScriptsOptions) {
+  constructor(options: ResolvedRevoScriptsOptions) {
     this.registry = createDefinitionRegistry(options);
     this.catalog = createProviderCatalog(options.providers);
     this.catalog.requireCoverage(this.registry);

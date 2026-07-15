@@ -3,7 +3,8 @@ import type { PreparedProviderClients } from '../../../host/providers/prepared-p
 import type { ScriptManifestV1 } from '../../../runtime/spec/manifest/index.js';
 import { validateExactBindings } from '../../bindings/validate-exact-bindings.js';
 import type { RevoScriptExecutionRequest } from '../../contracts/revo-script-execution-request.js';
-import type { RevoScriptsOptions } from '../../contracts/revo-scripts-options.js';
+import type { ResolvedRevoScriptsOptions } from '../../contracts/revo-scripts-options.js';
+import { resolveRevoScriptsHost } from '../../contracts/revo-scripts-options.js';
 import { throwIfAborted } from '../../execution/execution-abort.js';
 import type { ProviderCatalog } from '../provider-catalog.js';
 import { createScriptResources } from './create-script-resources.js';
@@ -25,10 +26,10 @@ interface PreparationState {
 }
 
 export class ProviderExecutionPreparer {
-  private readonly options: RevoScriptsOptions;
+  private readonly options: ResolvedRevoScriptsOptions;
   private readonly catalog: ProviderCatalog;
 
-  constructor(options: RevoScriptsOptions, catalog: ProviderCatalog) {
+  constructor(options: ResolvedRevoScriptsOptions, catalog: ProviderCatalog) {
     this.options = options;
     this.catalog = catalog;
   }
@@ -70,12 +71,12 @@ export class ProviderExecutionPreparer {
   ): Promise<void> {
     for (const validated of providers) {
       const workspace = await resolveProviderWorkspace(
-        this.options.host.workspaces,
+        resolveRevoScriptsHost(this.options).workspaces,
         validated,
         signal,
       );
       const credentials = await resolveProviderCredentials(
-        this.options.host.credentials,
+        resolveRevoScriptsHost(this.options).credentials,
         manifest,
         validated.requirement,
         request,

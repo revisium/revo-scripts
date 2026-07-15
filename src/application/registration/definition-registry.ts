@@ -3,10 +3,10 @@ import { createScriptRegistry } from '../../runtime/registry/create-script-regis
 import type { ScriptDefinition } from '../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../runtime/spec/errors/index.js';
 import type { ScriptResourceMap } from '../../runtime/spec/resources/index.js';
-import type { RevoScriptsOptions } from '../contracts/revo-scripts-options.js';
+import type { ResolvedRevoScriptsOptions } from '../contracts/revo-scripts-options.js';
 import type { ScriptDefinitionRegistrar } from './script-definition-registrar.js';
 
-export const createDefinitionRegistry = (options: RevoScriptsOptions): ScriptRegistry => {
+export const createDefinitionRegistry = (options: ResolvedRevoScriptsOptions): ScriptRegistry => {
   const registry = createScriptRegistry();
   const moduleIds = new Set<string>();
   const registrar: ScriptDefinitionRegistrar = {

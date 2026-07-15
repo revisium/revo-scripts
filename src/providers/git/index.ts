@@ -16,6 +16,7 @@ export type {
   GitStatusSnapshot,
 } from './contracts/git-status-client.js';
 export { nodeGitProviders } from './adapters/node/node-git-providers.js';
+export { NodeProcessExecutor } from './adapters/node/node-process-executor.js';
 export type { NodeGitProvidersOptions } from './adapters/node/node-git-providers.js';
 export type {
   ProcessExecutionRequest,
