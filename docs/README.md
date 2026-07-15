@@ -11,6 +11,9 @@ and opaque bindings; it does not construct per-script clients. The npm package r
 
 ## Architecture
 
+The [expanded consumer example](examples/consumer.md) contains the larger host-binding, operation, result, recovery,
+artifact, approval, and event examples that are intentionally omitted from the root README.
+
 - [ADR-0001: Script SDK and runtime boundary](./adr/0001-script-sdk-and-runtime-boundary.md) explains why the package
   owns a public script SDK, one-script runtime, bounded built-ins, and their production provider adapters while keeping
   runtime, host ports, application composition, provider infrastructure, and concrete scripts in separate ownership
