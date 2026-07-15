@@ -50,6 +50,19 @@ test('composes the Git definition family without per-script registration', () =>
   ]);
 });
 
+test('accepts the flat host boundary used by consumers', () => {
+  const scripts = createRevoScripts({
+    definitions: [gitScripts()],
+    providers: nodeGitProviders({ processExecutor }),
+    workspaces: host.workspaces,
+    credentials: host.credentials,
+    events: host.events,
+    clock: host.clock,
+  });
+
+  expect(scripts.listManifests()).toHaveLength(3);
+});
+
 test('fails startup for duplicate definition modules and provider implementations', () => {
   const definitionModule = gitScripts();
   const providers = nodeGitProviders({ processExecutor });

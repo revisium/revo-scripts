@@ -83,12 +83,10 @@ import { fetchGitHubProviders } from '@revisium/revo-scripts/providers/github';
 const scripts = createRevoScripts({
   definitions: [gitScripts(), githubScripts()],
   providers: [...nodeGitProviders({ processExecutor }), ...fetchGitHubProviders()],
-  host: {
-    workspaces: workspaceResolver,
-    credentials: credentialResolver,
-    events: eventSink,
-    clock,
-  },
+  workspaces: workspaceResolver,
+  credentials: credentialResolver,
+  events: eventSink,
+  clock,
 });
 ```
 
