@@ -76,13 +76,9 @@ neither Git nor GitHub. See [REPOSITORY.md](REPOSITORY.md),
 ### Compose once at startup
 
 ```ts
-import { createRevoScripts, gitScripts, githubScripts } from '@revisium/revo-scripts';
-import { nodeGitProviders } from '@revisium/revo-scripts/providers/git';
-import { fetchGitHubProviders } from '@revisium/revo-scripts/providers/github';
+import { createRevoScripts } from '@revisium/revo-scripts';
 
 const scripts = createRevoScripts({
-  definitions: [gitScripts(), githubScripts()],
-  providers: [...nodeGitProviders({ processExecutor }), ...fetchGitHubProviders()],
   workspaces: workspaceResolver,
   credentials: credentialResolver,
   events: eventSink,
@@ -90,15 +86,14 @@ const scripts = createRevoScripts({
 });
 ```
 
-`approvalScripts()`, `gitScripts()`, and `githubScripts()` let a host install only the families it uses.
-`builtInScripts()` registers every built-in and therefore requires providers for every provider-backed family. There
-is no filesystem scanning or
-per-script `registry.register(...)` wiring in consumer code.
+`createRevoScripts` registers all built-in definitions and the package-owned Git and GitHub providers. There is no
+filesystem scanning, provider wiring, or per-script `registry.register(...)` code in the consumer.
 
-`processExecutor` is a host infrastructure seam for argv-safe process spawning. The Node Git adapter receives only
-`{ command, args, cwd, maxOutputBytes, environment?, signal }`. A script never sees that interface. The Fetch GitHub
-adapter owns REST/GraphQL request construction and receives a short-lived token resolved through the host credential
-port.
+The explicit `definitions` and `providers` options remain an advanced package-development seam for isolated tests and
+custom provider implementations; normal consumers should not pass them.
+
+The package owns argv-safe Node process spawning and Fetch-based GitHub transport. A script never sees either
+implementation. Credentials and workspaces remain host ports, so paths and tokens are resolved only at execution time.
 
 ### Compile an exact plan
 

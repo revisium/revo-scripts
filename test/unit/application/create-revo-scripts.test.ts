@@ -63,6 +63,21 @@ test('accepts the flat host boundary used by consumers', () => {
   expect(scripts.listManifests()).toHaveLength(3);
 });
 
+test('registers built-in definitions and providers by default', () => {
+  const scripts = createRevoScripts({
+    workspaces: host.workspaces,
+    credentials: host.credentials,
+    events: host.events,
+    clock: host.clock,
+  });
+
+  expect(scripts.listManifests()).toHaveLength(10);
+  expect(scripts.listProviderImplementations().map((provider) => provider.id)).toEqual([
+    'provider:git/node',
+    'provider:github/fetch',
+  ]);
+});
+
 test('fails startup for duplicate definition modules and provider implementations', () => {
   const definitionModule = gitScripts();
   const providers = nodeGitProviders({ processExecutor });

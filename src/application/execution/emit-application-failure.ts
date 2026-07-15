@@ -5,12 +5,11 @@ import type { ScriptLifecycleEvent } from '../../runtime/spec/events/index.js';
 import type { ScriptExecutionResult } from '../../runtime/spec/result/index.js';
 import { codePointLength } from '../../runtime/validation/code-point-length.js';
 import type { RevoScriptExecutionRequest } from '../contracts/revo-script-execution-request.js';
-import type { RevoScriptsOptions } from '../contracts/revo-scripts-options.js';
-import { resolveRevoScriptsHost } from '../contracts/revo-scripts-options.js';
+import type { ResolvedRevoScriptsOptions } from '../contracts/revo-scripts-options.js';
 import { createApplicationFailure } from './create-application-failure.js';
 
 export const emitApplicationFailure = async (
-  options: RevoScriptsOptions,
+  options: ResolvedRevoScriptsOptions,
   request: RevoScriptExecutionRequest,
   fault: ScriptFault,
   attempts = 0,
@@ -28,7 +27,7 @@ export const emitApplicationFailure = async (
       scriptVersion: request.script.version,
       definitionDigest: request.script.definitionDigest,
       attempt: attempts,
-      timestampMs: (resolveRevoScriptsHost(options).clock ?? systemClock).now(),
+      timestampMs: (options.host.clock ?? systemClock).now(),
       durationMs: 0,
       error: result.error,
     },
@@ -36,7 +35,7 @@ export const emitApplicationFailure = async (
 
   try {
     assertEventWithinLimit(event);
-    await resolveRevoScriptsHost(options).events.emit(event);
+    await options.host.events.emit(event);
   } catch (error: unknown) {
     return createApplicationFailure(
       new ScriptFault('revo.script.execution.event_sink', 'Event sink rejected a script event.', {

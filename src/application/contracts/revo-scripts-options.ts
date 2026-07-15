@@ -3,8 +3,8 @@ import type { RevoScriptsHost } from '../../host/revo-scripts-host.js';
 import type { ScriptDefinitionModule } from '../registration/script-definition-module.js';
 
 interface RevoScriptsBaseOptions {
-  readonly definitions: readonly ScriptDefinitionModule[];
-  readonly providers: readonly ScriptProviderRegistration[];
+  readonly definitions?: readonly ScriptDefinitionModule[];
+  readonly providers?: readonly ScriptProviderRegistration[];
 }
 
 export type RevoScriptsOptions = RevoScriptsBaseOptions &
@@ -17,6 +17,12 @@ export type RevoScriptsOptions = RevoScriptsBaseOptions &
         readonly clock?: RevoScriptsHost['clock'];
       }
   );
+
+export interface ResolvedRevoScriptsOptions {
+  readonly definitions: readonly ScriptDefinitionModule[];
+  readonly providers: readonly ScriptProviderRegistration[];
+  readonly host: RevoScriptsHost;
+}
 
 export const resolveRevoScriptsHost = (options: RevoScriptsOptions): RevoScriptsHost => {
   if ('host' in options) {
