@@ -9,6 +9,22 @@ import type {
 
 const executeFile = promisify(execFile);
 
+const normalizeProcessFailure = (error: unknown): ProcessExecutionResult => {
+  const failure = error instanceof Error ? error : new Error('Process execution failed.');
+  const details = typeof error === 'object' && error !== null ? error : {};
+  const code = 'code' in details ? details.code : undefined;
+  const stdout = 'stdout' in details && typeof details.stdout === 'string' ? details.stdout : '';
+  const stderr =
+    'stderr' in details && typeof details.stderr === 'string' && details.stderr.length > 0
+      ? details.stderr
+      : failure.message;
+  return {
+    exitCode: typeof code === 'number' ? code : 1,
+    stdout,
+    stderr,
+  };
+};
+
 export class NodeProcessExecutor implements ProcessExecutor {
   async execute(request: ProcessExecutionRequest): Promise<ProcessExecutionResult> {
     try {
@@ -21,21 +37,7 @@ export class NodeProcessExecutor implements ProcessExecutor {
       });
       return { exitCode: 0, stdout: result.stdout, stderr: result.stderr };
     } catch (error: unknown) {
-      const failure = error instanceof Error ? error : new Error('Process execution failed.');
-      const details = typeof error === 'object' && error !== null ? error : {};
-      const code = 'code' in details ? details.code : undefined;
-      const stdout =
-        'stdout' in details && typeof details.stdout === 'string' ? details.stdout : '';
-      const stderr =
-        'stderr' in details && typeof details.stderr === 'string'
-          ? details.stderr
-          : failure.message;
-      const exitCode = typeof code === 'number' ? code : 1;
-      return {
-        exitCode,
-        stdout,
-        stderr,
-      };
+      return normalizeProcessFailure(error);
     }
   }
 }
