@@ -45,8 +45,7 @@ export const findGitHubReviewThreadReplyProof = (
   }
   const reply = matchingComments[0]!;
   if (
-    reply?.authorLogin === undefined ||
-    reply.authorLogin.toLowerCase() !== thread.actorLogin.toLowerCase() ||
+    reply.authorLogin?.toLowerCase() !== thread.actorLogin.toLowerCase() ||
     (expected.replyId !== undefined && reply.id !== expected.replyId)
   ) {
     throw new ScriptFault(

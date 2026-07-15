@@ -10,6 +10,7 @@ export class GitHubPullRequestMergeHandler implements ScriptHandler<
   GitHubPullRequestMergeResult,
   GitHubPullRequestMergeResources
 > {
+  // NOSONAR -- owner: scripts maintainers; rationale: one ordered non-bypassable gate matrix; expiry: 2026-09-30.
   async execute(
     input: Readonly<GitHubPullRequestMergeInput>,
     context: Readonly<ScriptContext<GitHubPullRequestMergeResources>>,

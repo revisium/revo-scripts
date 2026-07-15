@@ -46,7 +46,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-github-pull-request-merge',
         version,
         buildDigest:
-          'sha256:7c3aecb26c357d382c50b7edcc38448beb85712c36f3ce5a9b3e2b7dea4db113' as const,
+          'sha256:6a08691a17736c68804cbf51da4cd5f463d26a409769dc835b28eb6e767ea98c' as const,
       };
     }
     case 'script:github/pull-request/readiness': {

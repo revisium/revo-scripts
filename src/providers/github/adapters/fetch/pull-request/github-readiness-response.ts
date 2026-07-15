@@ -153,11 +153,10 @@ export const parseGitHubReadinessResponse = (
   const rollup = pullRequest.commits.nodes[0]?.commit.statusCheckRollup;
   const branchProtection = pullRequest.baseRef?.branchProtectionRule;
   const branchProtectionNames = branchProtection?.requiredStatusCheckContexts;
-  const branchProtectionComplete = branchProtection?.requiresStatusChecks
-    ? branchProtectionNames === null
-      ? 'unavailable'
-      : 'complete'
-    : 'complete';
+  let branchProtectionComplete: 'complete' | 'unavailable' = 'complete';
+  if (branchProtection?.requiresStatusChecks && branchProtectionNames === null) {
+    branchProtectionComplete = 'unavailable';
+  }
   let requiredChecksComplete: 'complete' | 'truncated' | 'unavailable' = 'complete';
   if (branchProtectionComplete === 'unavailable' || rulesetIdentity.complete === 'unavailable') {
     requiredChecksComplete = 'unavailable';
@@ -193,12 +192,7 @@ export const parseGitHubReadinessResponse = (
     mergeable: mergeable(pullRequest.mergeable),
     mergeState: pullRequest.mergeStateStatus ?? 'UNKNOWN',
     observedAt,
-    checksComplete:
-      rollup == null
-        ? 'unavailable'
-        : rollup.contexts.pageInfo.hasNextPage
-          ? 'truncated'
-          : 'complete',
+    checksComplete: checksCompleteness(rollup),
     requiredChecksComplete,
     threadsComplete: pullRequest.reviewThreads.pageInfo.hasNextPage ? 'truncated' : 'complete',
     checks: checks.toSorted((left, right) => left.name.localeCompare(right.name)),
@@ -207,4 +201,16 @@ export const parseGitHubReadinessResponse = (
   const { observedAt: _observedAt, ...providerState } = normalized;
   const revision = createHash('sha256').update(JSON.stringify(providerState)).digest('hex');
   return { ...normalized, providerRevision: `github-readiness/v1:sha256:${revision}` };
+};
+
+const checksCompleteness = (
+  rollup:
+    | Readonly<{ contexts: Readonly<{ pageInfo: Readonly<{ hasNextPage: boolean }> }> }>
+    | null
+    | undefined,
+): 'complete' | 'truncated' | 'unavailable' => {
+  if (rollup == null) {
+    return 'unavailable';
+  }
+  return rollup.contexts.pageInfo.hasNextPage ? 'truncated' : 'complete';
 };

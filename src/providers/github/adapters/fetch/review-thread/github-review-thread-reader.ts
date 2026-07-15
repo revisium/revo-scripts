@@ -82,7 +82,7 @@ export class GitHubReviewThreadReader {
       );
     }
     const thread = response.data.data.node;
-    if (thread === null || thread.id !== threadId) {
+    if (thread?.id !== threadId) {
       throw new ScriptFault(
         'revo.script.idempotency.conflict',
         'The selected review thread is missing.',
