@@ -7,7 +7,7 @@ import {
 export const githubPullRequestUpsertManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:github/pull-request/upsert',
-  version: '1.0.0',
+  version: 1,
   summary: 'Creates or reconciles one pull request at an exact head revision.',
   inputSchemaId: githubPullRequestUpsertInputSchema.id,
   resultSchemaId: githubPullRequestUpsertResultSchema.id,

@@ -12,10 +12,12 @@ Every concrete provider adapter must keep a `README.md` beside its composition r
 | Workspace      | `required` or `none`             |
 | Credentials    | Required aliases or `none`       |
 | Public factory | Exported provider-family factory |
+| Selection      | Sole implementation for contract |
 
 ## Responsibility
 
 State the bounded infrastructure translation the adapter owns and the decisions it explicitly does not own.
+State that startup rejects another implementation for the same contract and execution never falls back.
 
 ## Internal flow
 

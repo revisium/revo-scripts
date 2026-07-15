@@ -30,7 +30,7 @@ const mutationScript = defineScript<
   manifest: {
     schemaVersion: 'revo.script.manifest/v1',
     id: 'script:test/idempotent-mutation',
-    version: '1.0.0',
+    version: 1,
     summary: 'Returns the idempotency key received by one bounded mutation.',
     inputSchemaId: inputSchema.id,
     resultSchemaId: resultSchema.id,
@@ -108,7 +108,6 @@ const mutationProvider = (observations: MutationObservations): ScriptProviderReg
       };
     },
   },
-  useForNewPlans: true,
 });
 
 const mutationHost = (observations: MutationObservations): RevoScriptsHost => ({
@@ -147,14 +146,9 @@ export const createMutationConsumerFixture = (): MutationConsumerFixture => {
     providers: [mutationProvider(observations)],
     host: mutationHost(observations),
   });
-  const plan = scripts.resolveForPlan({
-    id: 'script:test/idempotent-mutation',
-    version: '1.0.0',
-  });
   const request: RevoScriptExecutionRequest = {
     executionId: 'idempotent-mutation',
-    script: plan.script,
-    providers: plan.providers,
+    script: { id: 'script:test/idempotent-mutation', version: 1 },
     input: {},
     bindings: {
       resources: {

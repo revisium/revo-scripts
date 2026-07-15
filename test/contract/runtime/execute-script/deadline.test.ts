@@ -66,7 +66,7 @@ test('aborts an active handler at the total wall-clock deadline', async () => {
         details: {
           executionId: 'execution-7',
           scriptId: 'script:test/timeout',
-          scriptVersion: '1.0.0',
+          scriptVersion: 1,
           definitionDigest: timeoutDefinition.definitionDigest,
           attempt: 1,
           timestampMs: 1_000,
@@ -77,7 +77,7 @@ test('aborts an active handler at the total wall-clock deadline', async () => {
         details: {
           executionId: 'execution-7',
           scriptId: 'script:test/timeout',
-          scriptVersion: '1.0.0',
+          scriptVersion: 1,
           definitionDigest: timeoutDefinition.definitionDigest,
           attempt: 1,
           timestampMs: 1_050,

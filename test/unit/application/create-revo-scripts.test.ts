@@ -44,9 +44,9 @@ test('composes the Git definition family without per-script registration', () =>
   });
 
   expect(scripts.listManifests().map((manifest) => `${manifest.id}@${manifest.version}`)).toEqual([
-    'script:git/commit@1.0.0',
-    'script:git/push@1.0.0',
-    'script:git/status@1.0.0',
+    'script:git/commit@1',
+    'script:git/push@1',
+    'script:git/status@1',
   ]);
 });
 
@@ -76,6 +76,14 @@ test('registers built-in definitions and providers by default', () => {
     'provider:git/node',
     'provider:github/fetch',
   ]);
+  expect(Object.keys(scripts.listProviderImplementations()[0] ?? {}).sort()).toEqual([
+    'contract',
+    'effects',
+    'id',
+    'implementationDigest',
+    'provenance',
+    'workspace',
+  ]);
 });
 
 test('fails startup for duplicate definition modules and provider implementations', () => {
@@ -104,12 +112,12 @@ test('fails startup for duplicate definition modules and provider implementation
     },
     provider: {
       code: 'revo.script.provider.duplicate',
-      message: 'Provider implementation is registered more than once.',
+      message: 'Provider contract is registered more than once.',
     },
   });
 });
 
-test('fails startup for absent, ambiguous, or incomplete provider coverage', () => {
+test('fails startup for absent, duplicate, or incomplete provider coverage', () => {
   const registration = requireNodeGitProviderRegistration({ processExecutor });
 
   const alternate: ScriptProviderRegistration = {
@@ -118,22 +126,19 @@ test('fails startup for absent, ambiguous, or incomplete provider coverage', () 
       id: 'provider:git/alternate',
       implementationDigest: `sha256:${'1'.repeat(64)}`,
     },
-    useForNewPlans: true,
   };
   const missingEffect: ScriptProviderRegistration = {
     module: { ...registration.module, effects: [] },
-    useForNewPlans: true,
   };
   const duplicateEffect: ScriptProviderRegistration = {
     module: { ...registration.module, effects: ['git.read', 'git.read'] },
-    useForNewPlans: true,
   };
 
   expect({
     absent: captureFault(() =>
       createRevoScripts({ definitions: [gitScripts()], providers: [], host }),
     ),
-    ambiguous: captureFault(() =>
+    duplicate: captureFault(() =>
       createRevoScripts({
         definitions: [gitScripts()],
         providers: [registration, alternate],
@@ -157,11 +162,11 @@ test('fails startup for absent, ambiguous, or incomplete provider coverage', () 
   }).toEqual({
     absent: {
       code: 'revo.script.provider.contract_missing',
-      message: 'Provider contract revo.provider.git/v1 has no new-plan default.',
+      message: 'Provider contract revo.provider.git/v1 is not registered.',
     },
-    ambiguous: {
-      code: 'revo.script.provider.ambiguous_default',
-      message: 'Provider contract has more than one new-plan default.',
+    duplicate: {
+      code: 'revo.script.provider.duplicate',
+      message: 'Provider contract is registered more than once.',
     },
     effect: {
       code: 'revo.script.provider.effect_missing',

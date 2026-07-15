@@ -29,6 +29,7 @@ import {
 } from '../../../src/scripts/github/index.js';
 import { consumerFlowBindings } from './consumer-flow-bindings.js';
 import { createConsumerFlowComposition } from './consumer-flow-composition.js';
+import { summarizeConsumerDefinition } from './consumer-flow-definition-summary.js';
 import {
   createConsumerFlowGitFixture,
   type ConsumerFlowGitFixture,
@@ -37,12 +38,11 @@ import {
   createConsumerFlowGitHubTransport,
   type ConsumerFlowGitHubTransport,
 } from './consumer-flow-github-transport.js';
-import { summarizeConsumerPlan } from './consumer-flow-plan-summary.js';
 import { executeConsumerFlowStep } from './consumer-flow-step-executor.js';
 import {
-  resolveConsumerPullRequestLifecyclePlans,
-  type ConsumerPullRequestLifecyclePlans,
-} from './consumer-pull-request-lifecycle-plans.js';
+  consumerPullRequestLifecycleScripts,
+  type ConsumerPullRequestLifecycleScripts,
+} from './consumer-pull-request-lifecycle-scripts.js';
 
 export interface ConsumerPullRequestLifecycleOutcome {
   readonly status: GitStatusResult;
@@ -67,11 +67,11 @@ export interface ConsumerPullRequestLifecycleDynamicFacts {
 
 export interface ConsumerPullRequestLifecycleCatalog {
   readonly manifests: readonly string[];
-  readonly plans: readonly ReturnType<typeof summarizeConsumerPlan>[];
+  readonly definitions: readonly ReturnType<typeof summarizeConsumerDefinition>[];
 }
 
 export class ConsumerPullRequestLifecycle {
-  private readonly plans: ConsumerPullRequestLifecyclePlans;
+  private readonly scriptIdentities: ConsumerPullRequestLifecycleScripts;
   private statusResult: GitStatusResult | undefined;
   private committed: GitChangeV1 | undefined;
   private pushed: GitChangeV1 | undefined;
@@ -89,7 +89,7 @@ export class ConsumerPullRequestLifecycle {
     private readonly github: ConsumerFlowGitHubTransport,
     private readonly scripts: ReturnType<typeof createConsumerFlowComposition>,
   ) {
-    this.plans = resolveConsumerPullRequestLifecyclePlans(scripts.resolveForPlan.bind(scripts));
+    this.scriptIdentities = consumerPullRequestLifecycleScripts;
   }
 
   static async create(): Promise<ConsumerPullRequestLifecycle> {
@@ -107,13 +107,15 @@ export class ConsumerPullRequestLifecycle {
       manifests: this.scripts
         .listManifests()
         .map((manifest) => `${manifest.id}@${manifest.version}`),
-      plans: Object.values(this.plans).map(summarizeConsumerPlan),
+      definitions: Object.values(this.scriptIdentities).map((script) =>
+        summarizeConsumerDefinition(this.scripts, script),
+      ),
     };
   }
 
   async status(): Promise<void> {
     this.statusResult = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.status,
+      script: this.scriptIdentities.status,
       executionId: 'consumer-flow:status',
       input: {
         resource: 'repository',
@@ -128,7 +130,7 @@ export class ConsumerPullRequestLifecycle {
   async commit(): Promise<void> {
     const status = this.required(this.statusResult, 'status');
     this.committed = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.commit,
+      script: this.scriptIdentities.commit,
       executionId: 'consumer-flow:commit',
       idempotencyKey: 'consumer-flow:commit',
       input: {
@@ -152,7 +154,7 @@ export class ConsumerPullRequestLifecycle {
 
   async push(): Promise<void> {
     this.pushed = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.push,
+      script: this.scriptIdentities.push,
       executionId: 'consumer-flow:push',
       idempotencyKey: 'consumer-flow:push',
       input: { change: this.required(this.committed, 'commit') } satisfies GitPushInput,
@@ -165,7 +167,7 @@ export class ConsumerPullRequestLifecycle {
   async upsert(): Promise<void> {
     const pushed = this.required(this.pushed, 'push');
     this.pullRequest = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.upsert,
+      script: this.scriptIdentities.upsert,
       executionId: 'consumer-flow:upsert',
       idempotencyKey: 'consumer-flow:upsert',
       input: {
@@ -189,7 +191,7 @@ export class ConsumerPullRequestLifecycle {
 
   async markReady(): Promise<void> {
     this.readyPullRequest = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.markReady,
+      script: this.scriptIdentities.markReady,
       executionId: 'consumer-flow:mark-ready',
       idempotencyKey: 'consumer-flow:mark-ready',
       input: { pullRequest: this.required(this.pullRequest, 'upsert') },
@@ -203,7 +205,7 @@ export class ConsumerPullRequestLifecycle {
 
   async readinessBeforeResponse(): Promise<void> {
     this.reviewChanges = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.readiness,
+      script: this.scriptIdentities.readiness,
       executionId: 'consumer-flow:readiness-before-response',
       input: this.required(this.readyPullRequest, 'mark ready'),
       bindings: this.githubBindings('read', 'github.pull-request.readiness', ['github.read']),
@@ -213,7 +215,7 @@ export class ConsumerPullRequestLifecycle {
 
   async respond(): Promise<void> {
     this.responses = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.respond,
+      script: this.scriptIdentities.respond,
       executionId: 'consumer-flow:respond',
       idempotencyKey: 'consumer-flow:respond',
       input: {
@@ -231,7 +233,7 @@ export class ConsumerPullRequestLifecycle {
 
   async resolve(): Promise<void> {
     this.resolutions = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.resolve,
+      script: this.scriptIdentities.resolve,
       executionId: 'consumer-flow:resolve',
       idempotencyKey: 'consumer-flow:resolve',
       input: {
@@ -249,7 +251,7 @@ export class ConsumerPullRequestLifecycle {
 
   async readinessAfterResolution(): Promise<void> {
     this.clean = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.readiness,
+      script: this.scriptIdentities.readiness,
       executionId: 'consumer-flow:readiness-after-resolution',
       input: this.required(this.readyPullRequest, 'mark ready'),
       bindings: this.githubBindings('read', 'github.pull-request.readiness', ['github.read']),
@@ -260,7 +262,7 @@ export class ConsumerPullRequestLifecycle {
   async approval(): Promise<void> {
     const pullRequest = this.required(this.readyPullRequest, 'mark ready');
     this.approvalSubject = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.approval,
+      script: this.scriptIdentities.approval,
       executionId: 'consumer-flow:approval-subject',
       input: {
         kind: 'publication',
@@ -283,7 +285,7 @@ export class ConsumerPullRequestLifecycle {
     const readyPullRequest = this.required(this.readyPullRequest, 'mark ready');
     const approvalSubject = this.required(this.approvalSubject, 'approval subject');
     this.merged = await executeConsumerFlowStep(this.scripts, {
-      plan: this.plans.merge,
+      script: this.scriptIdentities.merge,
       executionId: 'consumer-flow:merge',
       idempotencyKey: 'consumer-flow:merge',
       input: {

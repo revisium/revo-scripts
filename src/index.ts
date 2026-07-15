@@ -7,8 +7,6 @@ export type { RevoScriptExecutionRequest } from './application/contracts/revo-sc
 export type { RevoScripts } from './application/contracts/revo-scripts.js';
 export type { RevoScriptsOptions } from './application/contracts/revo-scripts-options.js';
 export type { ScriptIdentityPin } from './application/contracts/script-identity-pin.js';
-export type { ScriptPlanDescriptor } from './application/contracts/script-plan-descriptor.js';
-export type { ScriptProviderPin } from './application/contracts/script-provider-pin.js';
 export {
   approvalScripts,
   builtInScripts,

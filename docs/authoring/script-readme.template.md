@@ -7,7 +7,7 @@ Every built-in operation must keep a `README.md` beside its definition with thes
 | Field              | Required value           |
 | ------------------ | ------------------------ |
 | Script id          | Stable namespaced id     |
-| Version            | Exact semantic version   |
+| Revision           | Exact positive integer   |
 | Effect class       | Manifest effect class    |
 | Effects            | Complete effect list     |
 | Permissions        | Complete permission list |
@@ -18,6 +18,9 @@ Every built-in operation must keep a `README.md` beside its definition with thes
 ## Operation
 
 Describe one bounded business operation, its typed result, and its explicit non-responsibilities.
+
+State that `(script id, revision)` is immutable, every observable change increments the revision, and consumers use no
+range, `latest`, tag, SemVer parser, or fallback.
 
 ## Files
 

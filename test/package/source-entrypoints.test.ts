@@ -3,7 +3,13 @@ import { readFile } from 'node:fs/promises';
 import { expect, expectTypeOf, test } from 'vitest';
 
 import * as hostEntry from '../../src/host/index.js';
+import type { ScriptProviderModule, ScriptProviderRegistration } from '../../src/host/index.js';
 import * as packageEntry from '../../src/index.js';
+import type {
+  RevoScriptExecutionRequest,
+  RevoScripts,
+  ScriptIdentityPin,
+} from '../../src/index.js';
 import * as gitProviderEntry from '../../src/providers/git/index.js';
 import * as githubProviderEntry from '../../src/providers/github/index.js';
 import * as runtimeEntry from '../../src/runtime/index.js';
@@ -78,6 +84,20 @@ test('preserves the built-in Git status type surface through its public entrypoi
   expectTypeOf(gitEntry.gitStatusScript).toMatchTypeOf<
     ScriptDefinition<GitStatusInput, GitStatusResult, GitStatusResources>
   >();
+});
+
+test('exposes direct integer script execution without plan compilation or consumer digests', () => {
+  expectTypeOf<RevoScripts['execute']>().toBeFunction();
+  expectTypeOf<Pick<RevoScriptExecutionRequest, 'script'>>().toEqualTypeOf<{
+    readonly script: ScriptIdentityPin;
+  }>();
+  expectTypeOf<ScriptProviderRegistration>().toEqualTypeOf<{
+    readonly module: ScriptProviderModule;
+  }>();
+  expectTypeOf<ScriptIdentityPin>().toEqualTypeOf<{
+    readonly id: `script:${string}`;
+    readonly version: number;
+  }>();
 });
 
 test('package metadata declares the intended package and explicit root export', async () => {

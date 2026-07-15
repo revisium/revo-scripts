@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 import type { ScriptManifestV1 } from '../../../spec/manifest/index.js';
 import { codePointLength } from '../../../validation/code-point-length.js';
-import { isExactSemanticVersion } from '../exact-semantic-version.js';
 
 const scriptIdPattern = /^script:[a-z][a-z0-9-]*(?:\/[a-z][a-z0-9-]*)+$/;
 const namespacedIdentifierPattern = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/;
@@ -22,9 +21,9 @@ export const scriptManifestSchema: z.ZodType<ScriptManifestV1> = z.strictObject(
       typeof value === 'string' && codePointLength(value) <= 256 && scriptIdPattern.test(value),
     { message: 'Script id must use the script:<namespace>/<name> format.' },
   ),
-  version: boundedString(128, 'Version must contain at most 128 Unicode code points.').refine(
-    isExactSemanticVersion,
-    { message: 'Version must be an exact semantic version.' },
+  version: z.custom<number>(
+    (value) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0,
+    { message: 'Version must be a positive safe integer.' },
   ),
   summary: boundedString(512, 'Summary must contain at most 512 Unicode code points.'),
   inputSchemaId: boundedString(

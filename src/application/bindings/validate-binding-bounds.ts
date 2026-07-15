@@ -5,11 +5,7 @@ import type { RevoScriptExecutionRequest } from '../contracts/revo-script-execut
 export const validateBindingBounds = (request: RevoScriptExecutionRequest): void => {
   const resourceBindings = Object.values(request.bindings.resources);
 
-  if (
-    resourceBindings.length > 16 ||
-    Object.keys(request.bindings.credentials).length > 16 ||
-    request.providers.length > 8
-  ) {
+  if (resourceBindings.length > 16 || Object.keys(request.bindings.credentials).length > 16) {
     throw new ScriptFault(
       'revo.script.validation.bindings',
       'Execution bindings exceed the supported collection limits.',

@@ -7,7 +7,7 @@ import {
 export const githubReviewThreadRespondManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:github/review-threads/respond',
-  version: '1.0.0',
+  version: 1,
   summary: 'Replies once to each selected review thread on an exact pull request head.',
   inputSchemaId: githubReviewThreadRespondInputSchema.id,
   resultSchemaId: githubReviewThreadRespondResultSchema.id,

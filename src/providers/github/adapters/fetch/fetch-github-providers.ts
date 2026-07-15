@@ -4,6 +4,4 @@ import { FetchGitHubProvider } from './fetch-github-provider.js';
 
 export const fetchGitHubProviders = (
   options: FetchGitHubProviderOptions = {},
-): readonly ScriptProviderRegistration[] => [
-  { module: new FetchGitHubProvider(options), useForNewPlans: true },
-];
+): readonly ScriptProviderRegistration[] => [{ module: new FetchGitHubProvider(options) }];

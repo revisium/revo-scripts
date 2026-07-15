@@ -27,13 +27,15 @@ test('rejects coordinates for a provider that does not declare a coordinate sche
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
 
   const result = await scripts.execute(
-    createGitScriptRequest(plan, {
-      executionId: 'unsupported-provider-coordinates',
-      providerCoordinates: { git: {} },
-    }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      {
+        executionId: 'unsupported-provider-coordinates',
+        providerCoordinates: { git: {} },
+      },
+    ),
   );
 
   expect({ result, workspaceCalls }).toEqual({

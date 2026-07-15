@@ -4,7 +4,7 @@ import { createRevoScripts, gitScripts } from '../../../../src/index.js';
 import { nodeGitProviders } from '../../../../src/providers/git/index.js';
 import { createGitHost, createGitScriptRequest } from '../../../support/git/git-fixture.js';
 
-test('rejects non-exact resource, provider and effect grants before host access', async () => {
+test('rejects non-exact resource, permission and effect grants before host access', async () => {
   let processCalls = 0;
   let workspaceCalls = 0;
   const { host } = createGitHost({
@@ -25,8 +25,10 @@ test('rejects non-exact resource, provider and effect grants before host access'
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
-  const valid = createGitScriptRequest(plan, { executionId: 'binding-matrix' });
+  const valid = createGitScriptRequest(
+    { id: 'script:git/status', version: 1 },
+    { executionId: 'binding-matrix' },
+  );
   const repository = valid.bindings.resources.repository;
 
   if (repository === undefined) {
@@ -52,11 +54,18 @@ test('rejects non-exact resource, provider and effect grants before host access'
         resources: { repository: { ...repository, access: 'write' } },
       },
     }),
-    scripts.execute(createGitScriptRequest(plan, { executionId: 'binding-matrix', effects: [] })),
     scripts.execute(
-      createGitScriptRequest(plan, { executionId: 'binding-matrix', permissions: [] }),
+      createGitScriptRequest(
+        { id: 'script:git/status', version: 1 },
+        { executionId: 'binding-matrix', effects: [] },
+      ),
     ),
-    scripts.execute(createGitScriptRequest(plan, { executionId: 'binding-matrix', providers: [] })),
+    scripts.execute(
+      createGitScriptRequest(
+        { id: 'script:git/status', version: 1 },
+        { executionId: 'binding-matrix', permissions: [] },
+      ),
+    ),
   ]);
 
   expect({ results, processCalls, workspaceCalls }).toEqual({
@@ -102,15 +111,6 @@ test('rejects non-exact resource, provider and effect grants before host access'
         error: {
           code: 'revo.script.permission.grant',
           message: 'Resource binding repository is missing permission git.status.read.',
-          retryable: false,
-        },
-        attempts: 0,
-      },
-      {
-        ok: false,
-        error: {
-          code: 'revo.script.provider.pin_mismatch',
-          message: 'Provider pins do not match the script manifest.',
           retryable: false,
         },
         attempts: 0,

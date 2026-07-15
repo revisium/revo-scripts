@@ -83,11 +83,9 @@ const scripts = createRevoScripts({
     },
   },
 });
-const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
 const result = await scripts.execute({
   executionId: 'packed-consumer',
-  script: plan.script,
-  providers: plan.providers,
+  script: { id: 'script:git/status', version: 1 },
   input: {
     resource: 'repository',
     baseCapture: \`git-commit:\${headSha}\`,
@@ -172,11 +170,9 @@ const scripts = createRevoScripts({
   providers: nodeGitProviders({ processExecutor }),
   host,
 });
-const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
 const request: RevoScriptExecutionRequest = {
   executionId: 'type-consumer',
-  script: plan.script,
-  providers: plan.providers,
+  script: { id: 'script:git/status', version: 1 },
   input: {
     resource: 'repository',
     baseCapture: 'git-commit:0123456789abcdef0123456789abcdef01234567',

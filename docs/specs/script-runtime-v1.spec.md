@@ -26,17 +26,17 @@ BCP 14 when, and only when, they appear in all capitals.
 The repository implements the root, `spec`, `runtime`, `host`, `approval`, `git`, `github`, `providers/git`,
 `providers/github`, and `testing` entrypoints; the `createRevoScripts` facade; package-owned Node Git and Fetch GitHub
 providers; and the approval-subject, Git status/commit/push, pull-request upsert/ready/readiness/merge, and review-thread
-reply/resolve operations. Coordinate and credential enforcement, exact provider pins, declarations, exports, package
+reply/resolve operations. Coordinate and credential enforcement, internal provider selection, declarations, exports, package
 content, architecture boundaries, local Git integration, and mocked GitHub provider contracts are executable gates.
-The npm package is not published. Multi-version source retention, a stable external custom-script distribution
+The npm package is not published. Multi-revision source retention, a stable external custom-script distribution
 contract, and orchestrator cutover remain deferred.
 
 ## Target Contract
 
 ### Package responsibility
 
-The package MUST define, validate, register, test, and execute one bounded script. It MAY ship independently versioned
-built-ins that use the same definition contract. A built-in MUST own its complete observable
+The package MUST define, validate, register, test, and execute one bounded script. It MAY ship built-ins with
+independent integer revisions that use the same definition contract. A built-in MUST own its complete observable
 operation, including provider calls, normalization, stale-state checks, idempotency and crash reconciliation,
 provider-error mapping, and result construction.
 
@@ -86,7 +86,6 @@ type ScriptProviderContractRef = `revo.provider.${string}/v${number}`;
 
 type ScriptProviderRegistration = {
   module: ScriptProviderModule;
-  useForNewPlans: boolean;
 };
 
 type ScriptProviderModule = {
@@ -106,9 +105,7 @@ type ScriptProviderModule = {
 type ScriptProviderDescriptor = Pick<
   ScriptProviderModule,
   'id' | 'contract' | 'implementationDigest' | 'provenance' | 'effects' | 'workspace'
-> & {
-  useForNewPlans: boolean;
-};
+>;
 
 type PreparedProviderClients = {
   clients: Readonly<Record<string, object>>;
@@ -116,20 +113,9 @@ type PreparedProviderClients = {
 };
 
 type RevoScripts = {
-  resolveForPlan(script: { id: `script:${string}`; version: string }): ScriptPlanDescriptor;
   execute(request: RevoScriptExecutionRequest): Promise<ScriptExecutionResult<unknown>>;
   listManifests(): readonly ScriptManifestV1[];
   listProviderImplementations(): readonly ScriptProviderDescriptor[];
-};
-
-type ScriptPlanDescriptor = {
-  script: {
-    id: `script:${string}`;
-    version: string;
-    definitionDigest: `sha256:${string}`;
-  };
-  providers: readonly ScriptProviderPin[];
-  manifest: ScriptManifestV1;
 };
 
 declare function createRevoScripts(options: RevoScriptsOptions): RevoScripts;
@@ -142,30 +128,17 @@ provider for an unselected definition family. The callback shape preserves each 
 and resource generics without `any`, unsafe casts, or an impossible heterogeneous array type. This is explicit module
 registration, not directory scanning or import-time side-effect registration.
 
-Startup MUST fail on a duplicate definition identity, duplicate provider `(id, implementationDigest)`, more than one
-new-plan default for one provider contract, a missing provider contract required by a selected definition module, or
-an invalid definition. One provider module MUST NOT repeat an effect in its own effect list. Retained revisions and
-separate resource-scoped provider requirements MAY declare the same effect because exact pins and resource association
-disambiguate them. The facade MUST seal its definition and provider registries before returning. Updating the package
-MAY make additional definitions available through the same selected family module, but a run can execute one only when
-its immutable plan names the exact id, version, definition digest, provider implementation pins, and grants its
+Startup MUST fail on a duplicate definition identity, more than one provider implementation for one contract, a
+missing provider contract required by a selected definition module, or an invalid definition. One provider module MUST
+NOT repeat an effect in its own effect list. Separate resource-scoped provider requirements MAY declare the same effect
+because resource association disambiguates them. The facade MUST seal its definition and provider registries before
+returning. Updating the package MAY make additional definitions available through the same selected family module, but
+a run can execute one only when its request names the exact id and positive integer revision and its bindings grant all
 declared requirements.
 
-Multiple exact implementations of one provider contract MAY be registered for recovery. Exactly one compatible
-implementation MUST be marked `useForNewPlans` when that contract is available for new plan compilation. The flag is
-host composition policy, not provider-module metadata. Execution resolves only exact plan pins; it MUST NOT consult the
-new-plan default or fall back to another implementation.
-
-A package provider-family factory returns the configured implementation for new plans. The current package contains
-one implementation per provider id and does not expose an internal revision selector. Supporting multiple retained
-implementations requires a separate accepted source-retention and composition design; revision folder names MUST NOT
-be inferred as provider contract versions, pipeline data, or execution pins.
-
-`resolveForPlan` is the generic compilation seam. It resolves an exact script definition, matches every manifest
-provider requirement to the one configured new-plan default for that contract, and returns immutable definition and
-provider pins plus the manifest maximums that host policy must grant or narrow. It MUST NOT resolve a workspace,
-credential, or provider client. It performs the same algorithm for every script id and fails closed on an absent exact
-version, unavailable contract, or ambiguous default.
+Exactly one implementation MAY be registered for a provider contract. The provider catalog selects it solely from the
+manifest contract requirement. Registration never selects a default, and execution MUST NOT consult an implementation
+id supplied by a consumer or fall back to another implementation.
 
 Client keys contributed to one resource handle MUST be unique across selected providers. A duplicate client key fails
 preflight, disposes every client and credential lease already constructed for that attempt, and invokes no handler.
@@ -204,49 +177,33 @@ type ScriptExecutionBindings = {
   credentials: Readonly<Record<string, ScriptCredentialBinding>>;
 };
 
-type ScriptProviderPin = {
-  name: string;
-  resource: string;
-  id: `provider:${string}`;
-  contract: ScriptProviderContractRef;
-  implementationDigest: `sha256:${string}`;
-  workspace: 'required' | 'none';
-  provenance: {
-    packageName: string;
-    packageVersion: string;
-  };
-};
-
 type RevoScriptExecutionRequest = {
   executionId: string;
   script: {
     id: `script:${string}`;
-    version: string;
-    definitionDigest: `sha256:${string}`;
+    version: number;
   };
   input: unknown;
-  providers: readonly ScriptProviderPin[];
   bindings: ScriptExecutionBindings;
   idempotencyKey?: string;
   signal?: AbortSignal;
 };
 ```
 
-The portable pipeline node contains only exact script id and version, input, and logical resource requirements. It does
+The portable pipeline node contains only exact script id and integer revision, input, and logical resource requirements. It does
 not contain a provider id, provider implementation, definition digest, path, or credential alias. During execution-plan
-compilation, generic host code resolves the exact definition and each required provider contract from the facade's
-sealed catalogs, applies host policy, and records the definition digest and exact provider pins shown above.
+compilation, generic host code applies host policy and records logical bindings. The package resolves the exact
+definition and each required provider contract from its sealed catalogs during `execute`.
 
-The plan MUST contain no absolute workspace path, secret value, provider client, executable source, or ambient account
+The execution request MUST contain no absolute workspace path, secret value, provider client, executable source, or ambient account
 selection. Resource and credential binding names MUST match the selected manifest exactly; extra or missing bindings
-fail before a provider is constructed. Provider pin names, resources, and contracts MUST match the manifest's provider
-requirements exactly, and each pin MUST resolve by `(id, contract, implementationDigest, workspace, provenance)` before
-privileged host state is resolved. One request contains at most 16 resource bindings and eight provider pins. One
+fail before a provider is constructed. Each manifest provider contract MUST resolve to exactly one registered
+implementation before privileged host state is resolved. One request contains at most 16 resource bindings. One
 binding contains at most 64 unique permissions and 16 unique effects. Binding strings use the corresponding manifest
 limits, and the complete binding payload is subject to the 1 MiB input bound. Provider-coordinate bounds are defined
 with their schema rules below.
 
-`WorkspaceResolver` and `CredentialResolver` are privileged host integration ports. They resolve only pinned opaque
+`WorkspaceResolver` and `CredentialResolver` are privileged host integration ports. They resolve only bound opaque
 identities. Their resolved values are visible to the selected trusted provider module and MUST NOT be copied into a
 handler context, result, event, artifact, or public error.
 
@@ -295,14 +252,14 @@ client object.
 
 A provider with `workspace: 'required'` fails before construction when its binding has no `workspaceId`. A provider
 with `workspace: 'none'` receives no resolved workspace even if the run has one. The facade MUST NOT resolve an unused
-workspace merely because one exists in the execution plan.
+workspace merely because one exists in the execution bindings.
 
 Workspace need is provider-module-wide in v1. A provider family with both workspace-bound and workspace-free effects
 MUST expose separate explicit provider modules under distinct contract refs, for example
 `revo.provider.example.workspace/v1` and `revo.provider.example.api/v1`. A module MUST NOT make workspace resolution
-conditional on a concrete script id. One new-plan default is selected independently for each distinct contract ref.
+conditional on a concrete script id. Exactly one implementation is registered for each distinct contract ref.
 
-Provider coordinates are immutable plan facts required to address a provider resource without reading mutable local
+Provider coordinates are immutable binding facts required to address a provider resource without reading mutable local
 state. A GitHub coordinate is `{ owner, repository }`; a GitHub operation MUST NOT derive it from a workspace remote at
 execution time. A provider that needs a coordinate declares a closed `coordinateSchema`; a provider that needs none
 omits it. On each resource binding, coordinate keys MUST exactly match the manifest provider-requirement names attached
@@ -317,10 +274,9 @@ generated metadata. CI MUST reproduce and compare it. A changed adapter closure 
 still implements the same provider contract major.
 
 Built-in adapter implementations live under paths such as `src/providers/git/adapters/node/`. The current factory
-returns one new-plan implementation. Before the package retains two implementations for recovery, an accepted design
-MUST define their source ownership, export/composition rules, generated digests, and external pin audit. Provider
-contracts and adapters remain owned and published by `@revisium/revo-scripts`; v1 defines no separately released
-provider package seam.
+returns the single implementation for its contract. Registering a second implementation for that contract fails
+startup; execution performs no fallback. Provider contracts and adapters remain owned and published by
+`@revisium/revo-scripts`; v1 defines no separately released provider package seam.
 
 A new provider family is installed by adding an explicit provider/definition module plus host credential and resource
 configuration. Generic pipeline execution MUST remain unchanged. A host-layer change is justified only when the new
@@ -333,7 +289,7 @@ represent.
 type ScriptManifestV1 = {
   schemaVersion: 'revo.script.manifest/v1';
   id: `script:${string}`;
-  version: string;
+  version: number;
   summary: string;
   inputSchemaId: string;
   resultSchemaId: string;
@@ -391,8 +347,9 @@ type ScriptEffect =
 ```
 
 The manifest MUST be JSON-serializable and MUST reject unknown fields. The script id MUST match
-`^script:[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$`. A version identifies one immutable observable contract and MUST be an
-exact semantic version without a range.
+`^script:[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$`. A version identifies one immutable observable contract and MUST be a
+positive safe integer. Script versions are revisions, not SemVer, and MUST NOT accept a range, tag, `latest`, string,
+or fallback interpretation.
 
 Schema identifiers MUST be stable identifiers rather than filesystem paths. Permission identifiers MUST be
 namespaced. Resource, provider-slot, and credential names MUST match `^[a-z][a-z0-9-]*$`. Provider contract refs MUST
@@ -409,8 +366,8 @@ and manifest validation MUST apply the stricter runtime pattern above, including
 
 Script ids, schema ids, permission ids, event names, provider contract refs, credential provider ids, and
 implementation ids MUST be no longer
-than 256 Unicode code points. Versions, resource names, provider-slot names, and credential names MUST be no longer
-than 128 Unicode code points. A summary MUST be no longer than 512 Unicode code points. A manifest MUST contain at most 16 resources, eight
+than 256 Unicode code points. Resource names, provider-slot names, and credential names MUST be no longer than 128
+Unicode code points. A summary MUST be no longer than 512 Unicode code points. A manifest MUST contain at most 16 resources, eight
 provider requirements, 16 credential requirements, 64 permissions, 64 custom event names, and 128 redaction or detail
 paths; each path MUST be no longer than 512 Unicode code points. No extension point may accept an unbounded string,
 collection, or arbitrary nested payload.
@@ -445,14 +402,14 @@ A `pure` manifest MUST have empty permissions, resources, providers, credentials
 declare operation permissions and credential requirements within their resource and effect maximums. A non-`pure`
 manifest with any permission, credential, or effect MUST declare at least one resource. A credential requirement names
 a logical slot such as `github`, its credential-system provider, and the provider requirement allowed to receive it.
-The execution plan binds the slot to one alias such as `github-publication-account`. Each provider construction
+The execution bindings bind the slot to one alias such as `github-publication-account`. Each provider construction
 receives only credentials assigned to its requirement. Manifests and script input MUST NOT contain credential aliases
 or secret values. The prepared host grant is the union of the immutable permission and effect grants on the resource
 handles supplied for that execution.
 
 A provider requirement names the bounded client slot a handler expects, the resource handle that receives that client,
 and the compatible provider protocol major. It MUST NOT name an adapter implementation, npm package version, account,
-transport, or implementation digest. Every declared non-empty effect set MUST be covered by the selected exact
+transport, or implementation digest. Every declared non-empty effect set MUST be covered by the sole registered
 implementations of the declared provider contracts.
 
 `timeout.wallClockMs` covers the complete execution including attempts and backoff. It MUST be a positive safe integer
@@ -518,11 +475,11 @@ consumer hint, not a concrete-script dispatch rule: a host reads the declared po
 `script:github/pull-request/readiness` declares `/classification` and returns `clean`, `review_changes`, or `blocked`.
 
 Handler source and executable schema objects MUST NOT be serialized into a manifest, event, artifact, or definition
-pin. A build digest is generated by the trusted package build rather than hand-authored or recomputed during execution.
+identity. A build digest is generated by the trusted package build rather than hand-authored or recomputed during execution.
 It covers the emitted runtime closure for that exact script definition, including its schemas and transitive owned
 helpers, but excludes unrelated definitions and generated build metadata. Adding an unrelated script MUST NOT change
 an existing definition digest when that existing definition's contract and executable closure are byte-identical.
-Helpers in the runtime closure of a published version are retained with that version or copied into a new version-owned
+Helpers in the runtime closure of a published revision are retained with that revision or copied into a new revision-owned
 closure before modification. A mutable shared helper MUST NOT silently change an already-published definition digest.
 
 The target generator performs a fresh temporary TypeScript emission, sorts the owned runtime closure by
@@ -532,33 +489,32 @@ metadata, a digest mismatch, or an unavailable exact definition implementation b
 construction. Historical executable retention is a release/deployment responsibility, but build identity is part of
 the v1 definition contract.
 
-### Versioning and exact retention
+### Revisioning and exact retention
 
-The npm package version, script version, provider contract version, and provider implementation pin answer different
-questions:
+The npm package version, script revision, provider contract version, and provider implementation digest answer
+different questions:
 
-| Identity                       | Meaning                                                     | Selected by             |
-| ------------------------------ | ----------------------------------------------------------- | ----------------------- |
-| npm package SemVer             | Release vehicle containing definitions and providers        | deployment              |
-| exact script SemVer            | Immutable observable operation contract and implementation  | portable pipeline node  |
-| provider contract major        | Bounded client protocol compatibility, for example Git `v1` | script manifest         |
-| provider implementation digest | Exact trusted adapter used for execution and recovery       | compiled execution plan |
+| Identity                       | Meaning                                                     | Selected by            |
+| ------------------------------ | ----------------------------------------------------------- | ---------------------- |
+| npm package SemVer             | Release vehicle containing definitions and providers        | deployment             |
+| exact script integer revision  | Immutable observable operation contract and implementation  | portable pipeline node |
+| provider contract major        | Bounded client protocol compatibility, for example Git `v1` | script manifest        |
+| provider implementation digest | Exact trusted adapter build provenance                      | package composition    |
 
-A script id is stable across versions. The pipeline MUST name an exact semantic version and MUST NOT use `latest`, a
-range, tag, or fallback. A published `(id, version)` is immutable. Any change to its manifest, schemas, observable
-result, stable error mapping, effect behavior, or handler implementation requires a new version: breaking contract
-changes increment major, backward-compatible additive changes increment minor, and compatible corrections increment
-patch. A future package release MAY contain multiple versions of one script simultaneously after a source-retention
-and export design is accepted. The current implementation keeps one exact version in a flat operation directory such
-as `src/scripts/git/status/`; folder names are not version identities. Removing or replacing a published version
-requires an audit proving that no supported pipeline, compiled execution plan, active execution, or recoverable run
-pins it.
+A script id is stable across revisions. The pipeline MUST name one positive exact integer and MUST NOT use `latest`,
+a range, tag, string, SemVer parser, or fallback. A published `(id, revision)` is immutable. Any observable change to
+its manifest, schemas, result, stable error mapping, effect behavior, or handler implementation requires a larger
+integer revision. A future package release MAY contain multiple revisions of one script simultaneously after a
+source-retention and export design is accepted. The current implementation keeps one exact revision in a flat
+operation directory such as `src/scripts/git/status/`; folder names are not revision identities. Removing or replacing
+a published revision requires an audit proving that no supported pipeline, active execution, or recoverable run
+references it.
 
 A provider contract uses a major-only ref such as `revo.provider.git/v1`. A script depends on that protocol, not an
-adapter. A breaking bounded-client change creates `v2`; `v1` and `v2` MAY coexist during migration. A provider adapter
-has no separate public SemVer in v1. The execution plan records its exact implementation digest and package provenance.
-Changing an adapter without changing the observable script contract does not require a script version bump, but new
-plans pin the new adapter digest and recoverable old plans require their exact pinned adapter to remain available.
+adapter. A breaking bounded-client change creates `v2`; `v1` and `v2` MAY coexist as distinct contracts during
+migration. A provider adapter has no separate public SemVer in v1. Its implementation digest and package provenance
+describe the installed implementation, but consumers do not select or pin it. One implementation is registered per
+contract, and changing observable script behavior still requires a larger script revision.
 
 ### Handler context
 
@@ -588,7 +544,7 @@ type ScriptResourceMap = Readonly<Record<string, ScriptResourceHandle<object>>>;
 
 The facade runtime MUST construct the context and prepared resource handles after validating the exact definition,
 input, host bindings, manifest maximums, and grants. Handler input MUST NOT provide context fields. A handler MUST
-receive only the clients permitted by the manifest, plan grant, resource binding, credential requirements, and provider
+receive only the clients permitted by the manifest, binding grant, credential requirements, and provider
 module intersection.
 
 Handlers MUST NOT receive a raw workspace path, unrestricted shell, process environment, token resolver, generic
@@ -673,7 +629,7 @@ The initial runtime MUST define at least these exact codes:
 | Code                                          | Meaning                                                                   | Retryable    |
 | --------------------------------------------- | ------------------------------------------------------------------------- | ------------ |
 | `revo.script.validation.manifest`             | Manifest or policy coherence is invalid.                                  | No           |
-| `revo.script.validation.input`                | Input does not satisfy the declared schema.                               | No           |
+| `revo.script.validation.input`                | Input or execution request identity is invalid.                           | No           |
 | `revo.script.validation.result`               | Handler output does not satisfy the declared schema.                      | No           |
 | `revo.script.validation.event`                | A custom event is not JSON-compatible.                                    | No           |
 | `revo.script.validation.payload_limit`        | A bounded payload limit was exceeded.                                     | No           |
@@ -690,7 +646,7 @@ The initial runtime MUST define at least these exact codes:
 | `revo.script.execution.unexpected`            | An untyped handler or runtime failure occurred.                           | No           |
 | `revo.script.provider.unavailable`            | A bounded provider capability is unavailable.                             | No           |
 | `revo.script.provider.client_conflict`        | Selected providers contributed the same client key to one resource.       | No           |
-| `revo.script.provider.credential_unavailable` | A pinned credential alias cannot be resolved.                             | Per manifest |
+| `revo.script.provider.credential_unavailable` | A bound credential alias cannot be resolved.                              | Per manifest |
 | `revo.script.provider.transient`              | A provider reported an explicitly retry-safe transient failure.           | Per manifest |
 | `revo.script.idempotency.key_required`        | A write requires an absent idempotency key.                               | No           |
 | `revo.script.idempotency.conflict`            | Observed external state conflicts with the operation key or precondition. | No           |
@@ -733,6 +689,10 @@ emit one failed event without a preceding started event. Once preflight succeeds
 started event, zero or more retrying events, and exactly one succeeded or failed event in that order. These ordering
 requirements apply while the sink accepts events.
 
+A high-level facade failure before definition resolution MUST include the requested script id and integer revision and
+MUST omit `definitionDigest`. After resolution, every lifecycle event MUST use the definition digest recovered from the
+sealed registry; no consumer-supplied digest participates in event identity.
+
 A handler MAY emit only event names declared by `manifest.events.allowed`. Custom details MUST contain only paths
 allowed by `manifest.events.detailPaths`. Empty objects and arrays are leaves at their own JSON Pointer path.
 Undeclared names, detail paths, or non-JSON values MUST fail before reaching the sink.
@@ -773,22 +733,24 @@ interface ScriptRegistry {
     definition: ScriptDefinition<I, O, R>,
   ): RegisteredScript<I, O, R>;
   seal(): void;
-  resolve(id: string, version: string): RegisteredScript<unknown, unknown, ScriptResourceMap>;
+  resolve(id: string, version: number): RegisteredScript<unknown, unknown, ScriptResourceMap>;
   getExact(
     id: string,
-    version: string,
+    version: number,
     digest: `sha256:${string}`,
   ): RegisteredScript<unknown, unknown, ScriptResourceMap>;
   listManifests(): readonly ScriptManifestV1[];
 }
 ```
 
-Registration MUST be explicit. Directory scanning, package discovery, import-time side-effect registration, version
-ranges, and implicit latest-version selection are forbidden.
+Registration MUST be explicit. Directory scanning, package discovery, import-time side-effect registration, revision
+ranges, string/SemVer parsing, and implicit latest-revision selection are forbidden.
 
 Registration MUST reject every duplicate `(id, version)` entry, including a byte-identical re-registration. A sealed
 registry MUST reject further registration. Lookup order and listing MUST be deterministic regardless of registration
-order. Exact lookup MUST fail closed on an absent or mismatched digest.
+order. Before constructing a lookup key, `resolve` and `getExact` MUST validate that the runtime revision value is a
+positive safe integer. They MUST NOT coerce or alias a string, fractional, zero, negative, or unsafe revision. Exact
+lookup MUST fail closed on an absent or mismatched digest.
 
 A registered-script handle is opaque and belongs to the registry that created it. The registry keeps the executable
 definition private and uses the handle only to recover that exact definition. A handle from another registry or a
@@ -810,23 +772,23 @@ process-global mutable registry.
 The high-level facade MUST perform this provider-neutral sequence for every execution request:
 
 1. validate and bound the execution identity;
-2. resolve the exact sealed definition by id, version, and digest;
+2. resolve the exact sealed definition by id and positive integer revision;
 3. validate and bound input before resolving privileged host state;
 4. require exact resource and credential binding names;
 5. intersect manifest maximums with resource access, permission grants, effect grants, and credential provider ids;
-6. resolve every provider pin exactly and verify that its contract satisfies the manifest requirement;
-7. validate bounded provider coordinates through the pinned modules' closed schemas;
+6. resolve the sole registered provider implementation for every manifest contract requirement;
+7. validate bounded provider coordinates through the selected modules' closed schemas;
 8. resolve only the workspace allocations and credential aliases required by that intersection;
-9. construct each bounded client from its pinned provider implementation and attach it only to the resource named by
+9. construct each bounded client from its selected provider implementation and attach it only to the resource named by
    the provider requirement;
 10. call the low-level executor with immutable input, resource handles, and no privileged host service;
 11. dispose credential leases and provider clients in `finally` paths;
 12. return the validated typed result or structured failure.
 
-No facade, provider registry, or binding resolver may compare a concrete script id. Provider selection uses declared
-contract requirements during generic plan compilation and exact provider pins during execution. Definition selection
-uses the exact sealed registry. The facade MUST NOT resolve a workspace or credential for invalid input, denied access,
-an absent definition, a missing provider pin, or a digest mismatch.
+No facade, provider registry, or binding resolver may compare a concrete script id. Provider selection uses only
+declared contract requirements and rejects duplicate implementations at startup. Definition selection uses the exact
+sealed registry. The facade MUST NOT resolve a workspace or credential for invalid input, denied access, an absent
+definition, or a missing provider contract.
 
 Provider construction, handler execution, custom event emission, result validation, retry backoff, and provider
 disposal share the one total wall-clock deadline. Provider construction failures use the stable provider or permission
@@ -898,7 +860,7 @@ NOT contain a run id, node id, ordinal, attempt id, workspace id, execution-plan
 provenance.
 
 A host MAY persist the validated domain output through its own adapter. A durable host MAY wrap it in one generic
-`ArtifactEnvelope` whose schema identity and digest come from the compiled plan and whose `OutputProvenance` comes from
+`ArtifactEnvelope` whose schema identity and digest come from the resolved definition and whose `OutputProvenance` comes from
 durable execution context. That envelope is not a script result and is not defined by this package. The wrapping MUST
 NOT compare a concrete script id or duplicate provenance inside the domain payload. Any event or diagnostic projection
 persisted by a host MUST use the runtime-redacted projection.
@@ -915,7 +877,8 @@ read mutable configuration to discover executable definitions.
 A future custom-script contract may reuse an installed provider family's bounded contract, but it requires a separate
 accepted design. A custom effect family still requires an explicit provider contract and trusted implementation. A
 provider module is trusted executable host infrastructure, not pipeline data. Its contract requirement appears in the
-manifest; its exact id, implementation digest, and package provenance appear only in the compiled execution plan.
+manifest; its id, implementation digest, and package provenance remain package catalog metadata and are not consumer
+execution-request fields.
 
 ### Public entrypoints
 
@@ -980,7 +943,7 @@ Consumers MUST use public subpaths rather than internal files.
 
 ### Built-in operation contracts
 
-Every built-in has one exact `1.0.0` identity, a closed input schema, a closed result schema, one operation-specific
+Every built-in has exact revision `1`, a closed input schema, a closed result schema, one operation-specific
 permission, and only the provider client required for that operation. The current inventory is:
 
 | Script                                  | Effect class | Result schema                            | Required fence                                                                      |
@@ -1101,19 +1064,19 @@ gates, hosted CI, static analysis, and review. Publishing requires a separate hu
 
 ## Compatibility
 
-The package is pre-release and currently has no runtime compatibility commitment. Once a definition version is
+The package is pre-release and currently has no runtime compatibility commitment. Once a definition revision is
 published, changing its manifest, schemas, observable result, error mapping, effects, or handler behavior requires a
-new script version.
+larger integer revision.
 
-Adding a new definition is compatible. Removing a definition version or provider implementation is compatible only
-after a pin audit proves that no supported pipeline, execution plan, active execution, or recoverable run requires it.
-The registries provide no alias, version range, implicit latest, fallback implementation, or deep-import compatibility
-path. New-plan provider defaults never participate in execution or recovery lookup.
+Adding a new definition is compatible. Removing a definition revision or provider contract is compatible only after a
+usage audit proves that no supported pipeline, active execution, or recoverable run requires it. The registries provide
+no alias, revision range, implicit latest, string/SemVer interpretation, fallback implementation, or deep-import
+compatibility path.
 
 ## Future Work
 
-- Multi-version source retention and external pin-audit workflow.
+- Multi-revision source retention and external usage-audit workflow.
 - Stable external custom-script distribution and trust contract.
 - Live GitHub provider compatibility workflow in a dedicated test repository.
 - Direct orchestrator cutover to the package-owned contracts without compatibility fallbacks.
-- Consumer compatibility workflow against retained package versions.
+- Consumer compatibility workflow against retained package releases.

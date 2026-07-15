@@ -41,9 +41,10 @@ export class DefaultScriptRegistry implements ScriptRegistry {
     this.sealed = true;
   }
 
-  resolve(id: string, version: string): RegisteredScript<unknown, unknown, ScriptResourceMap> {
+  resolve(id: string, version: number): RegisteredScript<unknown, unknown, ScriptResourceMap> {
     this.requireSealed();
-    const handle = this.entries.get(definitionKey(id, version));
+    const revision = validateScriptRevision(version);
+    const handle = this.entries.get(definitionKey(id, revision));
 
     if (handle === undefined) {
       throw new ScriptFault(
@@ -57,7 +58,7 @@ export class DefaultScriptRegistry implements ScriptRegistry {
 
   getExact(
     id: string,
-    version: string,
+    version: number,
     digest: `sha256:${string}`,
   ): RegisteredScript<unknown, unknown, ScriptResourceMap> {
     const handle = this.resolve(id, version);
@@ -113,3 +114,14 @@ export class DefaultScriptRegistry implements ScriptRegistry {
 const isRegisteredHandle = <I, O, R extends ScriptResourceMap>(
   script: RegisteredScript<I, O, R>,
 ): script is RegisteredScriptHandle<I, O, R> => script instanceof RegisteredScriptHandle;
+
+const validateScriptRevision = (revision: unknown): number => {
+  if (typeof revision !== 'number' || !Number.isSafeInteger(revision) || revision <= 0) {
+    throw new ScriptFault(
+      'revo.script.validation.input',
+      'Script revision must be a positive safe integer.',
+    );
+  }
+
+  return revision;
+};

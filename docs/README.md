@@ -7,7 +7,7 @@ This directory owns the package architecture and exact target contracts.
 The repository contains the one-script runtime, `createRevoScripts` facade, public testing mechanics, bounded Git and
 GitHub operations, and package-owned Node Git and Fetch GitHub providers. The host supplies stable infrastructure ports
 and opaque bindings; it does not construct per-script clients. The npm package remains unpublished. Documents marked
-`Draft` still include pre-publication decisions such as source retention for simultaneous script versions.
+`Draft` still include pre-publication decisions such as source retention for simultaneous script revisions.
 
 ## Architecture
 
@@ -19,7 +19,8 @@ artifact, approval, and event examples that are intentionally omitted from the r
   runtime, host ports, application composition, provider infrastructure, and concrete scripts in separate ownership
   areas.
 - [Script runtime v1](./specs/script-runtime-v1.spec.md) defines the exact target manifest, definition, registry,
-  consumer facade, host binding, provider, execution, versioning, error, event, and extension contracts.
+  consumer facade, host binding, internal provider selection, execution, integer revision, error, event, and extension
+  contracts.
 - [Testing](./testing.md) defines test-layer ownership and the required proof for runtime, provider, consumer, and
   script changes.
 

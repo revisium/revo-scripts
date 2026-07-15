@@ -8,10 +8,10 @@ export interface ScriptRegistry {
     definition: ScriptDefinition<I, O, R>,
   ): RegisteredScript<I, O, R>;
   seal(): void;
-  resolve(id: string, version: string): RegisteredScript<unknown, unknown, ScriptResourceMap>;
+  resolve(id: string, version: number): RegisteredScript<unknown, unknown, ScriptResourceMap>;
   getExact(
     id: string,
-    version: string,
+    version: number,
     digest: `sha256:${string}`,
   ): RegisteredScript<unknown, unknown, ScriptResourceMap>;
   listManifests(): readonly ScriptManifestV1[];

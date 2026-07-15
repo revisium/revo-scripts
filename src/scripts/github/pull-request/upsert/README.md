@@ -2,10 +2,13 @@
 
 | Field                    | Value                                            |
 | ------------------------ | ------------------------------------------------ |
-| Version                  | `1.0.0`                                          |
+| Revision                 | `1`                                              |
 | Effect class and effects | `write`; `github.read`, `github.write`           |
 | Permission and resource  | `github.pull-request.upsert`; `repository` write |
 | Provider and idempotency | `revo.provider.github/v1`; required              |
+
+Revision `1` is immutable. Any observable change requires a larger integer revision; ranges, `latest`, SemVer parsing,
+and fallback are unsupported.
 
 Creates or reconciles one open pull request for exact head/base branches. It reconciles title, body, and base branch.
 Existing state must match the pinned head and requested draft state; draft transitions belong to the separate

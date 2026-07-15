@@ -32,10 +32,12 @@ test('returns a structured failure when the host rejects the terminal event', as
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
 
   const result = await scripts.execute(
-    createGitScriptRequest(plan, { executionId: 'terminal-event-failure' }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      { executionId: 'terminal-event-failure' },
+    ),
   );
 
   expect({ result, eventNames: events.map((event) => event.name) }).toEqual({

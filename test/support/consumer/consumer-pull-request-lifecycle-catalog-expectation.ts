@@ -16,7 +16,7 @@ const githubProvider = {
   workspace: 'none',
 };
 
-const plan = (
+const definition = (
   script: string,
   permissions: readonly string[],
   access: 'read' | 'write' | 'publish',
@@ -26,83 +26,83 @@ const plan = (
 
 export const expectedConsumerPullRequestLifecycleCatalog = {
   manifests: [
-    'script:approval/subject@1.0.0',
-    'script:git/commit@1.0.0',
-    'script:git/push@1.0.0',
-    'script:git/status@1.0.0',
-    'script:github/pull-request/mark-ready@1.0.0',
-    'script:github/pull-request/merge@1.0.0',
-    'script:github/pull-request/readiness@1.0.0',
-    'script:github/pull-request/upsert@1.0.0',
-    'script:github/review-threads/resolve@1.0.0',
-    'script:github/review-threads/respond@1.0.0',
+    'script:approval/subject@1',
+    'script:git/commit@1',
+    'script:git/push@1',
+    'script:git/status@1',
+    'script:github/pull-request/mark-ready@1',
+    'script:github/pull-request/merge@1',
+    'script:github/pull-request/readiness@1',
+    'script:github/pull-request/upsert@1',
+    'script:github/review-threads/resolve@1',
+    'script:github/review-threads/respond@1',
   ],
-  plans: [
+  definitions: [
     {
-      script: 'script:approval/subject@1.0.0',
+      script: 'script:approval/subject@1',
       permissions: [],
       resources: [],
       effects: [],
       providers: [],
     },
-    plan(
-      'script:git/status@1.0.0',
+    definition(
+      'script:git/status@1',
       ['git.status.read'],
       'read',
       ['filesystem.read', 'git.read'],
       gitProvider,
     ),
-    plan(
-      'script:git/commit@1.0.0',
+    definition(
+      'script:git/commit@1',
       ['git.commit.write'],
       'write',
       ['git.read', 'git.write'],
       gitProvider,
     ),
-    plan(
-      'script:git/push@1.0.0',
+    definition(
+      'script:git/push@1',
       ['git.push.publish'],
       'publish',
       ['git.read', 'git.remote-write'],
       gitProvider,
     ),
-    plan(
-      'script:github/pull-request/upsert@1.0.0',
+    definition(
+      'script:github/pull-request/upsert@1',
       ['github.pull-request.upsert'],
       'publish',
       ['github.read', 'github.write'],
       githubProvider,
     ),
-    plan(
-      'script:github/pull-request/mark-ready@1.0.0',
+    definition(
+      'script:github/pull-request/mark-ready@1',
       ['github.pull-request.mark-ready'],
       'publish',
       ['github.read', 'github.write'],
       githubProvider,
     ),
-    plan(
-      'script:github/pull-request/readiness@1.0.0',
+    definition(
+      'script:github/pull-request/readiness@1',
       ['github.pull-request.readiness'],
       'read',
       ['github.read'],
       githubProvider,
     ),
-    plan(
-      'script:github/review-threads/respond@1.0.0',
+    definition(
+      'script:github/review-threads/respond@1',
       ['github.review-thread.respond'],
       'publish',
       ['github.read', 'github.write'],
       githubProvider,
     ),
-    plan(
-      'script:github/review-threads/resolve@1.0.0',
+    definition(
+      'script:github/review-threads/resolve@1',
       ['github.review-thread.resolve'],
       'publish',
       ['github.read', 'github.write'],
       githubProvider,
     ),
-    plan(
-      'script:github/pull-request/merge@1.0.0',
+    definition(
+      'script:github/pull-request/merge@1',
       ['github.pull-request.merge'],
       'publish',
       ['github.read', 'github.write'],

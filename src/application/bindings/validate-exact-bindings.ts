@@ -36,13 +36,6 @@ export const validateExactBindings = (
     ),
   );
 
-  if (request.providers.length !== manifest.providers.length) {
-    throw new ScriptFault(
-      'revo.script.provider.pin_mismatch',
-      'Provider pins do not match the script manifest.',
-    );
-  }
-
   manifest.resources.forEach((requirement) => requireBinding(request, manifest, requirement));
   manifest.credentials.forEach((requirement) => {
     const binding = request.bindings.credentials[requirement.name];

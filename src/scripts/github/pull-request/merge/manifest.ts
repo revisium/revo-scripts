@@ -7,7 +7,7 @@ import {
 export const githubPullRequestMergeManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:github/pull-request/merge',
-  version: '1.0.0',
+  version: 1,
   summary: 'Merges one pull request only when its head matches the pinned revision.',
   inputSchemaId: githubPullRequestMergeInputSchema.id,
   resultSchemaId: githubPullRequestMergeResultSchema.id,

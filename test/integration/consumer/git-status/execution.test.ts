@@ -53,37 +53,28 @@ test('executes built-in git status through the package-owned provider', async ()
     host,
   });
 
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
   const provider = scripts.listProviderImplementations()[0];
 
   expect(provider).toBeDefined();
-  expect(plan).toEqual({
-    script: {
-      id: 'script:git/status',
-      version: '1.0.0',
-      definitionDigest: plan.script.definitionDigest,
+  expect(provider).toEqual({
+    id: 'provider:git/node',
+    contract: 'revo.provider.git/v1',
+    implementationDigest: provider?.implementationDigest,
+    workspace: 'required',
+    effects: ['filesystem.read', 'git.read', 'git.write', 'git.remote-write'],
+    provenance: {
+      packageName: '@revisium/revo-scripts',
+      packageVersion: '0.0.0',
     },
-    providers: [
-      {
-        name: 'git',
-        resource: 'repository',
-        id: 'provider:git/node',
-        contract: 'revo.provider.git/v1',
-        implementationDigest: provider?.implementationDigest,
-        workspace: 'required',
-        provenance: {
-          packageName: '@revisium/revo-scripts',
-          packageVersion: '0.0.0',
-        },
-      },
-    ],
-    manifest: plan.manifest,
   });
 
   const result = await scripts.execute(
-    createGitScriptRequest(plan, {
-      executionId: 'run-123:git-status:1',
-    }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      {
+        executionId: 'run-123:git-status:1',
+      },
+    ),
   );
 
   expect(result).toEqual({
@@ -150,5 +141,26 @@ test('executes built-in git status through the package-owned provider', async ()
   expect(events.map((event) => event.name)).toEqual([
     'revo.script.started',
     'revo.script.succeeded',
+  ]);
+  expect(
+    events.map((event) => {
+      const digest = event.details?.definitionDigest;
+      return {
+        scriptId: event.details?.scriptId,
+        scriptVersion: event.details?.scriptVersion,
+        definitionDigestIsValid: typeof digest === 'string' && /^sha256:[0-9a-f]{64}$/.test(digest),
+      };
+    }),
+  ).toEqual([
+    {
+      scriptId: 'script:git/status',
+      scriptVersion: 1,
+      definitionDigestIsValid: true,
+    },
+    {
+      scriptId: 'script:git/status',
+      scriptVersion: 1,
+      definitionDigestIsValid: true,
+    },
   ]);
 });

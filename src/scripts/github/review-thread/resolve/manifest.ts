@@ -7,7 +7,7 @@ import {
 export const githubReviewThreadResolveManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:github/review-threads/resolve',
-  version: '1.0.0',
+  version: 1,
   summary: 'Resolves only review threads backed by exact response proofs.',
   inputSchemaId: githubReviewThreadResolveInputSchema.id,
   resultSchemaId: githubReviewThreadResolveResultSchema.id,

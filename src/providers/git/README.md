@@ -13,4 +13,7 @@ Contracts hide process execution, workspace paths, environment variables, and cr
 
 Each provider family and adapter must follow [the provider card](../../../docs/authoring/provider-readme.template.md).
 
+The package registers exactly one implementation for `revo.provider.git/v1`. A duplicate contract registration fails
+startup, and execution selects the implementation from the manifest contract without consumer pins or fallback.
+
 `porcelain-v2` in parser names identifies Git's upstream `--porcelain=v2` wire format. It is not a package/provider implementation version.

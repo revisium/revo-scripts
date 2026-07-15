@@ -37,7 +37,7 @@ const multiProviderScript = defineScript<
   manifest: {
     schemaVersion: 'revo.script.manifest/v1',
     id: 'script:test/multi-provider',
-    version: '1.0.0',
+    version: 1,
     summary: 'Exercises multiple provider modules attached to one resource.',
     inputSchemaId: inputSchema.id,
     resultSchemaId: resultSchema.id,
@@ -120,7 +120,6 @@ const fixtureProvider = (
       };
     },
   },
-  useForNewPlans: true,
 });
 
 const host: RevoScriptsHost = {
@@ -186,11 +185,9 @@ export const createMultiProviderConsumerFixture = (
     ],
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:test/multi-provider', version: '1.0.0' });
   const request: RevoScriptExecutionRequest = {
     executionId: 'multi-provider-consumer',
-    script: plan.script,
-    providers: plan.providers,
+    script: { id: 'script:test/multi-provider', version: 1 },
     input: {},
     bindings: {
       resources: {

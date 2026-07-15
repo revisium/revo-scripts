@@ -43,7 +43,7 @@ test('returns one structured preflight failure without a started event', async (
       details: {
         executionId: 'execution-2',
         scriptId: 'script:test/echo',
-        scriptVersion: '1.0.0',
+        scriptVersion: 1,
         definitionDigest: echoDefinition.definitionDigest,
         attempt: 0,
         timestampMs: 1_000,
@@ -169,7 +169,7 @@ test('returns a structured preflight failure for a foreign registry handle', asy
         details: {
           executionId: 'execution-foreign-handle',
           scriptId: 'script:test/echo',
-          scriptVersion: '1.0.0',
+          scriptVersion: 1,
           definitionDigest: echoDefinition.definitionDigest,
           attempt: 0,
           timestampMs: 1_000,
@@ -202,7 +202,7 @@ test('bounds an invalid execution id before projecting it into a lifecycle event
         details: {
           executionId: '[INVALID_EXECUTION_ID]',
           scriptId: 'script:test/echo',
-          scriptVersion: '1.0.0',
+          scriptVersion: 1,
           definitionDigest: echoDefinition.definitionDigest,
           attempt: 0,
           timestampMs: 1_000,

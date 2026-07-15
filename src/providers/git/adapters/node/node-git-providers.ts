@@ -12,7 +12,6 @@ export const nodeGitProviders = (
   return [
     {
       module: new NodeGitProvider(options.processExecutor),
-      useForNewPlans: true,
     },
   ];
 };

@@ -2,10 +2,13 @@
 
 | Field                    | Value                                                |
 | ------------------------ | ---------------------------------------------------- |
-| Version                  | `1.0.0`                                              |
+| Revision                 | `1`                                                  |
 | Effect class and effects | `publish`; `github.read`, `github.write`             |
 | Permission and resource  | `github.review-thread.respond`; `repository` publish |
 | Provider and idempotency | `revo.provider.github/v1`; required                  |
+
+Revision `1` is immutable. Any observable change requires a larger integer revision; ranges, `latest`, SemVer parsing,
+and fallback are unsupported.
 
 Accepts closed triage for one exact open pull request and processes at most 100 unique selected threads in triage order.
 Only `fix` and `wontfix` items are selected. A `question` item requires a matching bounded continuation resolution;

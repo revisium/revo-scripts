@@ -25,13 +25,14 @@ test('rejects invalid input before privileged host access', async () => {
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
-
   const result = await scripts.execute(
-    createGitScriptRequest(plan, {
-      executionId: 'invalid-git-status-input',
-      input: { unexpected: true },
-    }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      {
+        executionId: 'invalid-git-status-input',
+        input: { unexpected: true },
+      },
+    ),
   );
 
   expect({
@@ -53,4 +54,20 @@ test('rejects invalid input before privileged host access', async () => {
     processCalls: 0,
     eventNames: ['revo.script.failed'],
   });
+  expect(
+    events.map((event) => {
+      const digest = event.details?.definitionDigest;
+      return {
+        scriptId: event.details?.scriptId,
+        scriptVersion: event.details?.scriptVersion,
+        definitionDigestIsValid: typeof digest === 'string' && /^sha256:[0-9a-f]{64}$/.test(digest),
+      };
+    }),
+  ).toEqual([
+    {
+      scriptId: 'script:git/status',
+      scriptVersion: 1,
+      definitionDigestIsValid: true,
+    },
+  ]);
 });

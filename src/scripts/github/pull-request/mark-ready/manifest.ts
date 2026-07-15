@@ -7,7 +7,7 @@ import {
 export const githubPullRequestMarkReadyManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:github/pull-request/mark-ready',
-  version: '1.0.0',
+  version: 1,
   summary: 'Marks one exact draft pull request revision ready for review.',
   inputSchemaId: githubPullRequestMarkReadyInputSchema.id,
   resultSchemaId: githubPullRequestMarkReadyResultSchema.id,

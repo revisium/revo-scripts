@@ -3,7 +3,7 @@ import type {
   RevoScriptsHost,
   WorkspaceResolver,
 } from '../../../src/host/index.js';
-import type { RevoScriptExecutionRequest, ScriptPlanDescriptor } from '../../../src/index.js';
+import type { RevoScriptExecutionRequest, ScriptIdentityPin } from '../../../src/index.js';
 import {
   nodeGitProviders,
   type NodeGitProvidersOptions,
@@ -25,19 +25,17 @@ export interface GitScriptRequestOptions {
   readonly providerCoordinates?: Readonly<Record<string, unknown>>;
   readonly repositoryId?: string;
   readonly workspaceId?: string;
-  readonly providers?: RevoScriptExecutionRequest['providers'];
   readonly signal?: AbortSignal;
   readonly access?: 'read' | 'write' | 'publish' | 'admin';
   readonly idempotencyKey?: string;
 }
 
 export const createGitScriptRequest = (
-  plan: ScriptPlanDescriptor,
+  script: ScriptIdentityPin,
   options: GitScriptRequestOptions,
 ): RevoScriptExecutionRequest => ({
   executionId: options.executionId,
-  script: plan.script,
-  providers: options.providers ?? plan.providers,
+  script,
   input: options.input ?? {
     resource: 'repository',
     baseCapture: `git-commit:${gitTestHeadSha}`,

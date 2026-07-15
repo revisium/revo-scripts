@@ -7,7 +7,7 @@ import {
 export const githubPullRequestReadinessManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:github/pull-request/readiness',
-  version: '1.0.0',
+  version: 1,
   summary: 'Observes one bounded pull-request readiness snapshot.',
   inputSchemaId: githubPullRequestReadinessInputSchema.id,
   resultSchemaId: githubPullRequestReadinessResultSchema.id,

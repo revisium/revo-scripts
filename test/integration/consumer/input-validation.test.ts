@@ -49,10 +49,12 @@ test('validates script input once before constructing provider clients', async (
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
 
   const result = await scripts.execute(
-    createGitScriptRequest(plan, { executionId: 'single-input-validation' }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      { executionId: 'single-input-validation' },
+    ),
   );
 
   expect({ result, validations }).toEqual({

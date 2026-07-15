@@ -3,13 +3,16 @@
 | Field             | Value                           |
 | ----------------- | ------------------------------- |
 | Script id         | `script:git/status`             |
-| Version           | `1.0.0`                         |
+| Revision          | `1`                             |
 | Effect class      | `read`                          |
 | Effects           | `filesystem.read`, `git.read`   |
 | Permission        | `git.status.read`               |
 | Resource          | `repository` with `read` access |
 | Provider contract | `revo.provider.git/v1`          |
 | Idempotency       | `read-only`                     |
+
+Revision `1` is immutable. Any observable change requires a larger integer revision; ranges, `latest`, SemVer parsing,
+and fallback are unsupported.
 
 ## Operation
 

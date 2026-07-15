@@ -1,17 +1,20 @@
 # Fetch GitHub provider
 
-| Field       | Value                                    |
-| ----------- | ---------------------------------------- |
-| Provider id | `provider:github/fetch`                  |
-| Contract    | `revo.provider.github/v1`                |
-| Effects     | `github.read`, `github.write`            |
-| Workspace   | none                                     |
-| Credential  | manifest slot `token`, provider `github` |
-| Coordinates | `{ owner, repository }`                  |
+| Field       | Value                                         |
+| ----------- | --------------------------------------------- |
+| Provider id | `provider:github/fetch`                       |
+| Contract    | `revo.provider.github/v1`                     |
+| Effects     | `github.read`, `github.write`                 |
+| Workspace   | none                                          |
+| Credential  | manifest slot `token`, provider `github`      |
+| Coordinates | `{ owner, repository }`                       |
+| Selection   | sole `revo.provider.github/v1` implementation |
 
 The adapter owns REST/GraphQL request construction, exact-head verification, response validation, replay
 reconciliation, and stable fault mapping. Handlers receive only operation-specific clients; they never receive Fetch,
 URLs, headers, tokens, or raw GitHub payloads.
+
+Startup rejects another implementation for the same provider contract; execution never falls back.
 
 Readiness also reads one bounded `rules/branches/<base>?per_page=100` page. This is GitHub's evaluated branch view for
 the bound credential, including matching repository and organization rulesets. A next page is `truncated`, malformed

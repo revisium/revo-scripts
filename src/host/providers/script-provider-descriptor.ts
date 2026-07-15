@@ -9,5 +9,4 @@ export interface ScriptProviderDescriptor {
   readonly provenance: Readonly<ScriptProviderProvenance>;
   readonly effects: readonly ScriptEffect[];
   readonly workspace: ScriptProviderWorkspaceMode;
-  readonly useForNewPlans: boolean;
 }

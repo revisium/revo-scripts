@@ -7,7 +7,7 @@ import type { ScriptResourceRequirement } from './script-resource-requirement.js
 export interface ScriptManifestV1 {
   readonly schemaVersion: 'revo.script.manifest/v1';
   readonly id: `script:${string}`;
-  readonly version: string;
+  readonly version: number;
   readonly summary: string;
   readonly inputSchemaId: string;
   readonly resultSchemaId: string;

@@ -67,32 +67,34 @@ test(
         host,
       });
       const remoteIdentity = pathToFileURL(remote).href;
-      const commitPlan = scripts.resolveForPlan({ id: 'script:git/commit', version: '1.0.0' });
       const executeCommit = async (executionId: string) =>
         await scripts.execute(
-          createGitScriptRequest(commitPlan, {
-            executionId,
-            input: {
-              resource: 'repository',
-              remoteIdentity,
-              branch: 'master',
-              expectedParent: parent,
-              expectedTree: capturedTree,
-              title: 'exact tree',
-              issueAction: 'none',
-              author: {
-                name: 'Revisium Bot',
-                email: 'bot@revisium.io',
-                timestamp: '2026-07-15T09:00:00.000Z',
+          createGitScriptRequest(
+            { id: 'script:git/commit', version: 1 },
+            {
+              executionId,
+              input: {
+                resource: 'repository',
+                remoteIdentity,
+                branch: 'master',
+                expectedParent: parent,
+                expectedTree: capturedTree,
+                title: 'exact tree',
+                issueAction: 'none',
+                author: {
+                  name: 'Revisium Bot',
+                  email: 'bot@revisium.io',
+                  timestamp: '2026-07-15T09:00:00.000Z',
+                },
               },
+              access: 'write',
+              permissions: ['git.commit.write'],
+              effects: ['git.read', 'git.write'],
+              repositoryId: 'temporary-repository',
+              workspaceId: 'temporary-workspace',
+              idempotencyKey: 'git-commit-operation',
             },
-            access: 'write',
-            permissions: ['git.commit.write'],
-            effects: ['git.read', 'git.write'],
-            repositoryId: 'temporary-repository',
-            workspaceId: 'temporary-workspace',
-            idempotencyKey: 'git-commit-operation',
-          }),
+          ),
         );
       const committed = await executeCommit('real-git-commit');
       if (!committed.ok) {
@@ -104,19 +106,21 @@ test(
       }
       await git(repository, ['config', 'user.name', 'Changed Ambient Identity']);
       const commitReplay = await executeCommit('real-git-commit-replay');
-      const pushPlan = scripts.resolveForPlan({ id: 'script:git/push', version: '1.0.0' });
       const executePush = async (executionId: string) =>
         await scripts.execute(
-          createGitScriptRequest(pushPlan, {
-            executionId,
-            input: { change: committedValue.value, expectedRemoteHead: parent },
-            access: 'publish',
-            permissions: ['git.push.publish'],
-            effects: ['git.read', 'git.remote-write'],
-            repositoryId: 'temporary-repository',
-            workspaceId: 'temporary-workspace',
-            idempotencyKey: 'git-push-operation',
-          }),
+          createGitScriptRequest(
+            { id: 'script:git/push', version: 1 },
+            {
+              executionId,
+              input: { change: committedValue.value, expectedRemoteHead: parent },
+              access: 'publish',
+              permissions: ['git.push.publish'],
+              effects: ['git.read', 'git.remote-write'],
+              repositoryId: 'temporary-repository',
+              workspaceId: 'temporary-workspace',
+              idempotencyKey: 'git-push-operation',
+            },
+          ),
         );
       const published = await executePush('real-git-push');
       const pushReplay = await executePush('real-git-push-replay');
