@@ -10,9 +10,7 @@ export class GitHubPullRequestMergeHandler implements ScriptHandler<
   GitHubPullRequestMergeResult,
   GitHubPullRequestMergeResources
 > {
-  // NOSONAR -- owner: scripts maintainers; rationale: one ordered non-bypassable gate matrix; expiry: 2026-09-30.
   async execute(
-    // NOSONAR
     input: Readonly<GitHubPullRequestMergeInput>,
     context: Readonly<ScriptContext<GitHubPullRequestMergeResources>>,
   ): Promise<{ readonly value: GitHubPullRequestMergeResult }> {
@@ -27,59 +25,7 @@ export class GitHubPullRequestMergeHandler implements ScriptHandler<
     const override = input.gateResolution.resolution.outcome === 'override_merge';
     const audit = input.gateResolution.resolution.audit;
     const unresolvedThreadIds = input.readiness.unresolvedThreads.map((thread) => thread.id);
-    if (
-      input.readiness.state !== 'open' ||
-      input.readiness.draft ||
-      input.readiness.mergeable !== 'mergeable' ||
-      !['CLEAN', 'UNSTABLE', 'HAS_HOOKS'].includes(input.readiness.mergeState) ||
-      input.readiness.completeness.checks !== 'complete' ||
-      input.readiness.completeness.requiredChecks !== 'complete' ||
-      input.readiness.completeness.threads !== 'complete' ||
-      input.readiness.checks.some((check) => check.required && check.status !== 'success')
-    ) {
-      throw new ScriptFault(
-        'revo.script.idempotency.conflict',
-        'The readiness snapshot contains a non-bypassable merge blocker.',
-      );
-    }
-    if (
-      (!override && input.readiness.classification !== 'clean') ||
-      (override && input.readiness.classification !== 'review_changes') ||
-      (!override && audit !== undefined)
-    ) {
-      throw new ScriptFault(
-        'revo.script.idempotency.conflict',
-        'The post-gate readiness snapshot does not authorize merge.',
-      );
-    }
-    if (override && audit === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.conflict',
-        'An override merge requires an audit.',
-      );
-    }
-    if (
-      audit !== undefined &&
-      (audit.actor !== input.gateResolution.resolution.decidedBy ||
-        audit.headCommit !== pr.head.sha ||
-        !this.sameSortedUniqueIds(audit.threadIds, unresolvedThreadIds))
-    ) {
-      throw new ScriptFault(
-        'revo.script.idempotency.conflict',
-        'The override audit does not match the actionable unresolved threads.',
-      );
-    }
-    if (
-      override &&
-      !input.readiness.advisory.every(
-        (advisory) => advisory === 'checks: none registered' || advisory.startsWith('advisory:'),
-      )
-    ) {
-      throw new ScriptFault(
-        'revo.script.idempotency.conflict',
-        'An override may include only bounded advisory evidence and exact unresolved threads.',
-      );
-    }
+    this.assertGate(input, override, audit, unresolvedThreadIds);
     const snapshot = await context.resources.repository.clients.github.merge({
       number: pr.number,
       expectedHeadSha: pr.head.sha,
@@ -132,6 +78,68 @@ export class GitHubPullRequestMergeHandler implements ScriptHandler<
           : {}),
       },
     };
+  }
+
+  private assertGate(
+    input: Readonly<GitHubPullRequestMergeInput>,
+    override: boolean,
+    audit: GitHubPullRequestMergeInput['gateResolution']['resolution']['audit'],
+    unresolvedThreadIds: readonly string[],
+  ): void {
+    const readiness = input.readiness;
+    if (
+      readiness.state !== 'open' ||
+      readiness.draft ||
+      readiness.mergeable !== 'mergeable' ||
+      !['CLEAN', 'UNSTABLE', 'HAS_HOOKS'].includes(readiness.mergeState) ||
+      readiness.completeness.checks !== 'complete' ||
+      readiness.completeness.requiredChecks !== 'complete' ||
+      readiness.completeness.threads !== 'complete' ||
+      readiness.checks.some((check) => check.required && check.status !== 'success')
+    ) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'The readiness snapshot contains a non-bypassable merge blocker.',
+      );
+    }
+    if (
+      (!override && readiness.classification !== 'clean') ||
+      (override && readiness.classification !== 'review_changes') ||
+      (!override && audit !== undefined)
+    ) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'The post-gate readiness snapshot does not authorize merge.',
+      );
+    }
+    if (override && audit === undefined) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'An override merge requires an audit.',
+      );
+    }
+    if (
+      audit !== undefined &&
+      (audit.actor !== input.gateResolution.resolution.decidedBy ||
+        audit.headCommit !== input.pullRequest.head.sha ||
+        !this.sameSortedUniqueIds(audit.threadIds, unresolvedThreadIds))
+    ) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'The override audit does not match the actionable unresolved threads.',
+      );
+    }
+    if (
+      override &&
+      !readiness.advisory.every(
+        (advisory) => advisory === 'checks: none registered' || advisory.startsWith('advisory:'),
+      )
+    ) {
+      throw new ScriptFault(
+        'revo.script.idempotency.conflict',
+        'An override may include only bounded advisory evidence and exact unresolved threads.',
+      );
+    }
   }
 
   private assertArtifactEquality(input: Readonly<GitHubPullRequestMergeInput>): void {

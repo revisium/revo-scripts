@@ -8,7 +8,7 @@ export const builtInBuildDigests = {
   'script:github/pull-request/mark-ready':
     'sha256:633b5e3dc7eff5771d8b96feae55f147cd80fee8be6667936d4f3d8acc4ceaaa',
   'script:github/pull-request/merge':
-    'sha256:0add41aeefb0d4097731a6d6e7c9534beec7779650ab938cb43bf0faa2b4cff7',
+    'sha256:3b0f87378f33665aa39a5eb4b6bbb7b3d9b3c7e50ebaf0f1f81b3f0881f42261',
   'script:github/pull-request/readiness':
     'sha256:9bf97802463c9ebbd790c547c84c5139726aaaf1205e4636db9596be9d7cf6c7',
   'script:github/pull-request/upsert':
