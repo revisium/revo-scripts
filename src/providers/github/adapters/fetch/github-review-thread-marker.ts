@@ -23,7 +23,7 @@ export const githubReviewThreadReplyBody = (replyBody: string, marker: string): 
   `${normalizeGitHubReviewThreadReplyBody(replyBody)}\n\n${marker}`;
 
 export const isGitHubReviewThreadReplyMarker = (value: string): boolean =>
-  /^<!-- revo-thread-reply:v1 key=sha256:[0-9a-f]{64} pr=[1-9][0-9]* head=[0-9a-f]{40} thread=sha256:[0-9a-f]{64} body=sha256:[0-9a-f]{64} -->$/u.test(
+  /^<!-- revo-thread-reply:v1 key=sha256:[\da-f]{64} pr=[1-9]\d* head=[\da-f]{40} thread=sha256:[\da-f]{64} body=sha256:[\da-f]{64} -->$/u.test(
     value,
   );
 

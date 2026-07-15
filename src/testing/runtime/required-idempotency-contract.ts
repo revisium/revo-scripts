@@ -43,7 +43,7 @@ export const verifyRequiredIdempotencyContracts = async (
   const required = definitions
     .filter((definition) => definition.manifest.idempotency === 'required')
     .map((definition): string => definition.manifest.id)
-    .sort();
+    .sort((left, right) => left.localeCompare(right));
   const byScript = new Map<string, RequiredIdempotencyScenario<unknown>>();
   for (const scenario of scenarios) {
     if (byScript.has(scenario.scriptId)) {
@@ -52,7 +52,9 @@ export const verifyRequiredIdempotencyContracts = async (
     byScript.set(scenario.scriptId, scenario);
   }
   const missing = required.filter((id) => !byScript.has(id));
-  const unexpected = [...byScript.keys()].filter((id) => !required.includes(id)).sort();
+  const unexpected = [...byScript.keys()]
+    .filter((id) => !required.includes(id))
+    .sort((left, right) => left.localeCompare(right));
   if (missing.length > 0 || unexpected.length > 0) {
     throw new Error(
       `Required-idempotency scenarios must match registered writes; missing: ${missing.join(', ') || 'none'}; unexpected: ${unexpected.join(', ') || 'none'}.`,

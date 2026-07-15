@@ -153,20 +153,17 @@ export const parseGitHubReadinessResponse = (
   const rollup = pullRequest.commits.nodes[0]?.commit.statusCheckRollup;
   const branchProtection = pullRequest.baseRef?.branchProtectionRule;
   const branchProtectionNames = branchProtection?.requiredStatusCheckContexts;
-  const branchProtectionComplete =
-    branchProtection === null ||
-    branchProtection === undefined ||
-    !branchProtection.requiresStatusChecks
-      ? 'complete'
-      : branchProtectionNames === null
-        ? 'unavailable'
-        : 'complete';
-  const requiredChecksComplete =
-    branchProtectionComplete === 'unavailable' || rulesetIdentity.complete === 'unavailable'
+  const branchProtectionComplete = branchProtection?.requiresStatusChecks
+    ? branchProtectionNames === null
       ? 'unavailable'
-      : rulesetIdentity.complete === 'truncated'
-        ? 'truncated'
-        : 'complete';
+      : 'complete'
+    : 'complete';
+  let requiredChecksComplete: 'complete' | 'truncated' | 'unavailable' = 'complete';
+  if (branchProtectionComplete === 'unavailable' || rulesetIdentity.complete === 'unavailable') {
+    requiredChecksComplete = 'unavailable';
+  } else if (rulesetIdentity.complete === 'truncated') {
+    requiredChecksComplete = 'truncated';
+  }
   const requiredNames =
     requiredChecksComplete === 'complete'
       ? [...new Set([...(branchProtectionNames ?? []), ...rulesetIdentity.names])]
@@ -197,15 +194,15 @@ export const parseGitHubReadinessResponse = (
     mergeState: pullRequest.mergeStateStatus ?? 'UNKNOWN',
     observedAt,
     checksComplete:
-      rollup === undefined
+      rollup == null
         ? 'unavailable'
-        : rollup?.contexts.pageInfo.hasNextPage === true
+        : rollup.contexts.pageInfo.hasNextPage
           ? 'truncated'
           : 'complete',
     requiredChecksComplete,
     threadsComplete: pullRequest.reviewThreads.pageInfo.hasNextPage ? 'truncated' : 'complete',
-    checks: checks.sort((left, right) => left.name.localeCompare(right.name)),
-    threads: threads.sort((left, right) => left.id.localeCompare(right.id)),
+    checks: checks.toSorted((left, right) => left.name.localeCompare(right.name)),
+    threads: threads.toSorted((left, right) => left.id.localeCompare(right.id)),
   };
   const { observedAt: _observedAt, ...providerState } = normalized;
   const revision = createHash('sha256').update(JSON.stringify(providerState)).digest('hex');

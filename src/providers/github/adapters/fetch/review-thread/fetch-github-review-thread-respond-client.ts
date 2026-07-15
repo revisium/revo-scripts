@@ -102,7 +102,7 @@ export class FetchGitHubReviewThreadRespondClient implements GitHubReviewThreadR
     const proof = await this.readExactReply(request, item, marker);
     if (
       proof === undefined ||
-      proof.replyId !== response.data.data.addPullRequestReviewThreadReply.comment.id
+      proof?.replyId !== response.data.data.addPullRequestReviewThreadReply.comment.id
     ) {
       throw new ScriptFault(
         'revo.script.provider.invalid_response',

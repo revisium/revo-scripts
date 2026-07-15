@@ -38,12 +38,7 @@ export class FetchGitHubPullRequestUpsertClient implements GitHubPullRequestUpse
       );
     }
     const existing = await this.findExisting(request);
-    const snapshot =
-      existing === undefined
-        ? await this.readBack(await this.create(request), request)
-        : this.matchesRequestedState(existing, request)
-          ? existing
-          : await this.readBack(await this.update(existing, request), request);
+    const snapshot = await this.reconcile(existing, request);
     if (!this.matchesRequestedState(snapshot, request)) {
       throw new ScriptFault(
         'revo.script.idempotency.conflict',
@@ -51,6 +46,19 @@ export class FetchGitHubPullRequestUpsertClient implements GitHubPullRequestUpse
       );
     }
     return snapshot;
+  }
+
+  private async reconcile(
+    existing: GitHubPullRequestSnapshot | undefined,
+    request: GitHubPullRequestUpsertRequest,
+  ): Promise<GitHubPullRequestSnapshot> {
+    if (existing === undefined) {
+      return await this.readBack(await this.create(request), request);
+    }
+    if (this.matchesRequestedState(existing, request)) {
+      return existing;
+    }
+    return await this.readBack(await this.update(existing, request), request);
   }
 
   private async findExisting(
