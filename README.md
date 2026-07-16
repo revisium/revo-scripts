@@ -146,6 +146,7 @@ the npm package and implementation provenance continue to use separately named S
 - [ADR-0001](docs/adr/0001-script-sdk-and-runtime-boundary.md) — package boundary and ownership decision.
 - [Repository map](REPOSITORY.md) — source-of-truth order, layout, and dependency direction.
 - [Testing contract](docs/testing.md) — TDD, proof layers, fixtures, and coverage ownership.
+- [Release train](docs/release-train.md) — SemVer transitions, npm publication, and consumer verification.
 - [Per-script and provider cards](src/scripts/git/README.md) — operation-specific contracts and verification notes.
 
 ## Development
@@ -167,5 +168,5 @@ pnpm ci:local:sonar
 ```
 
 The package is ESM/NodeNext with strict TypeScript, declarations, explicit exports, packed-consumer validation, and
-SonarCloud analysis. Do not publish from a local machine; release and downstream compatibility require a separate
-approval.
+SonarCloud analysis. Releases use the shared release train and tag-triggered npm publish workflows. Do not publish from
+a local machine; every write-mode release transition requires separate approval.

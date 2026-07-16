@@ -23,6 +23,8 @@ artifact, approval, and event examples that are intentionally omitted from the r
   contracts.
 - [Testing](./testing.md) defines test-layer ownership and the required proof for runtime, provider, consumer, and
   script changes.
+- [Release train](./release-train.md) defines package SemVer, shared release automation, npm publication, and
+  post-publication consumer verification.
 
 Repository layout, source-of-truth order, and dependency direction are documented in
 [REPOSITORY.md](../REPOSITORY.md). Executable commands and gate status are documented in

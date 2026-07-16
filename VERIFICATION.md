@@ -58,7 +58,8 @@ Run these when their surface changes:
 
 - GitHub workflows: `actionlint`.
 - Shell scripts: `bash -n scripts/*.sh`.
-- Package artifact or release workflow: `corepack pnpm pack --pack-destination <temporary-directory>` and inspect the listed contents.
+- Package artifact or release workflow: run `corepack pnpm pack --pack-destination <temporary-directory>`,
+  `npm pack --dry-run --json`, and `npm publish --dry-run --tag alpha`; inspect the listed contents and metadata.
 - Dependency changes: `corepack pnpm audit --prod`; inspect lockfile changes and install-script policy.
 - Public API changes: add runtime behavior tests where applicable, type-surface tests, package export checks, and README examples.
 - Architecture or dependency-direction changes: run `corepack pnpm verify:architecture` and review changes to
@@ -95,7 +96,9 @@ After push, verify the same head commit:
 - GitHub Actions `CI / verify` completed successfully.
 - Sonar PR Quality Gate and open-issue inspection ran when `SONAR_TOKEN` was available.
 - Required review conversations have zero unresolved valid findings.
-- Manual release validation produces an artifact without publishing it.
+- A release-train dry run reports the expected branch, version, tag, and channel without writing refs.
+- The tag-triggered npm workflow publishes only an approved exact version and the live npm dist-tag resolves to it.
+- A clean consumer can install the published version and execute the public facade.
 
 Do not merge, publish npm packages, create releases, or modify protected branches without the corresponding explicit approval.
 
