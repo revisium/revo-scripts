@@ -44,16 +44,13 @@ const scripts = createRevoScripts({
   clock,
 });
 
-const plan = scripts.resolveForPlan({
-  id: 'script:git/status',
-  version: '1.0.0',
-});
-
 const result = await scripts.execute({
   executionId: 'run-123:git-status:1',
   idempotencyKey: 'run-123:git-status',
-  script: plan.script,
-  providers: plan.providers,
+  script: {
+    id: 'script:git/status',
+    version: 1,
+  },
   input: {
     resource: 'repository',
     baseCapture: `git-commit:${'0'.repeat(40)}`,
@@ -65,8 +62,10 @@ const result = await scripts.execute({
         resourceId: 'target',
         kind: 'repository',
         repositoryId: 'repository-123',
+        workspaceId: 'workspace-456',
         access: 'read',
-        grant: { permissions: ['git.status'], effects: ['filesystem.read', 'git.read'] },
+        grant: { permissions: ['git.status.read'], effects: ['filesystem.read', 'git.read'] },
+        providerCoordinates: {},
       },
     },
     credentials: {},
@@ -90,12 +89,12 @@ may decide what to do after the returned result, but the script performs only it
 
 ## Data-driven scripts
 
-- Scripts are versioned definitions.
+- Scripts use positive integer revisions. Each exact `(id, revision)` is immutable.
 - A definition contains a manifest, input/result schemas, permissions/effects, and provider requirements.
 - The pipeline selects an exact script id/version and passes input, bindings, and grants.
 - The consumer uses one generic executor for every script; it has no per-script executor or dispatch branch.
 - Provider contracts, adapters, validation, retries, redaction, and execution belong to this npm package.
-- A new script on an existing provider family requires a package change, package release, and new exact plan reference,
+- A new script on an existing provider family requires a package change, package release, and new exact script reference,
   but not a generic consumer executor change.
 - A new provider contract, transport, or privileged behavior requires package implementation and a new release.
 - Automatic filesystem/plugin discovery is not part of the contract.
@@ -106,17 +105,13 @@ may decide what to do after the returned result, but the script performs only it
 export declare function createRevoScripts(options: RevoScriptsOptions): RevoScripts;
 
 export interface RevoScripts {
-  resolveForPlan(script: {
-    readonly id: `script:${string}`;
-    readonly version: string;
-  }): ScriptPlanDescriptor;
   execute(request: RevoScriptExecutionRequest): Promise<ScriptExecutionResult<unknown>>;
   listManifests(): readonly ScriptManifestV1[];
   listProviderImplementations(): readonly ScriptProviderDescriptor[];
 }
 ```
 
-`RevoScriptsOptions`, `RevoScriptExecutionRequest`, `ScriptExecutionResult`, manifests, plans, and provider
+`RevoScriptsOptions`, `RevoScriptExecutionRequest`, `ScriptExecutionResult`, manifests, and provider
 descriptors are public typed contracts. Their exact fields and invariants live in the [runtime specification](docs/specs/script-runtime-v1.spec.md)
 and the corresponding [source contracts](src/application/contracts/).
 
@@ -137,6 +132,10 @@ createRevoScripts().execute(request)
 The package does not own pipeline cursors, retries across pipeline nodes, human gates, workspace allocation, credential
 policy, DBOS, Prisma, NestJS, or artifact persistence. Handlers receive only bounded typed provider clients and never
 receive raw paths, tokens, process executors, generic HTTP clients, or mutable global logging.
+
+Script revisions are not SemVer. The consumer supplies one positive exact integer; the package performs no range,
+`latest`, tag, SemVer parsing, or fallback lookup. Any observable definition change requires a larger revision while
+the npm package and implementation provenance continue to use separately named SemVer versions.
 
 ## Documentation
 

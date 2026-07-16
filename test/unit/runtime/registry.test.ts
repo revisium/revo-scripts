@@ -12,7 +12,7 @@ const emptySchema = createScriptSchema({
   jsonSchema: 'input',
 });
 
-const createDefinition = (id: `script:test/${string}`, version: string) =>
+const createDefinition = (id: `script:test/${string}`, version: number) =>
   defineScript({
     manifest: {
       schemaVersion: 'revo.script.manifest/v1',
@@ -68,8 +68,8 @@ const captureFault = (operation: () => unknown) => {
 };
 
 test('registers explicitly and resolves exact definitions only after sealing', () => {
-  const alphaDefinition = createDefinition('script:test/alpha', '2.0.0');
-  const zetaDefinition = createDefinition('script:test/zeta', '1.0.0');
+  const alphaDefinition = createDefinition('script:test/alpha', 2);
+  const zetaDefinition = createDefinition('script:test/zeta', 1);
   const registry = createScriptRegistry();
   const zeta = registry.register(zetaDefinition);
   const alpha = registry.register(alphaDefinition);
@@ -96,22 +96,20 @@ test('registers explicitly and resolves exact definitions only after sealing', (
 });
 
 test('rejects duplicate registration and registration after sealing', () => {
-  const definition = createDefinition('script:test/alpha', '1.0.0');
+  const definition = createDefinition('script:test/alpha', 1);
   const registry = createScriptRegistry();
   registry.register(definition);
 
   expect(captureFault(() => registry.register(definition))).toEqual({
     code: 'revo.script.execution.duplicate_definition',
-    message: 'Script definition script:test/alpha@1.0.0 is already registered.',
+    message: 'Script definition script:test/alpha@1 is already registered.',
     retryable: false,
     details: undefined,
   });
 
   registry.seal();
 
-  expect(
-    captureFault(() => registry.register(createDefinition('script:test/beta', '1.0.0'))),
-  ).toEqual({
+  expect(captureFault(() => registry.register(createDefinition('script:test/beta', 1)))).toEqual({
     code: 'revo.script.execution.registry_sealed',
     message: 'Script registry is sealed.',
     retryable: false,
@@ -120,14 +118,14 @@ test('rejects duplicate registration and registration after sealing', () => {
 });
 
 test('fails closed for missing definitions and digest mismatches', () => {
-  const definition = createDefinition('script:test/alpha', '1.0.0');
+  const definition = createDefinition('script:test/alpha', 1);
   const registry = createScriptRegistry();
   registry.register(definition);
   registry.seal();
 
-  expect(captureFault(() => registry.resolve('script:test/missing', '1.0.0'))).toEqual({
+  expect(captureFault(() => registry.resolve('script:test/missing', 1))).toEqual({
     code: 'revo.script.execution.definition_missing',
-    message: 'Script definition script:test/missing@1.0.0 is not registered.',
+    message: 'Script definition script:test/missing@1 is not registered.',
     retryable: false,
     details: undefined,
   });
@@ -145,4 +143,37 @@ test('fails closed for missing definitions and digest mismatches', () => {
     retryable: false,
     details: undefined,
   });
+});
+
+test('rejects runtime revision aliases and invalid numeric revisions before key construction', () => {
+  const definition = createDefinition('script:test/alpha', 1);
+  const registry = createScriptRegistry();
+  registry.register(definition);
+  registry.seal();
+  const invalidVersions: readonly unknown[] = ['1', 1.5, 0, -1, Number.MAX_SAFE_INTEGER + 1];
+
+  expect(
+    invalidVersions.map((version) => {
+      const selector = { id: definition.manifest.id, version: definition.manifest.version };
+      Object.defineProperty(selector, 'version', { value: version });
+      return captureFault(() => registry.resolve(selector.id, selector.version));
+    }),
+  ).toEqual(
+    invalidVersions.map(() => ({
+      code: 'revo.script.validation.input',
+      message: 'Script revision must be a positive safe integer.',
+      retryable: false,
+      details: undefined,
+    })),
+  );
+});
+
+test('orders revisions numerically for one script id', () => {
+  const revisionTen = createDefinition('script:test/alpha', 10);
+  const revisionTwo = createDefinition('script:test/alpha', 2);
+  const registry = createScriptRegistry();
+  registry.register(revisionTen);
+  registry.register(revisionTwo);
+
+  expect(registry.listManifests().map((manifest) => manifest.version)).toEqual([2, 10]);
 });

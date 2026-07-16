@@ -1,6 +1,5 @@
 import type { ScriptDeadline } from '../../runtime/execution/deadline/script-deadline.js';
 import { assertJsonPayloadWithinLimit } from '../../runtime/execution/payload/assert-json-payload-limit.js';
-import { validateExecutionId } from '../../runtime/execution/validation/validate-execution-id.js';
 import { validateIdempotencyKey } from '../../runtime/execution/validation/validate-idempotency-key.js';
 import type { RegisteredScript } from '../../runtime/registry/contracts/registered-script.js';
 import type { ScriptRegistry } from '../../runtime/registry/contracts/script-registry.js';
@@ -15,7 +14,6 @@ export const validateRequestBeforeProviders = async <I, O, R extends ScriptResou
   request: RevoScriptExecutionRequest,
   deadline: ScriptDeadline,
 ): Promise<I> => {
-  validateExecutionId(request.executionId);
   assertJsonPayloadWithinLimit(request.input, 'input');
   assertJsonPayloadWithinLimit(request.bindings, 'bindings');
   validateIdempotencyKey(script.manifest, request.idempotencyKey);

@@ -1,7 +1,7 @@
 # Repository Map
 
 This repository contains the independent `@revisium/revo-scripts` npm package. It owns the public SDK and runtime for
-one bounded script, reusable contract testing, and independently versioned built-in scripts.
+one bounded script, reusable contract testing, and built-in scripts with independent integer revisions.
 
 ## Source of truth
 
@@ -169,8 +169,8 @@ contract and implementation:
 `script.ts` is the version composition root only. The handler is a stateless class with one `execute` method. Types,
 schemas, manifest policy, and provider mechanics MUST NOT be mixed into the composition file.
 
-Script SemVer and provider implementation identity remain contract data, not folder naming. The package currently
-ships one implementation per operation/provider id. A physical retention scheme for multiple implementations is
+Script integer revisions and provider implementation identity remain contract data, not folder naming. The package
+currently ships one implementation per operation/provider contract. A physical retention scheme for multiple script revisions is
 deferred until a real coexistence requirement is designed and accepted; do not introduce `versions/` or `revisions/`
 folders speculatively.
 
@@ -255,7 +255,7 @@ paths, environment maps, tokens, generic HTTP or GraphQL clients, and global mut
 capabilities.
 
 Stateful runtime components use classes with TypeScript `private` members; ECMAScript `#private` fields are not used.
-Manifests, plans, pins, results, failures, and events are TypeScript `readonly` transport values. Construction
+Manifests, execution requests, results, failures, and events are TypeScript `readonly` transport values. Construction
 snapshots retained input collections, but production code does not use `Object.freeze`; persisted or externally
 restored values are validated at their owning boundary.
 

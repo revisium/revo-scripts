@@ -78,7 +78,7 @@ test('retries only an explicitly transient typed failure within the manifest pol
       details: {
         executionId: 'execution-4',
         scriptId: 'script:test/retry',
-        scriptVersion: '1.0.0',
+        scriptVersion: 1,
         definitionDigest: retryDefinition.definitionDigest,
         attempt: 1,
         timestampMs: 1_000,
@@ -89,7 +89,7 @@ test('retries only an explicitly transient typed failure within the manifest pol
       details: {
         executionId: 'execution-4',
         scriptId: 'script:test/retry',
-        scriptVersion: '1.0.0',
+        scriptVersion: 1,
         definitionDigest: retryDefinition.definitionDigest,
         attempt: 1,
         timestampMs: 1_000,
@@ -107,7 +107,7 @@ test('retries only an explicitly transient typed failure within the manifest pol
       details: {
         executionId: 'execution-4',
         scriptId: 'script:test/retry',
-        scriptVersion: '1.0.0',
+        scriptVersion: 1,
         definitionDigest: retryDefinition.definitionDigest,
         attempt: 2,
         timestampMs: 1_010,

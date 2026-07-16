@@ -19,19 +19,20 @@ const createBindingBoundsScenario = () => {
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
-
-  return { scripts, plan, workspaceCalls: () => workspaceCalls };
+  return { scripts, workspaceCalls: () => workspaceCalls };
 };
 
 test('rejects oversized grants before privileged host access', async () => {
   const scenario = createBindingBoundsScenario();
 
   const result = await scenario.scripts.execute(
-    createGitScriptRequest(scenario.plan, {
-      executionId: 'oversized-git-grant',
-      permissions: Array.from({ length: 65 }, (_, index) => `git.permission.${index}`),
-    }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      {
+        executionId: 'oversized-git-grant',
+        permissions: Array.from({ length: 65 }, (_, index) => `git.permission.${index}`),
+      },
+    ),
   );
 
   expect({ result, workspaceCalls: scenario.workspaceCalls() }).toEqual({
@@ -52,10 +53,13 @@ test('rejects duplicate grants before privileged host access', async () => {
   const scenario = createBindingBoundsScenario();
 
   const result = await scenario.scripts.execute(
-    createGitScriptRequest(scenario.plan, {
-      executionId: 'duplicate-git-grant',
-      permissions: ['git.status.read', 'git.status.read'],
-    }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      {
+        executionId: 'duplicate-git-grant',
+        permissions: ['git.status.read', 'git.status.read'],
+      },
+    ),
   );
 
   expect({ result, workspaceCalls: scenario.workspaceCalls() }).toEqual({
@@ -64,35 +68,6 @@ test('rejects duplicate grants before privileged host access', async () => {
       error: {
         code: 'revo.script.validation.bindings',
         message: 'Resource grant permissions and effects must be unique.',
-        retryable: false,
-      },
-      attempts: 0,
-    },
-    workspaceCalls: 0,
-  });
-});
-
-test('rejects oversized provider collections before privileged host access', async () => {
-  const scenario = createBindingBoundsScenario();
-  const provider = scenario.plan.providers[0];
-
-  if (provider === undefined) {
-    throw new Error('Expected the Git provider pin.');
-  }
-
-  const result = await scenario.scripts.execute(
-    createGitScriptRequest(scenario.plan, {
-      executionId: 'oversized-provider-collection',
-      providers: Array.from({ length: 9 }, () => provider),
-    }),
-  );
-
-  expect({ result, workspaceCalls: scenario.workspaceCalls() }).toEqual({
-    result: {
-      ok: false,
-      error: {
-        code: 'revo.script.validation.bindings',
-        message: 'Execution bindings exceed the supported collection limits.',
         retryable: false,
       },
       attempts: 0,

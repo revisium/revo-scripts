@@ -37,7 +37,7 @@ const gitBranchScript = defineScript<
   manifest: {
     schemaVersion: 'revo.script.manifest/v1',
     id: 'script:test/git-branch',
-    version: '1.0.0',
+    version: 1,
     summary: 'Reads the current base capture through the shared Git provider contract.',
     inputSchemaId: inputSchema.id,
     resultSchemaId: resultSchema.id,
@@ -105,13 +105,15 @@ test('adds a second script on the Git contract without changing the consumer exe
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:test/git-branch', version: '1.0.0' });
   const result = await scripts.execute(
-    createGitScriptRequest(plan, {
-      executionId: 'custom-git-branch',
-      input: {},
-      permissions: ['git.branch.read'],
-    }),
+    createGitScriptRequest(
+      { id: 'script:test/git-branch', version: 1 },
+      {
+        executionId: 'custom-git-branch',
+        input: {},
+        permissions: ['git.branch.read'],
+      },
+    ),
   );
 
   expect({

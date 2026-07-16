@@ -24,7 +24,7 @@ test('executes one registered script and returns its typed result', async () => 
       details: {
         executionId: 'execution-1',
         scriptId: 'script:test/echo',
-        scriptVersion: '1.0.0',
+        scriptVersion: 1,
         definitionDigest: echoDefinition.definitionDigest,
         attempt: 1,
         timestampMs: 1_000,
@@ -35,7 +35,7 @@ test('executes one registered script and returns its typed result', async () => 
       details: {
         executionId: 'execution-1',
         scriptId: 'script:test/echo',
-        scriptVersion: '1.0.0',
+        scriptVersion: 1,
         definitionDigest: echoDefinition.definitionDigest,
         attempt: 1,
         timestampMs: 1_000,

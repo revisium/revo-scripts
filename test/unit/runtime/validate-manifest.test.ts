@@ -62,7 +62,7 @@ test('rejects invalid identities and scalar bounds', () => {
   const fault = captureManifestFault({
     ...validManifest,
     id: 'script:Git/status',
-    version: '^1.0.0',
+    version: 0,
     summary: 'x'.repeat(513),
     timeout: { wallClockMs: 300_001 },
   });
@@ -74,7 +74,7 @@ test('rejects invalid identities and scalar bounds', () => {
     details: {
       issues: [
         { path: '/id', message: 'Script id must use the script:<namespace>/<name> format.' },
-        { path: '/version', message: 'Version must be an exact semantic version.' },
+        { path: '/version', message: 'Version must be a positive safe integer.' },
         { path: '/summary', message: 'Summary must contain at most 512 Unicode code points.' },
         {
           path: '/timeout/wallClockMs',
@@ -83,6 +83,23 @@ test('rejects invalid identities and scalar bounds', () => {
       ],
     },
   });
+});
+
+test('rejects string, fractional, negative, and unsafe script revisions', () => {
+  const invalidVersions = ['1.0.0', 1.5, -1, Number.MAX_SAFE_INTEGER + 1];
+
+  expect(
+    invalidVersions.map((version) => captureManifestFault({ ...validManifest, version })),
+  ).toEqual(
+    invalidVersions.map(() => ({
+      code: 'revo.script.validation.manifest',
+      message: 'Script manifest is invalid.',
+      retryable: false,
+      details: {
+        issues: [{ path: '/version', message: 'Version must be a positive safe integer.' }],
+      },
+    })),
+  );
 });
 
 test('rejects duplicate resource and event identities plus invalid JSON pointers', () => {

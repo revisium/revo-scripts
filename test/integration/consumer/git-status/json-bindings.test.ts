@@ -25,13 +25,15 @@ test('rejects non-JSON provider coordinates before privileged host access', asyn
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
 
   const result = await scripts.execute(
-    createGitScriptRequest(plan, {
-      executionId: 'non-json-bindings',
-      providerCoordinates: { revision: 1n },
-    }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      {
+        executionId: 'non-json-bindings',
+        providerCoordinates: { revision: 1n },
+      },
+    ),
   );
 
   expect({

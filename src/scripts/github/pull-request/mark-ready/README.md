@@ -2,10 +2,13 @@
 
 | Field                    | Value                                                |
 | ------------------------ | ---------------------------------------------------- |
-| Version                  | `1.0.0`                                              |
+| Revision                 | `1`                                                  |
 | Effect class and effects | `write`; `github.read`, `github.write`               |
 | Permission and resource  | `github.pull-request.mark-ready`; `repository` write |
 | Provider and idempotency | `revo.provider.github/v1`; required                  |
+
+Revision `1` is immutable. Any observable change requires a larger integer revision; ranges, `latest`, SemVer parsing,
+and fallback are unsupported.
 
 Marks one exact draft pull-request head ready for review. It first reads and validates the pinned head; an already-ready
 pull request is an idempotent success. It requires `github.pull-request.mark-ready`, write access, and an idempotency

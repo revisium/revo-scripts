@@ -85,15 +85,9 @@ test('resolves a credential and executes pull-request upsert through the bounded
     providers: fetchGitHubProviders({ fetch: fetchStub }),
     host,
   });
-  const plan = scripts.resolveForPlan({
-    id: 'script:github/pull-request/upsert',
-    version: '1.0.0',
-  });
-
   const result = await scripts.execute({
     executionId: 'github-upsert-consumer',
-    script: plan.script,
-    providers: plan.providers,
+    script: { id: 'script:github/pull-request/upsert', version: 1 },
     input: {
       repositoryId: 'repository-123',
       owner: 'revisium',

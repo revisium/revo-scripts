@@ -4,7 +4,7 @@ import { gitCommitInputSchema, gitCommitResultSchema } from './schemas.js';
 export const gitCommitManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:git/commit',
-  version: '1.0.0',
+  version: 1,
   summary: 'Creates one exact commit from an approved Git tree.',
   inputSchemaId: gitCommitInputSchema.id,
   resultSchemaId: gitCommitResultSchema.id,

@@ -25,10 +25,12 @@ test('rejects a workspace allocated for another repository before running Git', 
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
 
   const result = await scripts.execute(
-    createGitScriptRequest(plan, { executionId: 'workspace-mismatch' }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      { executionId: 'workspace-mismatch' },
+    ),
   );
 
   expect({ result, processCalls }).toEqual({

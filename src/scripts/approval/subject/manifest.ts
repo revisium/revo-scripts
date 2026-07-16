@@ -4,7 +4,7 @@ import { approvalSubjectInputSchema, approvalSubjectResultSchema } from './schem
 export const approvalSubjectManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:approval/subject',
-  version: '1.0.0',
+  version: 1,
   summary: 'Constructs one provider-neutral approval subject.',
   inputSchemaId: approvalSubjectInputSchema.id,
   resultSchemaId: approvalSubjectResultSchema.id,

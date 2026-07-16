@@ -45,13 +45,15 @@ test('disposes provider clients that finish preparing after execution is aborted
     ],
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
   const controller = new AbortController();
   const execution = scripts.execute(
-    createGitScriptRequest(plan, {
-      executionId: 'late-provider-preparation',
-      signal: controller.signal,
-    }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      {
+        executionId: 'late-provider-preparation',
+        signal: controller.signal,
+      },
+    ),
   );
 
   await providerStarted;
@@ -111,9 +113,11 @@ test('reports cleanup failure without publishing a success event', async () => {
     ],
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
   const result = await scripts.execute(
-    createGitScriptRequest(plan, { executionId: 'cleanup-failure' }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      { executionId: 'cleanup-failure' },
+    ),
   );
 
   expect({ result, events: events.map((event) => event.name) }).toEqual({
@@ -170,10 +174,12 @@ test('preserves attempts when reporting cleanup failure also reaches a rejected 
     ],
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
 
   const result = await scripts.execute(
-    createGitScriptRequest(plan, { executionId: 'cleanup-and-event-failure' }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      { executionId: 'cleanup-and-event-failure' },
+    ),
   );
 
   expect(result).toEqual({
@@ -222,10 +228,11 @@ test('bounds a provider cleanup operation that never settles', async () => {
       ],
       host,
     });
-    const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
-
     const execution = scripts.execute(
-      createGitScriptRequest(plan, { executionId: 'cleanup-timeout' }),
+      createGitScriptRequest(
+        { id: 'script:git/status', version: 1 },
+        { executionId: 'cleanup-timeout' },
+      ),
     );
     await vi.advanceTimersByTimeAsync(1_000);
     const result = await execution;

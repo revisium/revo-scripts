@@ -71,7 +71,7 @@ test('redacts custom events and typed failure details before they leave the runt
       details: {
         executionId: 'execution-3',
         scriptId: 'script:test/failure',
-        scriptVersion: '1.0.0',
+        scriptVersion: 1,
         definitionDigest: failingDefinition.definitionDigest,
         attempt: 1,
         timestampMs: 1_000,
@@ -86,7 +86,7 @@ test('redacts custom events and typed failure details before they leave the runt
       details: {
         executionId: 'execution-3',
         scriptId: 'script:test/failure',
-        scriptVersion: '1.0.0',
+        scriptVersion: 1,
         definitionDigest: failingDefinition.definitionDigest,
         attempt: 1,
         timestampMs: 1_000,

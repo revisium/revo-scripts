@@ -53,7 +53,7 @@ test('defines one read-only script snapshot with a stable identity digest', () =
       version: '1.0.0',
       buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000040',
     },
-    definitionDigest: 'sha256:5b44ad0fbcf54250101bee9b5545575e60bed01155fb25c13866d21274d2b6e5',
+    definitionDigest: 'sha256:9263afa450331156030b0da31137c8a060ddb5b2fcd4e55bfb909a8ed8aa0ade',
     handler,
   });
   expect(definition.manifest).not.toBe(manifest);

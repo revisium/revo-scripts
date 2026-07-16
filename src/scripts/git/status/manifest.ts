@@ -4,7 +4,7 @@ import { gitStatusInputSchema, gitStatusResultSchema } from './schemas.js';
 export const gitStatusManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:git/status',
-  version: '1.0.0',
+  version: 1,
   summary: 'Reads one immutable bounded workspace-change snapshot.',
   inputSchemaId: gitStatusInputSchema.id,
   resultSchemaId: gitStatusResultSchema.id,

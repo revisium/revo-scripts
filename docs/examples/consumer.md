@@ -17,17 +17,30 @@ const scripts = createRevoScripts({
   clock,
 });
 
-const plan = scripts.resolveForPlan({
-  id: 'script:github/pull-request/readiness',
-  version: '1.0.0',
-});
-
 const result = await scripts.execute({
   executionId: 'run-42:readiness:1',
   idempotencyKey: 'run-42:readiness',
-  script: plan.script,
-  providers: plan.providers,
-  input: { repositoryId: 'repository-123', number: 42 },
+  script: {
+    id: 'script:github/pull-request/readiness',
+    version: 1,
+  },
+  input: {
+    schemaVersion: 'github-pull-request/v1',
+    repositoryId: 'repository-123',
+    owner: 'revisium',
+    repository: 'revo-scripts',
+    number: 42,
+    pullRequestId: 'PR_kwDOExample',
+    url: 'https://github.com/revisium/revo-scripts/pull/42',
+    head: {
+      branch: 'feat/integer-script-version',
+      sha: '0123456789abcdef0123456789abcdef01234567',
+    },
+    base: { branch: 'master' },
+    providerRevision: `github-pr-metadata/v1:sha256:${'a'.repeat(64)}`,
+    state: 'open',
+    draft: false,
+  },
   bindings: {
     resources: {
       repository: {
@@ -44,6 +57,10 @@ const result = await scripts.execute({
   signal: new AbortController().signal,
 });
 ```
+
+The positive integer revision is exact. The package resolves the immutable definition and its sole provider
+implementation for each manifest contract; consumers do not compile plans, pass definition digests, or select
+provider implementations.
 
 ## Operations and results
 

@@ -71,7 +71,7 @@ test('returns one bounded read-only repository status through the public contrac
           details: {
             executionId: 'git-status-contract',
             scriptId: 'script:git/status',
-            scriptVersion: '1.0.0',
+            scriptVersion: 1,
             definitionDigest: gitStatusScript.definitionDigest,
             attempt: 1,
             timestampMs: 1_000,
@@ -82,7 +82,7 @@ test('returns one bounded read-only repository status through the public contrac
           details: {
             executionId: 'git-status-contract',
             scriptId: 'script:git/status',
-            scriptVersion: '1.0.0',
+            scriptVersion: 1,
             definitionDigest: gitStatusScript.definitionDigest,
             attempt: 1,
             timestampMs: 1_000,

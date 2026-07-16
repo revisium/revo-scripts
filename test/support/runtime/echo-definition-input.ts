@@ -4,7 +4,7 @@ import type { ScriptSchema } from '../../../src/runtime/spec/schema/index.js';
 export const echoManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:test/echo',
-  version: '1.0.0',
+  version: 1,
   summary: 'Returns the provided message.',
   inputSchemaId: 'revo.script.test.echo.input/v1',
   resultSchemaId: 'revo.script.test.echo.result/v1',

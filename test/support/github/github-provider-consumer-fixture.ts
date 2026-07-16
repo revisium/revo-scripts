@@ -37,11 +37,9 @@ export const executeGitHubProviderScenario = async (scenario: GitHubProviderScen
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: scenario.scriptId, version: '1.0.0' });
   return await scripts.execute({
     executionId: `provider-scenario:${scenario.scriptId}`,
-    script: plan.script,
-    providers: plan.providers,
+    script: { id: scenario.scriptId, version: 1 },
     input: scenario.input,
     ...(scenario.idempotencyKey === undefined ? {} : { idempotencyKey: scenario.idempotencyKey }),
     bindings: {

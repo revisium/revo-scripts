@@ -4,7 +4,7 @@ import { gitPushInputSchema, gitPushResultSchema } from './schemas.js';
 export const gitPushManifest = {
   schemaVersion: 'revo.script.manifest/v1',
   id: 'script:git/push',
-  version: '1.0.0',
+  version: 1,
   summary: 'Publishes one exact pinned Git commit without force.',
   inputSchemaId: gitPushInputSchema.id,
   resultSchemaId: gitPushResultSchema.id,

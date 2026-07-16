@@ -12,7 +12,6 @@ import {
   defineScript,
   type RevoScriptExecutionRequest,
   type ScriptDefinitionModule,
-  type ScriptPlanDescriptor,
 } from '../../../src/index.js';
 import type { ScriptEvent, ScriptResourceHandle } from '../../../src/runtime/spec/index.js';
 
@@ -50,7 +49,7 @@ const credentialAliasScript = defineScript<
   manifest: {
     schemaVersion: 'revo.script.manifest/v1',
     id: 'script:test/credential-alias',
-    version: '1.0.0',
+    version: 1,
     summary: 'Reads non-secret credential metadata through a bounded provider client.',
     inputSchemaId: inputSchema.id,
     resultSchemaId: resultSchema.id,
@@ -132,7 +131,6 @@ const credentialProvider = (
       };
     },
   },
-  useForNewPlans: true,
 });
 
 const credentialHost = (
@@ -171,7 +169,6 @@ const credentialHost = (
 
 export interface CredentialConsumerFixture {
   readonly observations: CredentialFixtureObservations;
-  readonly plan: ScriptPlanDescriptor;
   readonly request: RevoScriptExecutionRequest;
   readonly scripts: ReturnType<typeof createRevoScripts>;
 }
@@ -195,11 +192,9 @@ export const createCredentialConsumerFixture = (
     providers: [credentialProvider(observations)],
     host: credentialHost(observations, options.abortAfterResolution),
   });
-  const plan = scripts.resolveForPlan({ id: 'script:test/credential-alias', version: '1.0.0' });
   const request: RevoScriptExecutionRequest = {
     executionId: 'credential-consumer-flow',
-    script: plan.script,
-    providers: plan.providers,
+    script: { id: 'script:test/credential-alias', version: 1 },
     input: {},
     bindings: {
       resources: {
@@ -224,5 +219,5 @@ export const createCredentialConsumerFixture = (
       : { signal: options.abortAfterResolution.signal }),
   };
 
-  return { observations, plan, request, scripts };
+  return { observations, request, scripts };
 };

@@ -22,11 +22,10 @@ export const validateProviders = (
       );
     }
 
-    const pin = request.providers.find((candidate) => candidate.name === requirement.name);
     return {
       requirement,
       resource,
       binding: requireBinding(request, manifest, resource),
-      provider: catalog.requireProvider(requirement, pin),
+      provider: catalog.requireProvider(requirement),
     };
   });

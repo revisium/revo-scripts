@@ -90,7 +90,7 @@ The runtime foundation requires tests for:
 - deterministic definition digest generation;
 - build-generated definition identity freshness and digest participation;
 - duplicate registration, sealing, exact lookup, and missing-definition failures;
-- coexistence and exact lookup of two immutable versions of one script id;
+- coexistence and exact lookup of two immutable integer revisions of one script id;
 - readonly handler input and one-handler invocation per attempt;
 - wall-clock timeout and abort propagation;
 - a never-settling handler or event sink remains bounded by the platform wall-clock deadline;
@@ -153,7 +153,8 @@ timeout, and redaction partitions.
 
 Every package-owned provider requires tests proving:
 
-- invalid definition, input, digest, binding, access, permission, or effect grants resolve no privileged host value;
+- unknown definition id/revision and invalid input, binding, access, permission, or effect grants resolve no privileged
+  host value;
 - only manifest-declared workspace and credential bindings are resolved;
 - every provider client is attached only to the resource named by its manifest requirement;
 - each provider construction receives only credential slots assigned to its manifest requirement;
@@ -167,10 +168,9 @@ Every package-owned provider requires tests proving:
 - real local or provider-contract fixtures exercise the production adapter without requiring host operation logic;
 - Fetch readiness observes branch protection plus the credential-scoped applied repository and organization rulesets,
   preserving complete, unavailable, and truncated required-check identity evidence;
-- provider contract majors are selected by manifest requirements, while execution resolves the exact implementation
-  id, digest, and package provenance pinned in the plan;
-- multiple implementations or contract majors never introduce implicit latest selection or fallback;
-- changing the new-plan default does not change execution or recovery for an existing exact pin.
+- provider contract majors are selected solely by manifest requirements;
+- startup rejects a second registered implementation for the same provider contract;
+- provider selection never introduces implicit latest selection or fallback.
 
 The consumer compatibility suite requires at least two arbitrary definitions in one provider family and proves that:
 
@@ -179,14 +179,14 @@ The consumer compatibility suite requires at least two arbitrary definitions in 
 - adding the second definition requires no per-operation host capability or registration call;
 - adding a new script under an existing provider contract requires no consumer executor change;
 - a selected definition family whose provider contract is absent fails at startup;
-- an exact execution pin whose retained implementation is absent fails preflight rather than falling back;
+- two arbitrary scripts sharing one provider contract select the same registered implementation internally;
 - a new provider module composes without changing the generic executor.
 
-Version-retention tests and release checks MUST prove that a published `(script id, version)` remains byte-stable and
+Revision-retention tests and release checks MUST prove that a published `(script id, revision)` remains byte-stable and
 that adding an unrelated definition does not change its definition digest. Provider-family tests MUST prove that one
-new-plan default and all retained immutable revisions are registered without consumer enumeration. Removing a script
-version, provider contract major, or exact provider implementation requires external pin-audit evidence; a local green
-suite alone is not evidence that no pipeline or recoverable run still references it.
+implementation exists for each required contract without consumer enumeration. Removing a script revision or provider
+contract requires external usage-audit evidence; a local green suite alone is not evidence that no pipeline or
+recoverable run still references it.
 
 Architecture tests MUST distinguish runtime, host ports, application composition, provider contracts, provider
 adapters, and concrete scripts. They enforce that provider contracts cannot import privileged host types, scripts

@@ -65,18 +65,20 @@ test('executes the production Node Git provider against a real temporary reposit
       providers: nodeGitProviders({ processExecutor }),
       host,
     });
-    const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
     const result = await scripts.execute(
-      createGitScriptRequest(plan, {
-        executionId: 'real-git-status',
-        input: {
-          resource: 'repository',
-          baseCapture: `git-commit:${headSha}`,
-          headCapture: `git-tree:${expectedTree}`,
+      createGitScriptRequest(
+        { id: 'script:git/status', version: 1 },
+        {
+          executionId: 'real-git-status',
+          input: {
+            resource: 'repository',
+            baseCapture: `git-commit:${headSha}`,
+            headCapture: `git-tree:${expectedTree}`,
+          },
+          repositoryId: 'temporary-repository',
+          workspaceId: 'temporary-workspace',
         },
-        repositoryId: 'temporary-repository',
-        workspaceId: 'temporary-workspace',
-      }),
+      ),
     );
 
     expect(result).toEqual({

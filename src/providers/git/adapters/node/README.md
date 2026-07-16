@@ -1,19 +1,21 @@
 # Node Git provider
 
-| Field          | Value                                       |
-| -------------- | ------------------------------------------- |
-| Provider id    | `provider:git/node`                         |
-| Contract       | `revo.provider.git/v1`                      |
-| Owned effects  | `git.read`, `git.write`, `git.remote-write` |
-| Workspace      | required                                    |
-| Credentials    | none                                        |
-| Public factory | `nodeGitProviders`                          |
+| Field          | Value                                                          |
+| -------------- | -------------------------------------------------------------- |
+| Provider id    | `provider:git/node`                                            |
+| Contract       | `revo.provider.git/v1`                                         |
+| Owned effects  | `filesystem.read`, `git.read`, `git.write`, `git.remote-write` |
+| Workspace      | required                                                       |
+| Credentials    | none                                                           |
+| Public factory | `nodeGitProviders`                                             |
+| Selection      | sole `revo.provider.git/v1` implementation                     |
 
 ## Responsibility
 
 The adapter translates bounded Git client calls into Git CLI invocations inside a host-resolved workspace. It owns command construction, process-result handling, and parsing of the selected Git output protocol.
 
 The adapter does not validate script input/result schemas, choose a script, allocate a workspace, select credentials, retry an operation, or decide pipeline state.
+Startup rejects another implementation for the same provider contract; execution never falls back.
 
 ## Internal flow
 

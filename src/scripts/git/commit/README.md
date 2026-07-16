@@ -2,12 +2,15 @@
 
 | Field       | Value                            |
 | ----------- | -------------------------------- |
-| Version     | `1.0.0`                          |
+| Revision    | `1`                              |
 | Effect      | `write`; `git.read`, `git.write` |
 | Permission  | `git.commit.write`               |
 | Resource    | `repository` with `write` access |
 | Result      | `schema:gitChange/v1`            |
 | Idempotency | required                         |
+
+Revision `1` is immutable. Any observable change requires a larger integer revision; ranges, `latest`, SemVer parsing,
+and fallback are unsupported.
 
 Creates one commit from the exact approved tree and parent on a pinned remote identity. The handler renders the
 business-readable title and optional issue policy; the Node provider normalizes line endings, owns exactly one hashed

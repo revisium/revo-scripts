@@ -1,6 +1,7 @@
 import { systemClock } from '../../runtime/execution/clock/system-clock.js';
 import { createScriptDeadline } from '../../runtime/execution/deadline/create-script-deadline.js';
 import { executeValidatedScript } from '../../runtime/execution/execute-validated-script.js';
+import { validateExecutionId } from '../../runtime/execution/validation/validate-execution-id.js';
 import type { RegisteredScript } from '../../runtime/registry/contracts/registered-script.js';
 import type { ScriptRegistry } from '../../runtime/registry/contracts/script-registry.js';
 import { ScriptFault } from '../../runtime/spec/errors/index.js';
@@ -56,6 +57,7 @@ export class ScriptExecutionCoordinator {
           this.options,
           request,
           toApplicationFault(error, 'Script input preflight failed.'),
+          script,
         );
       }
 
@@ -69,6 +71,7 @@ export class ScriptExecutionCoordinator {
           this.options,
           request,
           toApplicationFault(error, 'Script provider preparation failed.'),
+          script,
         );
       }
 
@@ -109,6 +112,7 @@ export class ScriptExecutionCoordinator {
           this.options,
           request,
           toApplicationFault(error, 'Script provider cleanup failed.'),
+          script,
           result.attempts,
         );
       }
@@ -136,11 +140,8 @@ export class ScriptExecutionCoordinator {
     request: RevoScriptExecutionRequest,
   ): Promise<RegisteredScript<unknown, unknown, ScriptResourceMap> | ScriptExecutionResult<never>> {
     try {
-      return this.registry.getExact(
-        request.script.id,
-        request.script.version,
-        request.script.definitionDigest,
-      );
+      validateExecutionId(request.executionId);
+      return this.registry.resolve(request.script.id, request.script.version);
     } catch (error: unknown) {
       return emitApplicationFailure(
         this.options,

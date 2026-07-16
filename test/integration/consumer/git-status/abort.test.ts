@@ -19,15 +19,17 @@ test('rejects an already-aborted execution before privileged host access', async
     }),
     host,
   });
-  const plan = scripts.resolveForPlan({ id: 'script:git/status', version: '1.0.0' });
   const controller = new AbortController();
   controller.abort(new Error('caller stopped the execution'));
 
   const result = await scripts.execute(
-    createGitScriptRequest(plan, {
-      executionId: 'aborted-git-status',
-      signal: controller.signal,
-    }),
+    createGitScriptRequest(
+      { id: 'script:git/status', version: 1 },
+      {
+        executionId: 'aborted-git-status',
+        signal: controller.signal,
+      },
+    ),
   );
 
   expect({ result, workspaceCalls }).toEqual({
