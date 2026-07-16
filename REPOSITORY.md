@@ -299,4 +299,5 @@ its exact manifest identity rather than a deep import or a filesystem path.
 - Behavior changes start with a failing test in the owning layer.
 - Built-in operation changes update their contract documentation and tests together.
 - Verification follows `VERIFICATION.md`; review follows `REVIEW.md`.
+- Package release and npm publication follow `docs/release-train.md` through immutable shared-workflow pins.
 - Publishing, release creation, and consumer cutover require separate approval.
