@@ -6,7 +6,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-approval-subject',
         version,
         buildDigest:
-          'sha256:879262c7177a46719805757c68a1502a9360137f74f65a819113df286c8b3df4' as const,
+          'sha256:0cfd3d2aedd1e5f28ebc7f669fe8d2554a39d6dc21b48d7099c4914b77e908da' as const,
       };
     }
     case 'script:system/echo': {
@@ -14,7 +14,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-system-echo',
         version,
         buildDigest:
-          'sha256:2e323a77180ea7b29f5e5392a0829649307d27e22fa5c20d48ab876eeed24175' as const,
+          'sha256:365f78fb88d6221801850c839b0598383578b1edeff4ac38de8a49a172a2befc' as const,
       };
     }
     case 'script:git/commit': {
