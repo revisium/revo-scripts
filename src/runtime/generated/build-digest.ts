@@ -2,6 +2,7 @@
 export const builtInBuildDigests = {
   'script:approval/subject':
     'sha256:879262c7177a46719805757c68a1502a9360137f74f65a819113df286c8b3df4',
+  'script:system/echo': 'sha256:2e323a77180ea7b29f5e5392a0829649307d27e22fa5c20d48ab876eeed24175',
   'script:git/commit': 'sha256:4be75ac9d33bc6024172600bd4a2e9eb18aa9af85f2d77605da786c25088e6c4',
   'script:git/push': 'sha256:cc670545e9dd412dea2f20333def9b1ef9d2f3b07e7c1b69b6feabc18febb951',
   'script:git/status': 'sha256:5ee0d6ba43a14c1ab78dd0a87ec073b1aa08b493edc8afe228745c06bf28c497',

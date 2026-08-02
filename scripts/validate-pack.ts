@@ -42,6 +42,8 @@ const requiredPaths = [
   'dist/runtime/spec/index.js',
   'dist/scripts/approval/index.d.ts',
   'dist/scripts/approval/index.js',
+  'dist/scripts/system/index.d.ts',
+  'dist/scripts/system/index.js',
   'dist/index.d.ts',
   'dist/index.js',
   'dist/providers/git/index.d.ts',

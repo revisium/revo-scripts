@@ -71,7 +71,7 @@ test('registers built-in definitions and providers by default', () => {
     clock: host.clock,
   });
 
-  expect(scripts.listManifests()).toHaveLength(10);
+  expect(scripts.listManifests()).toHaveLength(11);
   expect(scripts.listProviderImplementations().map((provider) => provider.id)).toEqual([
     'provider:git/node',
     'provider:github/fetch',

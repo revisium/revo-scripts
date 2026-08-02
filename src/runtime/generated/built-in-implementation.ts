@@ -9,6 +9,14 @@ export const builtInImplementation = (scriptId: string, version: string) => {
           'sha256:879262c7177a46719805757c68a1502a9360137f74f65a819113df286c8b3df4' as const,
       };
     }
+    case 'script:system/echo': {
+      return {
+        id: 'revo.builtin.script-system-echo',
+        version,
+        buildDigest:
+          'sha256:2e323a77180ea7b29f5e5392a0829649307d27e22fa5c20d48ab876eeed24175' as const,
+      };
+    }
     case 'script:git/commit': {
       return {
         id: 'revo.builtin.script-git-commit',

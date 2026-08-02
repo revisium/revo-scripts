@@ -3,6 +3,8 @@ export { createScriptSchema } from './runtime/definition/schema/create-script-sc
 export { defineScript } from './runtime/definition/define-script.js';
 export { executeScript } from './runtime/execution/execute-script.js';
 export { createRevoScripts } from './application/create-revo-scripts.js';
+export { builtInScriptCatalog } from './application/registration/built-in-script-catalog.js';
+export type { BuiltInScriptDescriptor } from './application/registration/built-in-script-descriptor.js';
 export type { RevoScriptExecutionRequest } from './application/contracts/revo-script-execution-request.js';
 export type { RevoScripts } from './application/contracts/revo-scripts.js';
 export type { RevoScriptsOptions } from './application/contracts/revo-scripts-options.js';
@@ -12,6 +14,7 @@ export {
   builtInScripts,
   githubScripts,
   gitScripts,
+  systemScripts,
 } from './application/registration/built-ins.js';
 export type { ScriptDefinitionModule } from './application/registration/script-definition-module.js';
 export type { ScriptDefinitionRegistrar } from './application/registration/script-definition-registrar.js';

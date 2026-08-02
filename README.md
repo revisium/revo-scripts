@@ -18,16 +18,14 @@
 
 `@revisium/revo-scripts` defines and executes one bounded operation. It owns versioned script definitions, schema
 validation, provider adapters, permissions and effects, timeout and retry policy, idempotency, event redaction, and
-structured results. The current built-ins cover Git, GitHub pull requests, review threads, merge, and approval subject
-operations.
+structured results. The current built-ins cover system echo, Git, GitHub pull requests, review threads, merge, and
+approval subject operations.
 
 The consumer owns pipeline routing, durable state, workspace lifecycle, credential storage, grants, event/artifact
 persistence, and human gates. It creates one facade and never implements a script-specific dispatch branch.
 
-Built-in families are released with this package: `git/status`, `git/commit`, `git/push`, GitHub pull-request
-operations, GitHub review-thread operations, pull-request merge, and `approval/subject`. Each operation has an exact
-id, version, manifest, schemas, provider requirements, and bounded result. The package does not scan the filesystem to
-find additional definitions.
+Built-in families are included in the package build. Each operation has an exact id, version, manifest, schemas,
+provider requirements, and bounded result. The package does not scan the filesystem to find additional definitions.
 
 ## Quick start
 
@@ -99,10 +97,45 @@ may decide what to do after the returned result, but the script performs only it
 - A new provider contract, transport, or privileged behavior requires package implementation and a new release.
 - Automatic filesystem/plugin discovery is not part of the contract.
 
-## Complete public API
+## Built-ins and discovery
+
+The complete installed built-in set is:
+
+- `script:approval/subject@1`
+- `script:git/commit@1`
+- `script:git/push@1`
+- `script:git/status@1`
+- `script:github/pull-request/mark-ready@1`
+- `script:github/pull-request/merge@1`
+- `script:github/pull-request/readiness@1`
+- `script:github/pull-request/upsert@1`
+- `script:github/review-threads/resolve@1`
+- `script:github/review-threads/respond@1`
+- `script:system/echo@1`
+
+`builtInScriptCatalog()` returns that complete set ordered by script id and then integer version. Every call returns a
+new frozen array of frozen descriptor snapshots; its script identity and implementation provenance objects are also
+frozen. Each descriptor contains the exact script id/version plus the implementation id, implementation SemVer, and a
+`sha256:` build digest generated from the compiled JavaScript dependency closure of that built-in definition.
+
+Use `systemScripts()` to register the system family explicitly. The `@revisium/revo-scripts/system` entrypoint exports
+`systemEchoScript` and its `EchoInput`, `EchoResult`, and `EchoResources` types.
+
+## Facade and built-in discovery API
 
 ```ts
 export declare function createRevoScripts(options: RevoScriptsOptions): RevoScripts;
+export declare function builtInScriptCatalog(): readonly BuiltInScriptDescriptor[];
+export declare function systemScripts(): ScriptDefinitionModule;
+
+export interface BuiltInScriptDescriptor {
+  readonly script: ScriptIdentityPin;
+  readonly implementation: Readonly<{
+    id: string;
+    version: string;
+    buildDigest: `sha256:${string}`;
+  }>;
+}
 
 export interface RevoScripts {
   execute(request: RevoScriptExecutionRequest): Promise<ScriptExecutionResult<unknown>>;
@@ -113,7 +146,8 @@ export interface RevoScripts {
 
 `RevoScriptsOptions`, `RevoScriptExecutionRequest`, `ScriptExecutionResult`, manifests, and provider
 descriptors are public typed contracts. Their exact fields and invariants live in the [runtime specification](docs/specs/script-runtime-v1.spec.md)
-and the corresponding [source contracts](src/application/contracts/).
+and the corresponding [source contracts](src/application/contracts/). The root entrypoint also curates the low-level
+definition, registry, and execution contracts; `package.json` is authoritative for every public subpath.
 
 ## Package and consumer boundary
 

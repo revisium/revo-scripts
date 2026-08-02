@@ -23,6 +23,7 @@ import type {
   GitStatusResult,
 } from '../../src/scripts/git/index.js';
 import * as githubEntry from '../../src/scripts/github/index.js';
+import * as systemEntry from '../../src/scripts/system/index.js';
 import * as testingEntry from '../../src/testing/index.js';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -41,11 +42,13 @@ test('entry points expose only their curated runtime values', () => {
     gitProvider: exportNames(gitProviderEntry),
     github: exportNames(githubEntry),
     githubProvider: exportNames(githubProviderEntry),
+    system: exportNames(systemEntry),
     testing: exportNames(testingEntry),
   }).toEqual({
     approval: ['approvalSubjectScript'],
     root: [
       'approvalScripts',
+      'builtInScriptCatalog',
       'builtInScripts',
       'createRevoScripts',
       'createScriptRegistry',
@@ -54,6 +57,7 @@ test('entry points expose only their curated runtime values', () => {
       'executeScript',
       'gitScripts',
       'githubScripts',
+      'systemScripts',
     ],
     spec: ['ScriptFault'],
     runtime: ['createScriptRegistry', 'createScriptSchema', 'defineScript', 'executeScript'],
@@ -69,6 +73,7 @@ test('entry points expose only their curated runtime values', () => {
       'githubReviewThreadRespondScript',
     ],
     githubProvider: ['fetchGitHubProviders'],
+    system: ['systemEchoScript'],
     testing: [
       'DeterministicScriptClock',
       'RecordingEventSink',
@@ -98,6 +103,19 @@ test('exposes direct integer script execution without plan compilation or consum
     readonly id: `script:${string}`;
     readonly version: number;
   }>();
+});
+
+test('exposes exact immutable built-in definition metadata', () => {
+  const echo = packageEntry
+    .builtInScriptCatalog()
+    .filter(({ script }) => script.id === 'script:system/echo' && script.version === 1);
+  expect(echo).toHaveLength(1);
+  expect(echo[0]?.script).toEqual({ id: 'script:system/echo', version: 1 });
+  expect(echo[0]?.implementation.id).toBe('revo.builtin.script-system-echo');
+  expect(echo[0]?.implementation.version).toBe('1.0.0');
+  expect(echo[0]?.implementation.buildDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
+  expect(Object.isFrozen(echo[0])).toBe(true);
+  expect(Object.isFrozen(echo[0]?.implementation)).toBe(true);
 });
 
 test('package metadata declares the intended package and explicit root export', async () => {
@@ -142,6 +160,10 @@ test('package metadata declares the intended package and explicit root export', 
       './approval': {
         types: './dist/scripts/approval/index.d.ts',
         import: './dist/scripts/approval/index.js',
+      },
+      './system': {
+        types: './dist/scripts/system/index.d.ts',
+        import: './dist/scripts/system/index.js',
       },
       './github': {
         types: './dist/scripts/github/index.d.ts',

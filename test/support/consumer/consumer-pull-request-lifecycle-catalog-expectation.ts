@@ -36,6 +36,7 @@ export const expectedConsumerPullRequestLifecycleCatalog = {
     'script:github/pull-request/upsert@1',
     'script:github/review-threads/resolve@1',
     'script:github/review-threads/respond@1',
+    'script:system/echo@1',
   ],
   definitions: [
     {
