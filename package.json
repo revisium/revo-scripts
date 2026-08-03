@@ -1,6 +1,6 @@
 {
   "name": "@revisium/revo-scripts",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "Bounded, versioned scripts for Revo.",
   "homepage": "https://github.com/revisium/revo-scripts#readme",
   "bugs": {
