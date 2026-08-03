@@ -30,8 +30,44 @@ const linkPackage = async (
 const runtimeConsumer = `
 import assert from 'node:assert/strict';
 
-import { createRevoScripts, gitScripts } from '@revisium/revo-scripts';
+import {
+  builtInScriptCatalog,
+  createRevoScripts,
+  gitScripts,
+  systemScripts,
+} from '@revisium/revo-scripts';
 import { nodeGitProviders } from '@revisium/revo-scripts/providers/git';
+import { systemEchoScript } from '@revisium/revo-scripts/system';
+
+const echoCatalogEntry = builtInScriptCatalog().find(
+  ({ script }) => script.id === 'script:system/echo' && script.version === 1,
+);
+assert.deepEqual(echoCatalogEntry, {
+  script: { id: 'script:system/echo', version: 1 },
+  implementation: systemEchoScript.implementation,
+});
+
+const echoScripts = createRevoScripts({
+  definitions: [systemScripts()],
+  providers: [],
+  host: {
+    workspaces: { resolve: async () => { throw new Error('Echo resolves no workspace.'); } },
+    credentials: { resolve: async () => { throw new Error('Echo resolves no credential.'); } },
+    events: { emit: async () => undefined },
+    clock: { now: () => 1_000, sleep: async () => undefined },
+  },
+});
+assert.deepEqual(await echoScripts.execute({
+  executionId: 'packed-consumer-echo',
+  script: { id: 'script:system/echo', version: 1 },
+  input: { message: 'packed consumer' },
+  bindings: { resources: {}, credentials: {} },
+}), {
+  ok: true,
+  value: { message: 'packed consumer' },
+  evidence: [],
+  attempts: 1,
+});
 
 const headSha = '0123456789abcdef0123456789abcdef01234567';
 const treeSha = '89abcdef0123456789abcdef0123456789abcdef';
@@ -152,8 +188,11 @@ await assert.rejects(
 
 const typeConsumer = `
 import {
+  builtInScriptCatalog,
   createRevoScripts,
   gitScripts,
+  systemScripts,
+  type BuiltInScriptDescriptor,
   type RevoScriptExecutionRequest,
 } from '@revisium/revo-scripts';
 import type { RevoScriptsHost } from '@revisium/revo-scripts/host';
@@ -161,9 +200,22 @@ import {
   nodeGitProviders,
   type ProcessExecutor,
 } from '@revisium/revo-scripts/providers/git';
+import {
+  systemEchoScript,
+  type EchoInput,
+  type EchoResult,
+} from '@revisium/revo-scripts/system';
 
 declare const host: RevoScriptsHost;
 declare const processExecutor: ProcessExecutor;
+
+const catalog: readonly BuiltInScriptDescriptor[] = builtInScriptCatalog();
+const echoInput: EchoInput = { message: 'type consumer' };
+const echoResult: EchoResult = echoInput;
+void catalog;
+void echoResult;
+void systemEchoScript;
+void systemScripts();
 
 const scripts = createRevoScripts({
   definitions: [gitScripts()],

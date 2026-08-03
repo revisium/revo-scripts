@@ -45,6 +45,10 @@
       "types": "./dist/scripts/approval/index.d.ts",
       "import": "./dist/scripts/approval/index.js"
     },
+    "./system": {
+      "types": "./dist/scripts/system/index.d.ts",
+      "import": "./dist/scripts/system/index.js"
+    },
     "./providers/git": {
       "types": "./dist/providers/git/index.d.ts",
       "import": "./dist/providers/git/index.js"

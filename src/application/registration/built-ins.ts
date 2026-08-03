@@ -10,6 +10,7 @@ import {
   githubReviewThreadResolveScript,
   githubReviewThreadRespondScript,
 } from '../../scripts/github/index.js';
+import { systemEchoScript } from '../../scripts/system/index.js';
 import type { ScriptDefinitionModule } from './script-definition-module.js';
 import type { ScriptDefinitionRegistrar } from './script-definition-registrar.js';
 
@@ -41,6 +42,7 @@ export const builtInScripts = (): ScriptDefinitionModule => ({
   provenance: packageProvenance,
   registerInto: (registrar: ScriptDefinitionRegistrar) => {
     registrar.register(approvalSubjectScript);
+    registrar.register(systemEchoScript);
     registrar.register(gitCommitScript);
     registrar.register(gitPushScript);
     registrar.register(gitStatusScript);
@@ -50,6 +52,14 @@ export const builtInScripts = (): ScriptDefinitionModule => ({
     registrar.register(githubReviewThreadRespondScript);
     registrar.register(githubReviewThreadResolveScript);
     registrar.register(githubPullRequestMergeScript);
+  },
+});
+
+export const systemScripts = (): ScriptDefinitionModule => ({
+  id: '@revisium/revo-scripts/scripts/system',
+  provenance: packageProvenance,
+  registerInto: (registrar: ScriptDefinitionRegistrar) => {
+    registrar.register(systemEchoScript);
   },
 });
 

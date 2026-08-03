@@ -14,26 +14,17 @@ describe('built-in definition identities', () => {
         definitions.push(definition);
       },
     });
-    const expectedIds = [
-      'script:approval/subject',
-      'script:git/status',
-      'script:git/commit',
-      'script:git/push',
-      'script:github/pull-request/upsert',
-      'script:github/pull-request/mark-ready',
-      'script:github/pull-request/readiness',
-      'script:github/review-threads/respond',
-      'script:github/review-threads/resolve',
-      'script:github/pull-request/merge',
-    ];
-
     expect(definitions.map((definition) => definition.manifest.id).sort()).toEqual(
-      expectedIds.sort(),
+      Object.keys(builtInBuildDigests).sort(),
     );
-
-    for (const definition of definitions) {
-      expect(definition.implementation.buildDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
-    }
+    expect(
+      Object.fromEntries(
+        definitions.map((definition) => [
+          definition.manifest.id,
+          definition.implementation.buildDigest,
+        ]),
+      ),
+    ).toEqual(builtInBuildDigests);
   });
 
   it('returns the generated digest for an exact built-in id and rejects an unknown id', () => {

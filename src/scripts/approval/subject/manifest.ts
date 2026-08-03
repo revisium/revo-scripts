@@ -1,4 +1,5 @@
 import type { ScriptManifestV1 } from '../../../runtime/spec/manifest/index.js';
+import { pureScriptManifestPolicy } from '../../shared/pure-script-manifest-policy.js';
 import { approvalSubjectInputSchema, approvalSubjectResultSchema } from './schemas.js';
 
 export const approvalSubjectManifest = {
@@ -8,15 +9,5 @@ export const approvalSubjectManifest = {
   summary: 'Constructs one provider-neutral approval subject.',
   inputSchemaId: approvalSubjectInputSchema.id,
   resultSchemaId: approvalSubjectResultSchema.id,
-  effectClass: 'pure',
-  permissions: [],
-  resources: [],
-  providers: [],
-  credentials: [],
-  effects: [],
-  timeout: { wallClockMs: 1_000 },
-  retry: { mode: 'never', maxAttempts: 1, backoffMs: [] },
-  idempotency: 'read-only',
-  redaction: { inputPaths: [], resultPaths: [], errorPaths: [], eventPaths: [] },
-  events: { allowed: [], detailPaths: [] },
+  ...pureScriptManifestPolicy(),
 } as const satisfies ScriptManifestV1;

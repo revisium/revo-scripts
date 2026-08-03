@@ -15,6 +15,7 @@ const generatedImplementationPath = join(generatedDirectory, 'built-in-implement
 
 const builtInDefinitionEntries = [
   ['script:approval/subject', 'scripts/approval/subject/script.js'],
+  ['script:system/echo', 'scripts/system/echo/script.js'],
   ['script:git/commit', 'scripts/git/commit/script.js'],
   ['script:git/push', 'scripts/git/push/script.js'],
   ['script:git/status', 'scripts/git/status/script.js'],
