@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { createScriptSchema } from '../../../runtime/definition/schema/create-script-schema.js';
+import type { ScriptSchemaOutput } from '../../../runtime/spec/schema/index.js';
 
 export const githubObjectIdSchema = z.string().regex(/^[0-9a-f]{40}$/);
 export const repositoryIdSchema = z.string().min(1).max(256);
@@ -93,3 +94,11 @@ export const githubReadinessSchema = createScriptSchema({
   }),
   jsonSchema: 'output',
 });
+
+export type GitHubPullRequestV1 = ScriptSchemaOutput<typeof githubPullRequestSchema>;
+export type GitHubReadinessV1 = ScriptSchemaOutput<typeof githubReadinessSchema>;
+export type GitHubIssueAction = NonNullable<GitHubPullRequestV1['issueRef']>['action'];
+export type GitHubIssueRefV1 = NonNullable<GitHubPullRequestV1['issueRef']>;
+export type GitHubReadinessCheckV1 = GitHubReadinessV1['checks'][number];
+export type GitHubReadinessThreadV1 = GitHubReadinessV1['unresolvedThreads'][number];
+export type { ApprovalSubjectResult as ApprovalSubjectV1 } from '../../approval/subject/schemas.js';

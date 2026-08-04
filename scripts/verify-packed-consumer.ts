@@ -196,6 +196,10 @@ import {
   type RevoScriptExecutionRequest,
 } from '@revisium/revo-scripts';
 import type { RevoScriptsHost } from '@revisium/revo-scripts/host';
+import type {
+  GitHubPullRequestMergeInput,
+  GitHubPullRequestMergeResult,
+} from '@revisium/revo-scripts/github';
 import {
   nodeGitProviders,
   type ProcessExecutor,
@@ -212,8 +216,16 @@ declare const processExecutor: ProcessExecutor;
 const catalog: readonly BuiltInScriptDescriptor[] = builtInScriptCatalog();
 const echoInput: EchoInput = { message: 'type consumer' };
 const echoResult: EchoResult = echoInput;
+type MergeApprovalKind = GitHubPullRequestMergeInput['approvalSubject']['kind'];
+type MergeResultIssueAction = NonNullable<GitHubPullRequestMergeResult['issueRef']>['action'];
+// @ts-expect-error The packed merge input declaration rejects non-merge approval subjects.
+const invalidMergeApprovalKind: MergeApprovalKind = 'plan';
+// @ts-expect-error The packed merge result declaration cannot emit the input-only none action.
+const invalidMergeResultIssueAction: MergeResultIssueAction = 'none';
 void catalog;
 void echoResult;
+void invalidMergeApprovalKind;
+void invalidMergeResultIssueAction;
 void systemEchoScript;
 void systemScripts();
 

@@ -97,6 +97,12 @@ may decide what to do after the returned result, but the script performs only it
 - A new provider contract, transport, or privileged behavior requires package implementation and a new release.
 - Automatic filesystem/plugin discovery is not part of the contract.
 
+Built-in public Input/Result aliases are deeply readonly projections of the same runtime schemas used for validation;
+they are not separately maintained shape copies. `defineScript` accepts an authoring manifest that may omit empty
+`redaction` and `events` policies, then exposes a complete canonical `ScriptManifestV1` with those empty collections
+present. Required-idempotency authoring handlers receive a context whose `idempotencyKey` is a required string after
+runtime preflight; execution requests keep the key optional so a missing key returns the stable preflight failure.
+
 ## Built-ins and discovery
 
 The complete installed built-in set is:
@@ -117,6 +123,8 @@ The complete installed built-in set is:
 new frozen array of frozen descriptor snapshots; its script identity and implementation provenance objects are also
 frozen. Each descriptor contains the exact script id/version plus the implementation id, implementation SemVer, and a
 `sha256:` build digest generated from the compiled JavaScript dependency closure of that built-in definition.
+The family modules and catalog derive from one explicit package-owned inventory; discovery never scans the filesystem
+or imports additional modules for side effects.
 
 Use `systemScripts()` to register the system family explicitly. The `@revisium/revo-scripts/system` entrypoint exports
 `systemEchoScript` and its `EchoInput`, `EchoResult`, and `EchoResources` types.

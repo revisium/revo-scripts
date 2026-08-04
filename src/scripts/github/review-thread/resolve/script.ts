@@ -5,12 +5,10 @@ import { githubReviewThreadResolveManifest } from './manifest.js';
 import {
   githubReviewThreadResolveInputSchema,
   githubReviewThreadResolveResultSchema,
+  type GitHubReviewThreadResolveInput,
+  type GitHubReviewThreadResolveResources,
+  type GitHubReviewThreadResolveResult,
 } from './schemas.js';
-import type {
-  GitHubReviewThreadResolveInput,
-  GitHubReviewThreadResolveResources,
-  GitHubReviewThreadResolveResult,
-} from './types.js';
 
 export const githubReviewThreadResolveScript = defineScript<
   GitHubReviewThreadResolveInput,
@@ -20,6 +18,6 @@ export const githubReviewThreadResolveScript = defineScript<
   manifest: githubReviewThreadResolveManifest,
   inputSchema: githubReviewThreadResolveInputSchema,
   resultSchema: githubReviewThreadResolveResultSchema,
-  implementation: builtInImplementation('script:github/review-threads/resolve', '1.0.0'),
+  implementation: builtInImplementation(githubReviewThreadResolveManifest.id, '1.0.0'),
   handler: new GitHubReviewThreadResolveHandler(),
 });

@@ -5,12 +5,10 @@ import { githubPullRequestMarkReadyManifest } from './manifest.js';
 import {
   githubPullRequestMarkReadyInputSchema,
   githubPullRequestMarkReadyResultSchema,
+  type GitHubPullRequestMarkReadyInput,
+  type GitHubPullRequestMarkReadyResources,
+  type GitHubPullRequestMarkReadyResult,
 } from './schemas.js';
-import type {
-  GitHubPullRequestMarkReadyInput,
-  GitHubPullRequestMarkReadyResources,
-  GitHubPullRequestMarkReadyResult,
-} from './types.js';
 
 export const githubPullRequestMarkReadyScript = defineScript<
   GitHubPullRequestMarkReadyInput,
@@ -20,6 +18,6 @@ export const githubPullRequestMarkReadyScript = defineScript<
   manifest: githubPullRequestMarkReadyManifest,
   inputSchema: githubPullRequestMarkReadyInputSchema,
   resultSchema: githubPullRequestMarkReadyResultSchema,
-  implementation: builtInImplementation('script:github/pull-request/mark-ready', '1.0.0'),
+  implementation: builtInImplementation(githubPullRequestMarkReadyManifest.id, '1.0.0'),
   handler: new GitHubPullRequestMarkReadyHandler(),
 });

@@ -2,16 +2,9 @@ import type { ProviderClientRequest } from '../../../../host/providers/provider-
 import type { ScriptProviderModule } from '../../../../host/providers/script-provider-module.js';
 import { ScriptFault } from '../../../../runtime/spec/errors/index.js';
 import { GitHubCoordinateSchema } from '../../contracts/github-coordinate-schema.js';
+import type { GitHubRepositoryCoordinates } from '../../contracts/github-repository-coordinates.js';
 import type { FetchGitHubProviderOptions } from './fetch-github-provider-options.js';
-
-const supportedPermissions = new Set([
-  'github.pull-request.upsert',
-  'github.pull-request.mark-ready',
-  'github.pull-request.readiness',
-  'github.review-thread.respond',
-  'github.review-thread.resolve',
-  'github.pull-request.merge',
-]);
+import { fetchGitHubProviderImplementationDigest } from './generated-provider-implementation-digest.js';
 import { GitHubApiClient } from './github-api-client.js';
 import { FetchGitHubPullRequestMergeClient } from './pull-request/fetch-github-pull-request-merge-client.js';
 import { FetchGitHubPullRequestReadinessClient } from './pull-request/fetch-github-pull-request-readiness-client.js';
@@ -20,11 +13,40 @@ import { FetchGitHubPullRequestUpsertClient } from './pull-request/fetch-github-
 import { FetchGitHubReviewThreadResolveClient } from './review-thread/fetch-github-review-thread-resolve-client.js';
 import { FetchGitHubReviewThreadRespondClient } from './review-thread/fetch-github-review-thread-respond-client.js';
 
+type BoundedClientFactory = (
+  api: GitHubApiClient,
+  coordinates: GitHubRepositoryCoordinates,
+  options: FetchGitHubProviderOptions,
+) => object;
+
+const boundedClientFactories = {
+  'github.pull-request.upsert': ((api, coordinates, _options) =>
+    new FetchGitHubPullRequestUpsertClient(api, coordinates)) satisfies BoundedClientFactory,
+  'github.pull-request.mark-ready': ((api, coordinates, _options) =>
+    new FetchGitHubPullRequestReadyClient(api, coordinates)) satisfies BoundedClientFactory,
+  'github.pull-request.readiness': ((api, coordinates, options) =>
+    new FetchGitHubPullRequestReadinessClient(
+      api,
+      coordinates,
+      options.now,
+    )) satisfies BoundedClientFactory,
+  'github.review-thread.respond': ((api, coordinates, _options) =>
+    new FetchGitHubReviewThreadRespondClient(api, coordinates)) satisfies BoundedClientFactory,
+  'github.review-thread.resolve': ((api, coordinates, _options) =>
+    new FetchGitHubReviewThreadResolveClient(api, coordinates)) satisfies BoundedClientFactory,
+  'github.pull-request.merge': ((api, coordinates, _options) =>
+    new FetchGitHubPullRequestMergeClient(api, coordinates)) satisfies BoundedClientFactory,
+} as const;
+
+type SupportedPermission = keyof typeof boundedClientFactories;
+
+const isSupportedPermission = (permission: string): permission is SupportedPermission =>
+  Object.hasOwn(boundedClientFactories, permission);
+
 export class FetchGitHubProvider implements ScriptProviderModule {
   readonly id = 'provider:github/fetch';
   readonly contract = 'revo.provider.github/v1';
-  readonly implementationDigest =
-    'sha256:362bbb9bc17f430560321fe99e1cc479040aa74471fb10d88b5206b832f44b45';
+  readonly implementationDigest = fetchGitHubProviderImplementationDigest;
   readonly provenance = {
     packageName: '@revisium/revo-scripts',
     packageVersion: '0.0.0',
@@ -71,31 +93,16 @@ export class FetchGitHubProvider implements ScriptProviderModule {
   private createBoundedClient(
     request: ProviderClientRequest,
     api: GitHubApiClient,
-    coordinates: Readonly<{ owner: string; repository: string }>,
+    coordinates: GitHubRepositoryCoordinates,
   ): object {
-    const permissions = request.manifest.permissions.filter((permission) =>
-      supportedPermissions.has(permission),
-    );
+    const permissions = request.manifest.permissions.filter(isSupportedPermission);
     const permission = permissions.length === 1 ? permissions[0] : undefined;
-    switch (permission) {
-      case 'github.pull-request.upsert':
-        return new FetchGitHubPullRequestUpsertClient(api, coordinates);
-      case 'github.pull-request.mark-ready':
-        return new FetchGitHubPullRequestReadyClient(api, coordinates);
-      case 'github.pull-request.readiness':
-        return new FetchGitHubPullRequestReadinessClient(api, coordinates, this.options.now);
-      case 'github.review-thread.respond':
-        return new FetchGitHubReviewThreadRespondClient(api, coordinates);
-      case 'github.review-thread.resolve':
-        return new FetchGitHubReviewThreadResolveClient(api, coordinates);
-      case 'github.pull-request.merge':
-        return new FetchGitHubPullRequestMergeClient(api, coordinates);
-      case undefined:
-      default:
-        throw new ScriptFault(
-          'revo.script.provider.capability_unsupported',
-          'The GitHub provider does not support the declared permission contract.',
-        );
+    if (permission === undefined) {
+      throw new ScriptFault(
+        'revo.script.provider.capability_unsupported',
+        'The GitHub provider does not support the declared permission contract.',
+      );
     }
+    return boundedClientFactories[permission](api, coordinates, this.options);
   }
 }

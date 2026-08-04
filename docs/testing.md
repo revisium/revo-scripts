@@ -88,10 +88,14 @@ The runtime foundation requires tests for:
 - input and result schema validation;
 - effect, permission, resource, retry, and idempotency coherence;
 - deterministic definition digest generation;
-- build-generated definition identity freshness and digest participation;
+- build-generated definition and provider implementation identity freshness, digest participation, and closure
+  isolation;
+- equality of canonical manifests and definition digests for omitted versus explicit empty authoring policies;
+- rejection of `null` and present malformed authoring policies before redaction or event intent can be weakened;
 - duplicate registration, sealing, exact lookup, and missing-definition failures;
 - coexistence and exact lookup of two immutable integer revisions of one script id;
 - readonly handler input and one-handler invocation per attempt;
+- required-write preflight with zero attempts and a type-refined required idempotency key at handler entry;
 - wall-clock timeout and abort propagation;
 - a never-settling handler or event sink remains bounded by the platform wall-clock deadline;
 - bounded retry of typed transient failures only;
@@ -169,6 +173,10 @@ Every package-owned provider requires tests proving:
 - Fetch readiness observes branch protection plus the credential-scoped applied repository and organization rulesets,
   preserving complete, unavailable, and truncated required-check identity evidence;
 - provider contract majors are selected solely by manifest requirements;
+- every supported permission partition constructs only its operation-specific bounded client, while zero, multiple,
+  unsupported, and unrelated-only partitions keep the stable capability fault;
+- the generated provider implementation digest covers the adapter's emitted transitive closure, excludes its own
+  generated metadata, and changes independently of other adapters and definitions;
 - startup rejects a second registered implementation for the same provider contract;
 - provider selection never introduces implicit latest selection or fallback.
 

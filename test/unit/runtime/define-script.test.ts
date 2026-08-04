@@ -112,6 +112,216 @@ test('pins the executable build digest into the definition digest', () => {
   });
 });
 
+test('canonicalizes omitted empty manifest policies before snapshot and digest', () => {
+  const { redaction, events, ...manifestWithoutEmptyPolicies } = manifest;
+  expect({ redaction, events }).toEqual({
+    redaction: {
+      inputPaths: [],
+      resultPaths: [],
+      errorPaths: [],
+      eventPaths: [],
+    },
+    events: { allowed: [], detailPaths: [] },
+  });
+
+  const implementation = {
+    id: '@revisium/revo-scripts/test/echo',
+    version: '1.0.0',
+    buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000045',
+  } as const;
+  const omitted = defineScript({
+    manifest: manifestWithoutEmptyPolicies,
+    inputSchema,
+    resultSchema,
+    implementation,
+    handler,
+  });
+  const explicit = defineScript({
+    manifest,
+    inputSchema,
+    resultSchema,
+    implementation,
+    handler,
+  });
+
+  expect({
+    manifestsEqual: omitted.manifest === explicit.manifest,
+    omittedManifest: omitted.manifest,
+    explicitManifest: explicit.manifest,
+    omittedDigest: omitted.definitionDigest,
+    explicitDigest: explicit.definitionDigest,
+  }).toEqual({
+    manifestsEqual: false,
+    omittedManifest: manifest,
+    explicitManifest: manifest,
+    omittedDigest: explicit.definitionDigest,
+    explicitDigest: explicit.definitionDigest,
+  });
+});
+
+test('rejects null rather than silently disabling an authored redaction policy', () => {
+  const runtimeManifest = {
+    ...manifest,
+    redaction: { ...manifest.redaction, inputPaths: ['/secret'] },
+  };
+  const definitionInput = {
+    manifest: runtimeManifest,
+    inputSchema,
+    resultSchema,
+    implementation: {
+      id: '@revisium/revo-scripts/test/echo',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000047',
+    } as const,
+    handler,
+  };
+
+  expect(defineScript(definitionInput).manifest.redaction.inputPaths).toEqual(['/secret']);
+  expect(Reflect.set(runtimeManifest, 'redaction', null)).toBe(true);
+  expect(captureFault(() => defineScript(definitionInput))).toEqual({
+    code: 'revo.script.validation.manifest',
+    message: 'Script manifest is invalid.',
+    retryable: false,
+    details: {
+      issues: [
+        {
+          path: '/redaction',
+          message: 'Invalid input: expected object, received null',
+        },
+      ],
+    },
+  });
+});
+
+test.each([
+  {
+    name: 'null events',
+    field: 'events',
+    value: null,
+    issues: [
+      {
+        path: '/events',
+        message: 'Invalid input: expected object, received null',
+      },
+    ],
+  },
+  {
+    name: 'incomplete redaction object',
+    field: 'redaction',
+    value: { inputPaths: ['/secret'] },
+    issues: [
+      {
+        path: '/redaction/resultPaths',
+        message: 'Invalid input: expected array, received undefined',
+      },
+      {
+        path: '/redaction/errorPaths',
+        message: 'Invalid input: expected array, received undefined',
+      },
+      {
+        path: '/redaction/eventPaths',
+        message: 'Invalid input: expected array, received undefined',
+      },
+    ],
+  },
+  {
+    name: 'malformed events object',
+    field: 'events',
+    value: { allowed: 'script.event', detailPaths: [] },
+    issues: [
+      {
+        path: '/events/allowed',
+        message: 'Invalid input: expected array, received string',
+      },
+    ],
+  },
+] as const)(
+  'rejects a runtime $name with stable manifest diagnostics',
+  ({ field, value, issues }) => {
+    const runtimeManifest = { ...manifest };
+    expect(Reflect.set(runtimeManifest, field, value)).toBe(true);
+
+    expect(
+      captureFault(() =>
+        defineScript({
+          manifest: runtimeManifest,
+          inputSchema,
+          resultSchema,
+          implementation: {
+            id: '@revisium/revo-scripts/test/echo',
+            version: '1.0.0',
+            buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000048',
+          },
+          handler,
+        }),
+      ),
+    ).toEqual({
+      code: 'revo.script.validation.manifest',
+      message: 'Script manifest is invalid.',
+      retryable: false,
+      details: { issues },
+    });
+  },
+);
+
+test('refines required handler context while guarding direct definition handler calls', async () => {
+  const receivedKeys: string[] = [];
+  const definition = defineScript({
+    manifest: {
+      ...manifest,
+      id: 'script:test/required-handler',
+      summary: 'Exercises required handler context refinement.',
+      effectClass: 'write',
+      permissions: ['git.test.write'],
+      resources: [{ name: 'repository', kind: 'repository', access: 'write' }],
+      effects: ['git.write'],
+      idempotency: 'required',
+    },
+    inputSchema,
+    resultSchema,
+    implementation: {
+      id: '@revisium/revo-scripts/test/required-handler',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000046',
+    },
+    handler: {
+      execute: async (input, context) => {
+        receivedKeys.push(context.idempotencyKey);
+        return { value: { echoed: input.message } };
+      },
+    },
+  });
+  const baseContext = {
+    executionId: 'direct-handler',
+    attempt: 1,
+    resources: {
+      repository: {
+        name: 'repository',
+        kind: 'repository',
+        access: 'write',
+        grant: { permissions: ['git.test.write'], effects: ['git.write'] },
+        clients: {},
+      },
+    },
+    signal: new AbortController().signal,
+    emit: async () => undefined,
+  } as const;
+
+  await expect(
+    definition.handler.execute({ message: 'missing' }, baseContext),
+  ).rejects.toMatchObject({
+    code: 'revo.script.idempotency.key_required',
+    retryable: false,
+  });
+  await expect(
+    definition.handler.execute(
+      { message: 'present' },
+      { ...baseContext, idempotencyKey: 'required-handler-key' },
+    ),
+  ).resolves.toEqual({ value: { echoed: 'present' } });
+  expect(receivedKeys).toEqual(['required-handler-key']);
+});
+
 test('rejects duplicate bounded manifest entries with stable diagnostics', () => {
   const invalidManifest = {
     ...manifest,

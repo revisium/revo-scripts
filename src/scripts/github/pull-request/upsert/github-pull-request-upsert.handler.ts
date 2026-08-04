@@ -1,27 +1,24 @@
-import type { ScriptContext, ScriptHandler } from '../../../../runtime/spec/definition/index.js';
+import type {
+  RequiredIdempotencyScriptContext,
+  RequiredIdempotencyScriptHandler,
+} from '../../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../../runtime/spec/errors/index.js';
 import { toGitHubPullRequest } from '../../shared/to-github-pull-request.js';
 import type {
   GitHubPullRequestUpsertInput,
   GitHubPullRequestUpsertResources,
   GitHubPullRequestUpsertResult,
-} from './types.js';
+} from './schemas.js';
 
-export class GitHubPullRequestUpsertHandler implements ScriptHandler<
+export class GitHubPullRequestUpsertHandler implements RequiredIdempotencyScriptHandler<
   GitHubPullRequestUpsertInput,
   GitHubPullRequestUpsertResult,
   GitHubPullRequestUpsertResources
 > {
   async execute(
     input: Readonly<GitHubPullRequestUpsertInput>,
-    context: Readonly<ScriptContext<GitHubPullRequestUpsertResources>>,
+    context: Readonly<RequiredIdempotencyScriptContext<GitHubPullRequestUpsertResources>>,
   ): Promise<{ readonly value: GitHubPullRequestUpsertResult }> {
-    if (context.idempotencyKey === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.key_required',
-        'Script execution requires an idempotency key.',
-      );
-    }
     const body = this.body(input);
     const request = {
       head: input.head,

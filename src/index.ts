@@ -19,12 +19,18 @@ export {
 export type { ScriptDefinitionModule } from './application/registration/script-definition-module.js';
 export type { ScriptDefinitionRegistrar } from './application/registration/script-definition-registrar.js';
 export type {
+  RequiredIdempotencyScriptContext,
+  RequiredIdempotencyScriptHandler,
   ScriptContext,
   ScriptDefinition,
   ScriptDefinitionInput,
   ScriptHandler,
 } from './runtime/spec/definition/index.js';
 export type { ExecuteScriptRequest } from './runtime/spec/execution/index.js';
-export type { ScriptManifestV1 } from './runtime/spec/manifest/index.js';
+export type { ScriptManifestAuthoringV1, ScriptManifestV1 } from './runtime/spec/manifest/index.js';
 export type { ScriptExecutionResult } from './runtime/spec/result/index.js';
-export type { ScriptSchema } from './runtime/spec/schema/index.js';
+export type {
+  DeepReadonly,
+  ScriptSchema,
+  ScriptSchemaOutput,
+} from './runtime/spec/schema/index.js';

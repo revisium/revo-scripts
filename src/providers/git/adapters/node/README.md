@@ -29,9 +29,15 @@ index tree capture; commit uses `commit-tree` and compare-and-swap `update-ref`;
 and never rewrites history. Commit authorship and timestamp come from validated script input rather than mutable Git
 configuration, making the object identity reproducible after a crash.
 
+The provider imports its implementation digest from provider-adjacent generated metadata. `build:identity:generate`
+hashes the adapter's emitted transitive closure with deterministic path/length framing while excluding that generated
+metadata itself; `build:identity:check` rejects stale metadata and tests prove Git changes do not alter the Fetch
+GitHub identity.
+
 ## Verification
 
 - Adapter behavior: `test/unit/providers/`
+- Identity freshness and adapter isolation: `test/contract/runtime/build-digest-check.test.ts`
 - Real local Git contracts: `test/integration/providers/node-git-provider.test.ts` and
   `test/integration/providers/node-git-mutations.test.ts`
 - Full repository gate: `pnpm verify`

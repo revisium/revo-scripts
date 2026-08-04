@@ -16,7 +16,9 @@ Accepts exactly `{ message: string }` with at most 65,536 characters and returns
 
 ## Files and dependencies
 
-`types.ts` owns JSON types, `schemas.ts` owns validation, `manifest.ts` owns policy, `system-echo.handler.ts` owns the stateless operation, and `script.ts` composes the definition. The operation imports no host, provider, or application modules.
+`schemas.ts` owns validation plus schema-derived public JSON aliases and the explicit empty resource map. `manifest.ts`
+owns policy, `system-echo.handler.ts` owns the stateless operation, and `script.ts` composes the definition. The
+operation imports no host, provider, or application modules.
 
 ## Failure and event contract
 

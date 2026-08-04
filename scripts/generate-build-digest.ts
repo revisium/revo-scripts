@@ -2,16 +2,51 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { join, posix, relative, resolve as resolveHostPath, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-type OutputFile = Readonly<{ path: string; relativePath: string }>;
+export type IdentityPathStyle = 'posix' | 'win32';
+export type OutputFile = Readonly<{ path: string; relativePath: string }>;
+type ProviderIdentityEntry = Readonly<{
+  constantName: string;
+  entryPath: string;
+  generatedJavaScriptPath: string;
+  generatedSourcePath: string;
+}>;
 
 const repositoryRoot =
   process.env.REVO_SCRIPTS_BUILD_DIGEST_ROOT ?? fileURLToPath(new URL('..', import.meta.url));
 const generatedDirectory = join(repositoryRoot, 'src/runtime/generated');
 const generatedDigestPath = join(generatedDirectory, 'build-digest.ts');
 const generatedImplementationPath = join(generatedDirectory, 'built-in-implementation.ts');
+
+const providerIdentityEntries: readonly ProviderIdentityEntry[] = [
+  {
+    constantName: 'nodeGitProviderImplementationDigest',
+    entryPath: 'providers/git/adapters/node/node-git-provider.js',
+    generatedJavaScriptPath:
+      'providers/git/adapters/node/generated-provider-implementation-digest.js',
+    generatedSourcePath: join(
+      repositoryRoot,
+      'src/providers/git/adapters/node/generated-provider-implementation-digest.ts',
+    ),
+  },
+  {
+    constantName: 'fetchGitHubProviderImplementationDigest',
+    entryPath: 'providers/github/adapters/fetch/fetch-github-provider.js',
+    generatedJavaScriptPath:
+      'providers/github/adapters/fetch/generated-provider-implementation-digest.js',
+    generatedSourcePath: join(
+      repositoryRoot,
+      'src/providers/github/adapters/fetch/generated-provider-implementation-digest.ts',
+    ),
+  },
+];
+
+const generatedJavaScriptPaths = new Set([
+  ...providerIdentityEntries.map(({ generatedJavaScriptPath }) => generatedJavaScriptPath),
+]);
+const hostIdentityPathStyle: IdentityPathStyle = process.platform === 'win32' ? 'win32' : 'posix';
 
 const builtInDefinitionEntries = [
   ['script:approval/subject', 'scripts/approval/subject/script.js'],
@@ -41,11 +76,35 @@ const collectJavaScriptFiles = async (directory: string): Promise<readonly strin
   return nested.flat();
 };
 
+export const normalizeIdentityPath = (path: string): string => path.replaceAll('\\', '/');
+
+const compareIdentityPaths = (left: string, right: string): number =>
+  left < right ? -1 : left > right ? 1 : 0;
+
+export const resolveImportedIdentityPath = (
+  importerPath: string,
+  importedPath: string,
+  style: IdentityPathStyle,
+): string => {
+  const pathApi = style === 'win32' ? win32 : posix;
+  const inStyle = (path: string): string =>
+    normalizeIdentityPath(path).split('/').join(pathApi.sep);
+  const resolvedPath = pathApi.relative(
+    pathApi.sep,
+    pathApi.resolve(pathApi.sep, pathApi.dirname(inStyle(importerPath)), inStyle(importedPath)),
+  );
+  return normalizeIdentityPath(resolvedPath);
+};
+
 const outputFiles = async (directory: string): Promise<readonly OutputFile[]> =>
   (await collectJavaScriptFiles(directory))
-    .map((path) => ({ path, relativePath: relative(directory, path).split(sep).join('/') }))
-    .filter(({ relativePath }) => !relativePath.startsWith('runtime/generated/'))
-    .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+    .map((path) => ({ path, relativePath: normalizeIdentityPath(relative(directory, path)) }))
+    .filter(
+      ({ relativePath }) =>
+        !relativePath.startsWith('runtime/generated/') &&
+        !generatedJavaScriptPaths.has(relativePath),
+    )
+    .sort((left, right) => compareIdentityPaths(left.relativePath, right.relativePath));
 
 const importedRelativePaths = (source: string): readonly string[] =>
   [...source.matchAll(/\b(?:import|export)\s+(?:[^'";]*?\s+from\s+)?['"](\.[^'"]+)['"]/g)].map(
@@ -58,24 +117,26 @@ const importedRelativePaths = (source: string): readonly string[] =>
     },
   );
 
-const digestForDefinition = async (
+export const digestForEmittedClosure = async (
   entryPath: string,
   filesByPath: ReadonlyMap<string, OutputFile>,
+  pathStyle: IdentityPathStyle = hostIdentityPathStyle,
 ): Promise<string> => {
   const closure = new Map<string, OutputFile>();
   const visit = async (relativePath: string): Promise<void> => {
-    if (closure.has(relativePath)) {
+    const normalizedPath = normalizeIdentityPath(relativePath);
+    if (closure.has(normalizedPath)) {
       return;
     }
-    const file = filesByPath.get(relativePath);
+    const file = filesByPath.get(normalizedPath);
     if (file === undefined) {
-      throw new Error(`Built-in definition closure is missing ${relativePath}.`);
+      throw new Error(`Emitted runtime closure is missing ${normalizedPath}.`);
     }
-    closure.set(relativePath, file);
+    closure.set(normalizedPath, file);
     const source = await readFile(file.path, 'utf8');
     await Promise.all(
       importedRelativePaths(source).map(async (importedPath) => {
-        const resolvedPath = relative(sep, resolve(sep, dirname(relativePath), importedPath));
+        const resolvedPath = resolveImportedIdentityPath(normalizedPath, importedPath, pathStyle);
         if (filesByPath.has(resolvedPath)) {
           await visit(resolvedPath);
         }
@@ -86,7 +147,7 @@ const digestForDefinition = async (
   await visit(entryPath);
   const digest = createHash('sha256');
   const files = [...closure.values()].sort((left, right) =>
-    left.relativePath.localeCompare(right.relativePath),
+    compareIdentityPaths(left.relativePath, right.relativePath),
   );
   const contents = await Promise.all(
     files.map(async (file) => ({ file, bytes: await readFile(file.path) })),
@@ -137,6 +198,11 @@ const buildImplementationSource = (digests: ReadonlyMap<string, string>): string
   '  }\n' +
   '};\n';
 
+const providerImplementationSource = (constantName: string, digest: string): string =>
+  '// Generated by scripts/generate-build-digest.ts. Do not edit by hand.\n' +
+  `export const ${constantName} =\n` +
+  `  '${digest}' as const;\n`;
+
 const generate = async (): Promise<void> => {
   const temporaryOutput = await mkdtemp(join(tmpdir(), 'revo-scripts-build-'));
   try {
@@ -151,28 +217,51 @@ const generate = async (): Promise<void> => {
       await Promise.all(
         builtInDefinitionEntries.map(
           async ([scriptId, entryPath]) =>
-            [scriptId, await digestForDefinition(entryPath, filesByPath)] as const,
+            [scriptId, await digestForEmittedClosure(entryPath, filesByPath)] as const,
         ),
       ),
     );
     const digestSource = buildDigestSource(digests);
     const implementationSource = buildImplementationSource(digests);
+    const providerIdentitySources = await Promise.all(
+      providerIdentityEntries.map(async (entry) => ({
+        entry,
+        source: providerImplementationSource(
+          entry.constantName,
+          await digestForEmittedClosure(entry.entryPath, filesByPath),
+        ),
+      })),
+    );
     if (process.argv.includes('--check')) {
       if (
         (await readFile(generatedDigestPath, 'utf8')) !== digestSource ||
-        (await readFile(generatedImplementationPath, 'utf8')) !== implementationSource
+        (await readFile(generatedImplementationPath, 'utf8')) !== implementationSource ||
+        (
+          await Promise.all(
+            providerIdentitySources.map(
+              async ({ entry, source }) =>
+                (await readFile(entry.generatedSourcePath, 'utf8')) === source,
+            ),
+          )
+        ).includes(false)
       ) {
-        throw new Error('Generated build digest is stale. Run pnpm build:identity:generate.');
+        throw new Error('Generated identity metadata is stale. Run pnpm build:identity:generate.');
       }
       return;
     }
     await Promise.all([
       writeFile(generatedDigestPath, digestSource),
       writeFile(generatedImplementationPath, implementationSource),
+      ...providerIdentitySources.map(({ entry, source }) =>
+        writeFile(entry.generatedSourcePath, source),
+      ),
     ]);
   } finally {
     await rm(temporaryOutput, { recursive: true, force: true });
   }
 };
 
-await generate();
+const invokedPath = process.argv[1];
+if (invokedPath !== undefined && resolveHostPath(invokedPath) === fileURLToPath(import.meta.url)) {
+  await generate();
+}

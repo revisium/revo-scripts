@@ -1,9 +1,12 @@
 import { z } from 'zod';
 
+import type { GitPushClient } from '../../../providers/git/index.js';
 import { createScriptSchema } from '../../../runtime/definition/schema/create-script-schema.js';
-import { gitChangeShape } from '../shared/git-change-schema.js';
+import type { ScriptResourceHandle } from '../../../runtime/spec/resources/index.js';
+import type { ScriptSchemaOutput } from '../../../runtime/spec/schema/index.js';
+import { gitChangeSchema, gitChangeShape } from '../shared/git-change-schema.js';
 
-export { gitChangeSchema as gitPushResultSchema } from '../shared/git-change-schema.js';
+export const gitPushResultSchema = gitChangeSchema;
 
 export const gitPushInputSchema = createScriptSchema({
   id: 'revo.script.git.push.input/v1',
@@ -16,3 +19,9 @@ export const gitPushInputSchema = createScriptSchema({
   }),
   jsonSchema: 'input',
 });
+
+export type GitPushInput = ScriptSchemaOutput<typeof gitPushInputSchema>;
+export type GitPushResult = ScriptSchemaOutput<typeof gitPushResultSchema>;
+export type GitPushResources = Readonly<{
+  repository: ScriptResourceHandle<Readonly<{ git: GitPushClient }>>;
+}>;

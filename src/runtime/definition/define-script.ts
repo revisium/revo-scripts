@@ -2,39 +2,66 @@ import { createHash } from 'node:crypto';
 
 import canonicalize from 'canonicalize';
 
-import type { ScriptDefinition, ScriptDefinitionInput } from '../spec/definition/index.js';
-import type { ScriptManifestV1 } from '../spec/manifest/index.js';
+import type {
+  OptionalIdempotencyScriptDefinitionInput,
+  RequiredIdempotencyScriptDefinitionInput,
+  ScriptDefinition,
+  ScriptDefinitionInput,
+  UnrefinedIdempotencyScriptDefinitionInput,
+} from '../spec/definition/index.js';
+import { ScriptFault } from '../spec/errors/index.js';
+import type { ScriptManifestAuthoringV1, ScriptManifestV1 } from '../spec/manifest/index.js';
 import type { ScriptResourceMap } from '../spec/resources/index.js';
 import { validateScriptManifest } from './validation/manifest/validate-manifest.js';
 import { validateDefinition } from './validation/validate-definition.js';
 
-const snapshotManifest = (manifest: ScriptManifestV1): ScriptManifestV1 => ({
+const canonicalManifest = (manifest: ScriptManifestAuthoringV1): ScriptManifestV1 => ({
   ...manifest,
-  permissions: [...manifest.permissions],
-  resources: manifest.resources.map((resource) => ({ ...resource })),
-  providers: manifest.providers.map((provider) => ({ ...provider })),
-  credentials: manifest.credentials.map((credential) => ({ ...credential })),
-  effects: [...manifest.effects],
-  ...(manifest.classification === undefined ? {} : { classification: manifest.classification }),
-  timeout: { ...manifest.timeout },
-  retry: {
-    ...manifest.retry,
-    backoffMs: [...manifest.retry.backoffMs],
-  },
-  redaction: {
-    inputPaths: [...manifest.redaction.inputPaths],
-    resultPaths: [...manifest.redaction.resultPaths],
-    errorPaths: [...manifest.redaction.errorPaths],
-    eventPaths: [...manifest.redaction.eventPaths],
-  },
-  events: {
-    allowed: [...manifest.events.allowed],
-    detailPaths: [...manifest.events.detailPaths],
-  },
+  redaction:
+    manifest.redaction === undefined
+      ? {
+          inputPaths: [],
+          resultPaths: [],
+          errorPaths: [],
+          eventPaths: [],
+        }
+      : manifest.redaction,
+  events: manifest.events === undefined ? { allowed: [], detailPaths: [] } : manifest.events,
 });
 
+const snapshotManifest = (manifest: ScriptManifestAuthoringV1): ScriptManifestV1 => {
+  const validated = validateScriptManifest(canonicalManifest(manifest));
+  return {
+    ...validated,
+    permissions: [...validated.permissions],
+    resources: validated.resources.map((resource) => ({ ...resource })),
+    providers: validated.providers.map((provider) => ({ ...provider })),
+    credentials: validated.credentials.map((credential) => ({ ...credential })),
+    effects: [...validated.effects],
+    ...(validated.classification === undefined ? {} : { classification: validated.classification }),
+    timeout: { ...validated.timeout },
+    retry: {
+      ...validated.retry,
+      backoffMs: [...validated.retry.backoffMs],
+    },
+    redaction: {
+      inputPaths: [...validated.redaction.inputPaths],
+      resultPaths: [...validated.redaction.resultPaths],
+      errorPaths: [...validated.redaction.errorPaths],
+      eventPaths: [...validated.redaction.eventPaths],
+    },
+    events: {
+      allowed: [...validated.events.allowed],
+      detailPaths: [...validated.events.detailPaths],
+    },
+  };
+};
+
 const digestDefinition = <I, O, R extends ScriptResourceMap>(
-  input: ScriptDefinitionInput<I, O, R>,
+  input: Pick<
+    ScriptDefinition<I, O, R>,
+    'manifest' | 'inputSchema' | 'resultSchema' | 'implementation'
+  >,
   schemas: Readonly<{
     input: Readonly<Record<string, unknown>>;
     result: Readonly<Record<string, unknown>>;
@@ -54,20 +81,56 @@ const digestDefinition = <I, O, R extends ScriptResourceMap>(
   return `sha256:${createHash('sha256').update(canonicalJson).digest('hex')}`;
 };
 
-export const defineScript = <I, O, R extends ScriptResourceMap>(
+const executionHandler = <I, O, R extends ScriptResourceMap>(
   input: ScriptDefinitionInput<I, O, R>,
-): ScriptDefinition<I, O, R> => {
-  const manifest = snapshotManifest(validateScriptManifest(input.manifest));
-  const implementation = { ...input.implementation };
-  const validatedInput = { ...input, manifest, implementation };
-  const schemas = validateDefinition(validatedInput);
+): ScriptDefinition<I, O, R>['handler'] => {
+  if (input.manifest.idempotency !== 'required') {
+    return input.handler;
+  }
 
+  const handler = input.handler;
   return {
+    execute: async (handlerInput, context) => {
+      if (context.idempotencyKey === undefined) {
+        throw new ScriptFault(
+          'revo.script.idempotency.key_required',
+          'This script requires an idempotency key.',
+        );
+      }
+
+      return handler.execute(handlerInput, {
+        ...context,
+        idempotencyKey: context.idempotencyKey,
+      });
+    },
+  };
+};
+
+export function defineScript<I, O, R extends ScriptResourceMap>(
+  input: RequiredIdempotencyScriptDefinitionInput<I, O, R>,
+): ScriptDefinition<I, O, R>;
+export function defineScript<I, O, R extends ScriptResourceMap>(
+  input: OptionalIdempotencyScriptDefinitionInput<I, O, R>,
+): ScriptDefinition<I, O, R>;
+export function defineScript<I, O, R extends ScriptResourceMap>(
+  input: UnrefinedIdempotencyScriptDefinitionInput<I, O, R>,
+): ScriptDefinition<I, O, R>;
+export function defineScript<I, O, R extends ScriptResourceMap>(
+  input: ScriptDefinitionInput<I, O, R>,
+): ScriptDefinition<I, O, R> {
+  const manifest = snapshotManifest(input.manifest);
+  const implementation = { ...input.implementation };
+  const schemas = validateDefinition(input);
+  const definitionIdentity = {
     manifest,
     inputSchema: input.inputSchema,
     resultSchema: input.resultSchema,
     implementation,
-    definitionDigest: digestDefinition(validatedInput, schemas),
-    handler: input.handler,
   };
-};
+
+  return {
+    ...definitionIdentity,
+    definitionDigest: digestDefinition(definitionIdentity, schemas),
+    handler: executionHandler(input),
+  };
+}

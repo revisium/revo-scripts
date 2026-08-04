@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { createScriptSchema } from '../../../runtime/definition/schema/create-script-schema.js';
+import type { ScriptSchemaOutput } from '../../../runtime/spec/schema/index.js';
 
 const boundedIdentifier = z.string().min(1).max(256);
 const identity = z.strictObject({ scheme: boundedIdentifier, value: z.string().min(1).max(2_048) });
@@ -39,3 +40,8 @@ export const approvalSubjectResultSchema = createScriptSchema({
   schema: z.strictObject(approvalSubjectResultShape),
   jsonSchema: 'output',
 });
+
+export type ApprovalSubjectInput = ScriptSchemaOutput<typeof approvalSubjectInputSchema>;
+export type ApprovalSubjectResult = ScriptSchemaOutput<typeof approvalSubjectResultSchema>;
+export type ApprovalEvidenceReference = ApprovalSubjectInput['evidence'][number];
+export type ApprovalSubjectResources = Readonly<Record<string, never>>;

@@ -1,31 +1,7 @@
-import { approvalSubjectScript } from '../../scripts/approval/subject/script.js';
-import { gitCommitScript } from '../../scripts/git/commit/script.js';
-import { gitPushScript } from '../../scripts/git/push/script.js';
-import { gitStatusScript } from '../../scripts/git/status/script.js';
-import {
-  githubPullRequestMarkReadyScript,
-  githubPullRequestMergeScript,
-  githubPullRequestReadinessScript,
-  githubPullRequestUpsertScript,
-  githubReviewThreadResolveScript,
-  githubReviewThreadRespondScript,
-} from '../../scripts/github/index.js';
-import { systemEchoScript } from '../../scripts/system/index.js';
+import { builtInDefinitionInventory } from './built-in-definition-inventory.js';
 import type { BuiltInScriptDescriptor } from './built-in-script-descriptor.js';
 
-const descriptors = [
-  approvalSubjectScript,
-  gitCommitScript,
-  gitPushScript,
-  gitStatusScript,
-  githubPullRequestUpsertScript,
-  githubPullRequestMarkReadyScript,
-  githubPullRequestReadinessScript,
-  githubReviewThreadRespondScript,
-  githubReviewThreadResolveScript,
-  githubPullRequestMergeScript,
-  systemEchoScript,
-]
+const descriptors = builtInDefinitionInventory
   .map(
     (definition): BuiltInScriptDescriptor =>
       Object.freeze({

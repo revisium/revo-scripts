@@ -1,6 +1,6 @@
 import type { ScriptContext, ScriptHandler } from '../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../runtime/spec/errors/index.js';
-import type { GitStatusInput, GitStatusResources, GitStatusResult } from './types.js';
+import type { GitStatusInput, GitStatusResources, GitStatusResult } from './schemas.js';
 
 export class GitStatusHandler implements ScriptHandler<
   GitStatusInput,

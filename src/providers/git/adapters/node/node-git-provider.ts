@@ -5,6 +5,7 @@ import type { GitCommitClient } from '../../contracts/git-commit-client.js';
 import type { GitPushClient } from '../../contracts/git-push-client.js';
 import type { GitStatusClient } from '../../contracts/git-status-client.js';
 import { NodeGitCommitClient } from './commit/node-git-commit-client.js';
+import { nodeGitProviderImplementationDigest } from './generated-provider-implementation-digest.js';
 import type { ProcessExecutor } from './process-executor.js';
 import { NodeGitPushClient } from './push/node-git-push-client.js';
 import { NodeGitStatusClient } from './status/node-git-status-client.js';
@@ -12,8 +13,7 @@ import { NodeGitStatusClient } from './status/node-git-status-client.js';
 export class NodeGitProvider implements ScriptProviderModule {
   readonly id = 'provider:git/node';
   readonly contract = 'revo.provider.git/v1';
-  readonly implementationDigest =
-    'sha256:5b85c3d2ae175efaa6b634681e00a18e0d82f4a88e0261674d4dcc0390af39b1';
+  readonly implementationDigest = nodeGitProviderImplementationDigest;
   readonly provenance = {
     packageName: '@revisium/revo-scripts',
     packageVersion: '0.0.0',

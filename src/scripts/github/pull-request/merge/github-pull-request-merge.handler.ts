@@ -1,35 +1,40 @@
-import type { ScriptContext, ScriptHandler } from '../../../../runtime/spec/definition/index.js';
+import type {
+  RequiredIdempotencyScriptContext,
+  RequiredIdempotencyScriptHandler,
+} from '../../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../../runtime/spec/errors/index.js';
 import type {
   GitHubPullRequestMergeInput,
   GitHubPullRequestMergeResources,
   GitHubPullRequestMergeResult,
-} from './types.js';
-export class GitHubPullRequestMergeHandler implements ScriptHandler<
+} from './schemas.js';
+
+type MergeOverrideAudit = Extract<
+  GitHubPullRequestMergeInput['gateResolution']['resolution'],
+  { readonly outcome: 'override_merge' }
+>['audit'];
+
+export class GitHubPullRequestMergeHandler implements RequiredIdempotencyScriptHandler<
   GitHubPullRequestMergeInput,
   GitHubPullRequestMergeResult,
   GitHubPullRequestMergeResources
 > {
   async execute(
     input: Readonly<GitHubPullRequestMergeInput>,
-    context: Readonly<ScriptContext<GitHubPullRequestMergeResources>>,
+    context: Readonly<RequiredIdempotencyScriptContext<GitHubPullRequestMergeResources>>,
   ): Promise<{ readonly value: GitHubPullRequestMergeResult }> {
-    if (context.idempotencyKey === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.key_required',
-        'Script execution requires an idempotency key.',
-      );
-    }
     const pr = input.pullRequest;
     this.assertArtifactEquality(input);
-    const override = input.gateResolution.resolution.outcome === 'override_merge';
-    const audit = input.gateResolution.resolution.audit;
+    const resolution = input.gateResolution.resolution;
+    const override = resolution.outcome === 'override_merge';
+    const audit = resolution.outcome === 'override_merge' ? resolution.audit : undefined;
+    const issueRef = pr.issueRef === undefined ? undefined : this.mergeIssueRef(pr.issueRef);
     const unresolvedThreadIds = input.readiness.unresolvedThreads.map((thread) => thread.id);
     this.assertGate(input, override, audit, unresolvedThreadIds);
     const snapshot = await context.resources.repository.clients.github.merge({
       number: pr.number,
       expectedHeadSha: pr.head.sha,
-      ...(pr.issueRef === undefined ? {} : { expectedIssueRef: this.mergeIssueRef(pr.issueRef) }),
+      ...(issueRef === undefined ? {} : { expectedIssueRef: issueRef }),
       method: 'squash',
       operationKey: context.idempotencyKey,
       signal: context.signal,
@@ -66,7 +71,7 @@ export class GitHubPullRequestMergeHandler implements ScriptHandler<
         method: 'squash',
         status: snapshot.status,
         sourceBranchDeleted: true,
-        ...(pr.issueRef === undefined ? {} : { issueRef: pr.issueRef }),
+        ...(issueRef === undefined ? {} : { issueRef }),
         ...(override && audit !== undefined
           ? {
               override: {
@@ -83,7 +88,7 @@ export class GitHubPullRequestMergeHandler implements ScriptHandler<
   private assertGate(
     input: Readonly<GitHubPullRequestMergeInput>,
     override: boolean,
-    audit: GitHubPullRequestMergeInput['gateResolution']['resolution']['audit'],
+    audit: MergeOverrideAudit | undefined,
     unresolvedThreadIds: readonly string[],
   ): void {
     const readiness = input.readiness;
@@ -169,9 +174,7 @@ export class GitHubPullRequestMergeHandler implements ScriptHandler<
     }
   }
 
-  private auditFingerprint(
-    audit: NonNullable<GitHubPullRequestMergeInput['gateResolution']['resolution']['audit']>,
-  ): string {
+  private auditFingerprint(audit: MergeOverrideAudit): string {
     const canonical = JSON.stringify({
       kind: audit.kind,
       threadIds: audit.threadIds,

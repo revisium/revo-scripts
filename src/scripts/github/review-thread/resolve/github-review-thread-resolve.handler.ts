@@ -1,26 +1,23 @@
-import type { ScriptContext, ScriptHandler } from '../../../../runtime/spec/definition/index.js';
+import type {
+  RequiredIdempotencyScriptContext,
+  RequiredIdempotencyScriptHandler,
+} from '../../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../../runtime/spec/errors/index.js';
 import type {
   GitHubReviewThreadResolveInput,
   GitHubReviewThreadResolveResources,
   GitHubReviewThreadResolveResult,
-} from './types.js';
+} from './schemas.js';
 
-export class GitHubReviewThreadResolveHandler implements ScriptHandler<
+export class GitHubReviewThreadResolveHandler implements RequiredIdempotencyScriptHandler<
   GitHubReviewThreadResolveInput,
   GitHubReviewThreadResolveResult,
   GitHubReviewThreadResolveResources
 > {
   async execute(
     input: Readonly<GitHubReviewThreadResolveInput>,
-    context: Readonly<ScriptContext<GitHubReviewThreadResolveResources>>,
+    context: Readonly<RequiredIdempotencyScriptContext<GitHubReviewThreadResolveResources>>,
   ): Promise<{ readonly value: GitHubReviewThreadResolveResult }> {
-    if (context.idempotencyKey === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.key_required',
-        'Script execution requires an idempotency key.',
-      );
-    }
     const proof = input.responses.pullRequest;
     if (
       proof.owner !== input.pullRequest.owner ||

@@ -24,6 +24,11 @@ behavior is described as shipped.
 When code and an Accepted spec disagree, stop and resolve the contract rather than silently treating either as a
 compatibility fallback.
 
+For every built-in script, the runtime schema value is authoritative for its public input and result shape. Public
+Input/Result names are deeply readonly aliases extracted through the library-neutral `ScriptSchema<T>` boundary;
+their declarations MUST NOT expose Zod. Handler resource maps remain explicit capability types adjacent to the owning
+schemas because schemas cannot describe executable clients.
+
 README consumer examples marked as Draft explain the proposed integration model. The linked ADR owns the decision and
 the specification owns exact target behavior. Current declarations and tests remain authoritative until that target is
 implemented and accepted.
@@ -159,15 +164,20 @@ contract and implementation:
 ```text
 <operation>/
   README.md
-  types.ts
-  schemas.ts
+  schemas.ts      runtime schemas, schema-derived Input/Result aliases, and explicit Resources
   manifest.ts
   <operation>.handler.ts
   script.ts
 ```
 
-`script.ts` is the version composition root only. The handler is a stateless class with one `execute` method. Types,
-schemas, manifest policy, and provider mechanics MUST NOT be mixed into the composition file.
+`script.ts` is the version composition root only. The handler is a stateless class with one `execute` method. Schema
+values own serializable Input/Result shapes and export their deeply readonly public aliases; executable resource
+capabilities remain explicit in the same schema-adjacent module. Manifest policy and provider mechanics MUST NOT be
+mixed into the composition file.
+
+The five GitHub publish operations share a private `github-publish-manifest-policy-v1.ts` policy. Each operation's
+`manifest.ts` remains the owner of its identity, schemas, summary, permission, timeout, and retry facts; readiness is a
+read policy and is intentionally outside that helper.
 
 Script integer revisions and provider implementation identity remain contract data, not folder naming. The package
 currently ships one implementation per operation/provider contract. A physical retention scheme for multiple script revisions is
@@ -200,8 +210,15 @@ runtime + host + application + providers + scripts <- testing
 - Execution is provider-neutral and does not import definition construction, built-in Git, or GitHub definitions.
 - `host` owns privileged integration types but no host implementation or resource lifecycle.
 - Only `application` composes host resolvers, exact registries, provider adapters, and definition modules.
+- `application/registration/built-in-definition-inventory.ts` is the one explicit internal executable inventory.
+  Family modules and the sorted immutable catalog derive from it without filesystem scanning or module side effects.
 - Git and GitHub do not import one another.
 - Production source never imports `testing`, test support, build output, or repository scripts.
+
+README operation/provider cards remain human-owned narrative. A machine parser or README generator is intentionally
+not part of verification: exact ids, permissions, effects, policies, family membership, and catalog order are checked
+from canonical manifests and the explicit inventory instead of creating a second source of truth inside prose.
+
 - Tests import explicit modules; there is no broad test-support barrel.
 - Public consumers use the export map and never deep-import internal files.
 

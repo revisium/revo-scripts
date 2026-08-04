@@ -5,12 +5,10 @@ import { githubPullRequestUpsertManifest } from './manifest.js';
 import {
   githubPullRequestUpsertInputSchema,
   githubPullRequestUpsertResultSchema,
+  type GitHubPullRequestUpsertInput,
+  type GitHubPullRequestUpsertResources,
+  type GitHubPullRequestUpsertResult,
 } from './schemas.js';
-import type {
-  GitHubPullRequestUpsertInput,
-  GitHubPullRequestUpsertResources,
-  GitHubPullRequestUpsertResult,
-} from './types.js';
 
 export const githubPullRequestUpsertScript = defineScript<
   GitHubPullRequestUpsertInput,
@@ -20,6 +18,6 @@ export const githubPullRequestUpsertScript = defineScript<
   manifest: githubPullRequestUpsertManifest,
   inputSchema: githubPullRequestUpsertInputSchema,
   resultSchema: githubPullRequestUpsertResultSchema,
-  implementation: builtInImplementation('script:github/pull-request/upsert', '1.0.0'),
+  implementation: builtInImplementation(githubPullRequestUpsertManifest.id, '1.0.0'),
   handler: new GitHubPullRequestUpsertHandler(),
 });
