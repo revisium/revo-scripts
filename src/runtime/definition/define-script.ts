@@ -15,18 +15,23 @@ import type { ScriptResourceMap } from '../spec/resources/index.js';
 import { validateScriptManifest } from './validation/manifest/validate-manifest.js';
 import { validateDefinition } from './validation/validate-definition.js';
 
+const defaultWhenUndefined = <T>(value: T | undefined, createDefault: () => T): T => {
+  if (value === undefined) {
+    return createDefault();
+  }
+
+  return value;
+};
+
 const canonicalManifest = (manifest: ScriptManifestAuthoringV1): ScriptManifestV1 => ({
   ...manifest,
-  redaction:
-    manifest.redaction === undefined
-      ? {
-          inputPaths: [],
-          resultPaths: [],
-          errorPaths: [],
-          eventPaths: [],
-        }
-      : manifest.redaction,
-  events: manifest.events === undefined ? { allowed: [], detailPaths: [] } : manifest.events,
+  redaction: defaultWhenUndefined(manifest.redaction, () => ({
+    inputPaths: [],
+    resultPaths: [],
+    errorPaths: [],
+    eventPaths: [],
+  })),
+  events: defaultWhenUndefined(manifest.events, () => ({ allowed: [], detailPaths: [] })),
 });
 
 const snapshotManifest = (manifest: ScriptManifestAuthoringV1): ScriptManifestV1 => {
