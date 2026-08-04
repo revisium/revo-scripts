@@ -186,7 +186,7 @@ const buildImplementationSource = (digests: ReadonlyMap<string, string>): string
 const escapedRegularExpression = (value: string): string =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const isCodePosition = (source: string, position: number): boolean => {
+const isTopLevelCodePosition = (source: string, position: number): boolean => {
   let state:
     | 'code'
     | 'single-quote'
@@ -194,6 +194,7 @@ const isCodePosition = (source: string, position: number): boolean => {
     | 'template'
     | 'line-comment'
     | 'block-comment' = 'code';
+  let blockDepth = 0;
 
   for (let index = 0; index < position; index += 1) {
     const character = source[index];
@@ -212,6 +213,10 @@ const isCodePosition = (source: string, position: number): boolean => {
         state = 'double-quote';
       } else if (character === '`') {
         state = 'template';
+      } else if (character === '{') {
+        blockDepth += 1;
+      } else if (character === '}') {
+        blockDepth -= 1;
       }
       continue;
     }
@@ -244,7 +249,7 @@ const isCodePosition = (source: string, position: number): boolean => {
     }
   }
 
-  return state === 'code';
+  return state === 'code' && blockDepth === 0;
 };
 
 export const replaceProviderIdentityPin = (
@@ -261,7 +266,7 @@ export const replaceProviderIdentityPin = (
     'gm',
   );
   const matches = [...source.matchAll(assignment)].filter(
-    (match) => match.index !== undefined && isCodePosition(source, match.index),
+    (match) => match.index !== undefined && isTopLevelCodePosition(source, match.index),
   );
   if (matches.length !== 1) {
     throw new Error(
