@@ -31,6 +31,15 @@ const identityStatePaths = [
   ...providerIdentityCases.map(({ identitySource }) => identitySource),
 ] as const;
 
+const readIdentityState = async (
+  fixture: string,
+): Promise<readonly (readonly [string, string])[]> =>
+  Promise.all(
+    identityStatePaths.map(
+      async (path) => [path, await readFile(join(fixture, path), 'utf8')] as const,
+    ),
+  );
+
 const definitionDigests = (source: string): ReadonlyMap<string, string> =>
   new Map(
     [...source.matchAll(/'(script:[^']+)':\s*'(sha256:[0-9a-f]{64})'/g)].map((match) => {
@@ -189,11 +198,7 @@ test.each(providerIdentityCases)(
         cp(join(repositoryRoot, 'tsconfig.json'), join(fixture, 'tsconfig.json')),
       ]);
       await symlink(join(repositoryRoot, 'node_modules'), join(fixture, 'node_modules'));
-      const identityStateBefore = await Promise.all(
-        identityStatePaths.map(
-          async (path) => [path, await readFile(join(fixture, path), 'utf8')] as const,
-        ),
-      );
+      const identityStateBefore = await readIdentityState(fixture);
       const changedPath = join(fixture, changedSource);
       await writeFile(
         changedPath,
@@ -227,13 +232,7 @@ test.each(providerIdentityCases)(
         throw new Error('Expected the isolated stale-identity check to fail.');
       }
       expect(failure.message).toContain('Generated identity metadata is stale');
-      await expect(
-        Promise.all(
-          identityStatePaths.map(
-            async (path) => [path, await readFile(join(fixture, path), 'utf8')] as const,
-          ),
-        ),
-      ).resolves.toEqual(identityStateBefore);
+      await expect(readIdentityState(fixture)).resolves.toEqual(identityStateBefore);
     } finally {
       await rm(fixture, { recursive: true, force: true });
     }

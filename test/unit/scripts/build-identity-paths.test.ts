@@ -124,6 +124,9 @@ test.each(identityCases)(
 
 test('replaces only the exact named provider identity pin', () => {
   const before =
+    "// const providerDigest = 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd' as const;\n" +
+    "/*\nconst providerDigest = 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' as const;\n*/\n" +
+    "const documentation = `\nconst providerDigest = 'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const;\n`;\n" +
     "const providerDigest =\n  'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;\n" +
     "const unrelated = 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';\n";
 
@@ -134,7 +137,10 @@ test('replaces only the exact named provider identity pin', () => {
       'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
     ),
   ).toBe(
-    "const providerDigest =\n  'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' as const;\n" +
+    "// const providerDigest = 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd' as const;\n" +
+      "/*\nconst providerDigest = 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' as const;\n*/\n" +
+      "const documentation = `\nconst providerDigest = 'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const;\n`;\n" +
+      "const providerDigest =\n  'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' as const;\n" +
       "const unrelated = 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';\n",
   );
 });
@@ -143,7 +149,8 @@ test.each([
   {
     name: 'missing',
     source:
-      "const unrelated = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;\n",
+      "// const providerDigest = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;\n" +
+      "const documentation = `\nconst providerDigest = 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as const;\n`;\n",
     message: 'Expected exactly one provider identity pin named providerDigest; found 0.',
   },
   {

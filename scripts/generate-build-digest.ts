@@ -186,6 +186,67 @@ const buildImplementationSource = (digests: ReadonlyMap<string, string>): string
 const escapedRegularExpression = (value: string): string =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const isCodePosition = (source: string, position: number): boolean => {
+  let state:
+    | 'code'
+    | 'single-quote'
+    | 'double-quote'
+    | 'template'
+    | 'line-comment'
+    | 'block-comment' = 'code';
+
+  for (let index = 0; index < position; index += 1) {
+    const character = source[index];
+    const nextCharacter = source[index + 1];
+
+    if (state === 'code') {
+      if (character === '/' && nextCharacter === '/') {
+        state = 'line-comment';
+        index += 1;
+      } else if (character === '/' && nextCharacter === '*') {
+        state = 'block-comment';
+        index += 1;
+      } else if (character === "'") {
+        state = 'single-quote';
+      } else if (character === '"') {
+        state = 'double-quote';
+      } else if (character === '`') {
+        state = 'template';
+      }
+      continue;
+    }
+
+    if (state === 'line-comment') {
+      if (character === '\n') {
+        state = 'code';
+      }
+      continue;
+    }
+
+    if (state === 'block-comment') {
+      if (character === '*' && nextCharacter === '/') {
+        state = 'code';
+        index += 1;
+      }
+      continue;
+    }
+
+    if (character === '\\') {
+      index += 1;
+      continue;
+    }
+    if (
+      (state === 'single-quote' && character === "'") ||
+      (state === 'double-quote' && character === '"') ||
+      (state === 'template' && character === '`')
+    ) {
+      state = 'code';
+    }
+  }
+
+  return state === 'code';
+};
+
 export const replaceProviderIdentityPin = (
   source: string,
   constantName: string,
@@ -196,10 +257,12 @@ export const replaceProviderIdentityPin = (
   }
 
   const assignment = new RegExp(
-    `\\bconst\\s+${escapedRegularExpression(constantName)}\\s*=\\s*(['"])([^'"]*)\\1\\s+as\\s+const\\s*;`,
-    'g',
+    `^const\\s+${escapedRegularExpression(constantName)}\\s*=\\s*(['"])([^'"\\r\\n]*)\\1\\s+as\\s+const\\s*;`,
+    'gm',
   );
-  const matches = [...source.matchAll(assignment)];
+  const matches = [...source.matchAll(assignment)].filter(
+    (match) => match.index !== undefined && isCodePosition(source, match.index),
+  );
   if (matches.length !== 1) {
     throw new Error(
       `Expected exactly one provider identity pin named ${constantName}; found ${matches.length}.`,
