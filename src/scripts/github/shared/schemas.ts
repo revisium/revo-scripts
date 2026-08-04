@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { createScriptSchema } from '../../../runtime/definition/schema/create-script-schema.js';
+import type { ScriptSchemaOutput } from '../../../runtime/spec/schema/index.js';
 
 export const githubObjectIdSchema = z.string().regex(/^[0-9a-f]{40}$/);
 export const repositoryIdSchema = z.string().min(1).max(256);
@@ -93,3 +94,6 @@ export const githubReadinessSchema = createScriptSchema({
   }),
   jsonSchema: 'output',
 });
+
+export type GitHubPullRequestV1 = ScriptSchemaOutput<typeof githubPullRequestSchema>;
+export type GitHubReadinessV1 = ScriptSchemaOutput<typeof githubReadinessSchema>;

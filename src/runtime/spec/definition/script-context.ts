@@ -9,3 +9,9 @@ export interface ScriptContext<R extends ScriptResourceMap> {
   readonly signal: AbortSignal;
   readonly emit: (event: ScriptCustomEvent) => Promise<void>;
 }
+
+export interface RequiredIdempotencyScriptContext<
+  R extends ScriptResourceMap,
+> extends ScriptContext<R> {
+  readonly idempotencyKey: string;
+}

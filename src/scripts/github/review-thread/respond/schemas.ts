@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
+import type { GitHubReviewThreadRespondClient } from '../../../../providers/github/index.js';
 import { createScriptSchema } from '../../../../runtime/definition/schema/create-script-schema.js';
+import type { ScriptResourceHandle } from '../../../../runtime/spec/resources/index.js';
+import type { ScriptSchemaOutput } from '../../../../runtime/spec/schema/index.js';
 import { questionGateResolutionArtifactSchema } from '../../../approval/contracts/gate-resolution-schemas.js';
 import { githubPullRequestShape } from '../../shared/schemas.js';
 
@@ -81,3 +84,13 @@ export const githubReviewThreadRespondResultSchema = createScriptSchema({
   }),
   jsonSchema: 'output',
 });
+
+export type GitHubReviewThreadRespondInput = ScriptSchemaOutput<
+  typeof githubReviewThreadRespondInputSchema
+>;
+export type GitHubReviewThreadRespondResult = ScriptSchemaOutput<
+  typeof githubReviewThreadRespondResultSchema
+>;
+export type GitHubReviewThreadRespondResources = Readonly<{
+  repository: ScriptResourceHandle<Readonly<{ github: GitHubReviewThreadRespondClient }>>;
+}>;

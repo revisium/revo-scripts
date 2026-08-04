@@ -270,8 +270,11 @@ new provider can add its own closed coordinate schema without changing the gener
 
 A provider implementation digest is generated from the adapter's emitted runtime closure with the same deterministic
 path, length, and byte framing used for a definition build digest. It excludes unrelated scripts, other adapters, and
-generated metadata. CI MUST reproduce and compare it. A changed adapter closure produces a new digest even when it
-still implements the same provider contract major.
+the private provider-family factory that owns its ordinary-source digest pin. The generator MUST replace exactly one
+named valid pin and fail closed on missing, duplicate, or malformed pins. The factory injects that pin into the
+internal provider constructor, so the pin is outside the provider class closure and cannot hash itself. CI MUST
+reproduce and compare without changing source in check mode. A changed adapter closure produces a new digest even when
+it still implements the same provider contract major.
 
 Built-in adapter implementations live under paths such as `src/providers/git/adapters/node/`. The current factory
 returns the single implementation for its contract. Registering a second implementation for that contract fails
@@ -318,6 +321,11 @@ type ScriptManifestV1 = {
   };
 };
 
+type ScriptManifestAuthoringV1 = Omit<ScriptManifestV1, 'redaction' | 'events'> & {
+  redaction?: ScriptManifestV1['redaction'];
+  events?: ScriptManifestV1['events'];
+};
+
 type ScriptResourceRequirement = {
   name: string;
   kind: 'repository';
@@ -346,7 +354,15 @@ type ScriptEffect =
   | 'github.write';
 ```
 
-The manifest MUST be JSON-serializable and MUST reject unknown fields. The script id MUST match
+`ScriptManifestAuthoringV1` is only the typed `defineScript` construction boundary. Authors MAY omit `redaction` or
+`events` only when the omitted value means the complete empty policy. `defineScript` MUST normalize those omissions to
+explicit empty collections before validation, snapshotting, or digest computation. Omitted and explicit empty policies
+MUST therefore produce equal canonical manifests and equal definition digests. Only `undefined` denotes omission;
+`null` or any present malformed policy MUST reach closed manifest validation and fail. `ScriptManifestV1` itself
+remains the complete canonical transport: definitions, registries, catalogs, and digests MUST always contain explicit
+`redaction` and `events` objects.
+
+The canonical manifest MUST be JSON-serializable and MUST reject unknown fields. The script id MUST match
 `^script:[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$`. A version identifies one immutable observable contract and MUST be a
 positive safe integer. Script versions are revisions, not SemVer, and MUST NOT accept a range, tag, `latest`, string,
 or fallback interpretation.
@@ -388,9 +404,10 @@ administration. The mutation-effect set is
 exactly `filesystem.write`, `git.write`, `git.remote-write`, and `github.write`.
 
 Effect ownership describes the bounded surface exposed to a handler, not every implementation detail used inside a
-provider. A Git provider's private filesystem reads are covered by `git.read`; `filesystem.read` is required only when
-a handler receives a bounded filesystem client. Filesystem effects remain reserved until an explicit filesystem
-provider module owns them. Startup rejects a definition whose declared effect has no installed owner.
+provider. The bounded Git status client deliberately declares both `filesystem.read` and `git.read`: it observes
+working-tree bytes as well as Git object and index state while producing one immutable status snapshot. Other private
+filesystem mechanics inside a Git provider remain covered by the operation's declared Git effect. Startup rejects a
+definition whose declared effect has no installed owner.
 
 A permission id identifies one bounded operation authorization, such as `git.status.read` or
 `github.pull-request.merge`. All permission ids declared by a manifest MUST be present in the prepared host grant.
@@ -455,6 +472,17 @@ type ScriptDefinition<I, O, R extends ScriptResourceMap> = {
 interface ScriptHandler<I, O, R extends ScriptResourceMap> {
   execute(input: Readonly<I>, context: Readonly<ScriptContext<R>>): Promise<ScriptHandlerResult<O>>;
 }
+
+type RequiredIdempotencyScriptContext<R extends ScriptResourceMap> = ScriptContext<R> & {
+  idempotencyKey: string;
+};
+
+interface RequiredIdempotencyScriptHandler<I, O, R extends ScriptResourceMap> {
+  execute(
+    input: Readonly<I>,
+    context: Readonly<RequiredIdempotencyScriptContext<R>>,
+  ): Promise<ScriptHandlerResult<O>>;
+}
 ```
 
 `ScriptSchema` MUST remain validation-library-neutral. The initial adapter SHOULD accept Standard Schema V1 validators
@@ -464,6 +492,15 @@ members of the runtime definition contract.
 JSON Schemas MUST target Draft 2020-12, carry the schema id declared by the manifest, describe JSON-compatible values,
 and reject unknown object properties unless a schema explicitly models a bounded map. Runtime validation and emitted
 JSON Schema MUST describe the same accepted values.
+
+For a statically `required` authoring manifest, `ScriptDefinitionInput` MUST require a
+`RequiredIdempotencyScriptHandler`; a manifest whose idempotency mode is not statically refined uses the general
+optional-key handler contract. The definition returned by `defineScript` keeps the general execution-handler shape so
+registries can remain heterogeneous. Its guarded handler and normal preflight MUST use the same provider-neutral key
+validator. A missing required key fails with `revo.script.idempotency.key_required`; an empty key or one longer than
+1,024 Unicode code points fails with `revo.script.validation.input`. The normal `executeScript` path MUST reject those
+requests during preflight with zero attempts, so a required built-in handler is invoked only with a statically
+required validated string key.
 
 `defineScript` MUST validate the manifest, both schemas, policy coherence, and implementation
 identity. It MUST compute the definition digest over RFC 8785 canonical JSON containing the manifest, both JSON
@@ -484,10 +521,11 @@ closure before modification. A mutable shared helper MUST NOT silently change an
 
 The target generator performs a fresh temporary TypeScript emission, sorts the owned runtime closure by
 POSIX-relative path, and feeds each relative path, NUL, decimal byte length, NUL, exact bytes, and NUL into one SHA-256
-stream. CI regenerates into a temporary location and compares the committed/generated metadata byte-for-byte. Stale
-metadata, a digest mismatch, or an unavailable exact definition implementation blocks startup/recovery before provider
-construction. Historical executable retention is a release/deployment responsibility, but build identity is part of
-the v1 definition contract.
+stream. Discovered and resolved paths are normalized to POSIX separators before lookup and use locale-independent
+ordering, so equivalent Windows and POSIX emissions produce the same framed digest input. CI regenerates into a
+temporary location and compares the committed/generated metadata byte-for-byte. Stale metadata, a digest mismatch, or
+an unavailable exact definition implementation blocks startup/recovery before provider construction. Historical
+executable retention is a release/deployment responsibility, but build identity is part of the v1 definition contract.
 
 ### Revisioning and exact retention
 
@@ -528,6 +566,10 @@ type ScriptContext<R extends ScriptResourceMap> = {
   emit: (event: ScriptCustomEvent) => Promise<void>;
 };
 
+type RequiredIdempotencyScriptContext<R extends ScriptResourceMap> = ScriptContext<R> & {
+  idempotencyKey: string;
+};
+
 type ScriptResourceHandle<TClients extends object> = {
   name: string;
   kind: 'repository';
@@ -546,6 +588,10 @@ The facade runtime MUST construct the context and prepared resource handles afte
 input, host bindings, manifest maximums, and grants. Handler input MUST NOT provide context fields. A handler MUST
 receive only the clients permitted by the manifest, binding grant, credential requirements, and provider
 module intersection.
+
+The external facade and low-level execution requests keep `idempotencyKey` optional because preflight owns the stable
+missing-key failure. After preflight, a required-idempotency handler context exposes `idempotencyKey: string`; built-in
+required-write handlers MUST NOT recover that invariant with a cast, non-null assertion, or repeated optional check.
 
 Handlers MUST NOT receive a raw workspace path, unrestricted shell, process environment, token resolver, generic
 network client, database client, global mutable logger, host resolver, or orchestration service. A provider module MUST
@@ -993,7 +1039,8 @@ artifacts, and human gates remain host-owned. The proof column is the primary ex
 | Gate subject normalization     | `script:approval/subject`               | Approval subject script                    | `test/contract/approval/subject.test.ts`                                                                                  |
 
 `script:git/status` has closed input, permission `git.status.read`, one read-only repository resource,
-`revo.provider.git/v1`, effect `git.read`, a 5,000 ms wall-clock timeout, no retry, and read-only idempotency. Its exact
+`revo.provider.git/v1`, effects `filesystem.read` and `git.read`, a 5,000 ms wall-clock timeout, no retry, and read-only
+idempotency. Its exact
 result is:
 
 ```ts

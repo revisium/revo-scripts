@@ -31,6 +31,10 @@
               {
                 "regex": "^(?:\\.\\./)+(?:definition|registry|execution|validation|host|application|providers|scripts|testing)(?:/|$)",
                 "message": "Runtime spec is the portable dependency leaf."
+              },
+              {
+                "regex": "(?:^|/)generated(?:/|-)",
+                "message": "Runtime production code must not import generated output."
               }
             ]
           }
@@ -47,6 +51,10 @@
               {
                 "regex": "^(?:\\.\\./)+(?:spec|definition|registry|execution|host|application|providers|scripts|testing)(?:/|$)",
                 "message": "Runtime validation primitives must remain package-area neutral."
+              },
+              {
+                "regex": "(?:^|/)generated(?:/|-)",
+                "message": "Runtime production code must not import generated output."
               }
             ]
           }
@@ -63,6 +71,10 @@
               {
                 "regex": "^(?:\\.\\./)+(?:registry|execution|host|application|providers|scripts|testing)(?:/|$)",
                 "message": "Definition may depend only on runtime spec and neutral validation primitives."
+              },
+              {
+                "regex": "(?:^|/)generated(?:/|-)",
+                "message": "Runtime production code must not import generated output."
               }
             ]
           }
@@ -79,6 +91,10 @@
               {
                 "regex": "^(?:\\.\\./)+(?:definition|execution|validation|host|application|providers|scripts|testing)(?:/|$)",
                 "message": "Registry may depend only on runtime spec contracts."
+              },
+              {
+                "regex": "(?:^|/)generated(?:/|-)",
+                "message": "Runtime production code must not import generated output."
               }
             ]
           }
@@ -95,6 +111,10 @@
               {
                 "regex": "^(?:\\.\\./)+(?:definition|host|application|providers|scripts|testing)(?:/|$)",
                 "message": "Execution may depend only on runtime spec, registry, and neutral validation primitives."
+              },
+              {
+                "regex": "(?:^|/)generated(?:/|-)",
+                "message": "Runtime production code must not import generated output."
               }
             ]
           }
@@ -111,6 +131,10 @@
               {
                 "regex": "^(?:\\.\\./)+(?:host|application|providers|scripts|testing)(?:/|$)",
                 "message": "The public runtime entrypoint composes provider-neutral runtime areas only."
+              },
+              {
+                "regex": "(?:^|/)generated(?:/|-)",
+                "message": "Runtime production code must not import generated output."
               }
             ]
           }
@@ -143,6 +167,10 @@
               {
                 "regex": "^(?:\\.\\./)+(?:application|host|adapters|scripts|testing|runtime/(?:definition|registry|execution|validation))(?:/|$)",
                 "message": "Provider contracts must remain handler-safe."
+              },
+              {
+                "regex": "(?:^|/)generated(?:/|-)",
+                "message": "Providers must receive implementation identity through composition, not generated output."
               }
             ]
           }
@@ -159,6 +187,10 @@
               {
                 "regex": "^(?:\\.\\./)+(?:application|scripts|testing|runtime/(?:definition|registry|execution|validation))(?:/|$)",
                 "message": "Provider adapters may depend on runtime spec, host ports, and their own bounded contracts only."
+              },
+              {
+                "regex": "(?:^|/)generated(?:/|-)",
+                "message": "Providers must receive implementation identity through composition, not generated output."
               }
             ]
           }

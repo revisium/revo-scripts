@@ -37,3 +37,9 @@ export interface ScriptManifestV1 {
     detailPaths: readonly string[];
   }>;
 }
+
+export type ScriptManifestAuthoringV1 = Omit<ScriptManifestV1, 'redaction' | 'events'> &
+  Readonly<{
+    redaction?: ScriptManifestV1['redaction'];
+    events?: ScriptManifestV1['events'];
+  }>;

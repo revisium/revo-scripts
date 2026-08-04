@@ -22,8 +22,7 @@ path or execution provenance.
 
 ## Files
 
-- `types.ts` — input, result, and resource types.
-- `schemas.ts` — exact input and output schemas.
+- `schemas.ts` — exact input/output schemas, schema-derived public aliases, and explicit resource capabilities.
 - `manifest.ts` — permissions, resources, effects, timeout, retry, redaction, and events.
 - `git-status.handler.ts` — stateless bounded operation.
 - `script.ts` — definition composition root.

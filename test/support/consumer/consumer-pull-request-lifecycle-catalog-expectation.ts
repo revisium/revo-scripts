@@ -3,7 +3,7 @@ const gitProvider = {
   resource: 'repository',
   id: 'provider:git/node',
   contract: 'revo.provider.git/v1',
-  implementationDigest: 'sha256:5b85c3d2ae175efaa6b634681e00a18e0d82f4a88e0261674d4dcc0390af39b1',
+  implementationDigest: 'sha256:9d6b294c77575e54772a6678c687f9b3848dea587cc9c8729451f7e15041fa66',
   workspace: 'required',
 };
 
@@ -12,7 +12,7 @@ const githubProvider = {
   resource: 'repository',
   id: 'provider:github/fetch',
   contract: 'revo.provider.github/v1',
-  implementationDigest: 'sha256:362bbb9bc17f430560321fe99e1cc479040aa74471fb10d88b5206b832f44b45',
+  implementationDigest: 'sha256:9c8081e0fca0809354e0bde46fa8db6a6740b23e38b070a3123ced4438d9826a',
   workspace: 'none',
 };
 

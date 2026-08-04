@@ -5,12 +5,10 @@ import { githubPullRequestReadinessManifest } from './manifest.js';
 import {
   githubPullRequestReadinessInputSchema,
   githubPullRequestReadinessResultSchema,
+  type GitHubPullRequestReadinessInput,
+  type GitHubPullRequestReadinessResources,
+  type GitHubPullRequestReadinessResult,
 } from './schemas.js';
-import type {
-  GitHubPullRequestReadinessInput,
-  GitHubPullRequestReadinessResources,
-  GitHubPullRequestReadinessResult,
-} from './types.js';
 
 export const githubPullRequestReadinessScript = defineScript<
   GitHubPullRequestReadinessInput,
@@ -20,6 +18,6 @@ export const githubPullRequestReadinessScript = defineScript<
   manifest: githubPullRequestReadinessManifest,
   inputSchema: githubPullRequestReadinessInputSchema,
   resultSchema: githubPullRequestReadinessResultSchema,
-  implementation: builtInImplementation('script:github/pull-request/readiness', '1.0.0'),
+  implementation: builtInImplementation(githubPullRequestReadinessManifest.id, '1.0.0'),
   handler: new GitHubPullRequestReadinessHandler(),
 });

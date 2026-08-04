@@ -80,7 +80,7 @@ export class ConsumerPullRequestLifecycle {
   private reviewChanges: GitHubReadinessV1 | undefined;
   private responses: GitHubReviewThreadRespondResult | undefined;
   private resolutions: GitHubReviewThreadResolveResult | undefined;
-  private approvalSubject: ApprovalSubjectResult | undefined;
+  private approvalSubject: GitHubPullRequestMergeInput['approvalSubject'] | undefined;
   private clean: GitHubReadinessV1 | undefined;
   private merged: unknown;
 
@@ -261,7 +261,7 @@ export class ConsumerPullRequestLifecycle {
 
   async approval(): Promise<void> {
     const pullRequest = this.required(this.readyPullRequest, 'mark ready');
-    this.approvalSubject = await executeConsumerFlowStep(this.scripts, {
+    const approvalSubject: ApprovalSubjectResult = await executeConsumerFlowStep(this.scripts, {
       script: this.scriptIdentities.approval,
       executionId: 'consumer-flow:approval-subject',
       input: {
@@ -279,6 +279,19 @@ export class ConsumerPullRequestLifecycle {
       bindings: { resources: {}, credentials: {} },
       resultSchema: approvalSubjectScript.resultSchema,
     });
+    if (
+      approvalSubject.kind !== 'publication' ||
+      approvalSubject.identity.scheme !== 'uri' ||
+      approvalSubject.revision.scheme !== 'git-commit'
+    ) {
+      throw new Error('Expected the merge approval subject contract.');
+    }
+    this.approvalSubject = {
+      ...approvalSubject,
+      kind: 'publication',
+      identity: { ...approvalSubject.identity, scheme: 'uri' },
+      revision: { ...approvalSubject.revision, scheme: 'git-commit' },
+    };
   }
 
   async merge(): Promise<void> {

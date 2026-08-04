@@ -1,26 +1,23 @@
-import type { ScriptContext, ScriptHandler } from '../../../../runtime/spec/definition/index.js';
+import type {
+  RequiredIdempotencyScriptContext,
+  RequiredIdempotencyScriptHandler,
+} from '../../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../../runtime/spec/errors/index.js';
 import type {
   GitHubReviewThreadRespondInput,
   GitHubReviewThreadRespondResources,
   GitHubReviewThreadRespondResult,
-} from './types.js';
+} from './schemas.js';
 
-export class GitHubReviewThreadRespondHandler implements ScriptHandler<
+export class GitHubReviewThreadRespondHandler implements RequiredIdempotencyScriptHandler<
   GitHubReviewThreadRespondInput,
   GitHubReviewThreadRespondResult,
   GitHubReviewThreadRespondResources
 > {
   async execute(
     input: Readonly<GitHubReviewThreadRespondInput>,
-    context: Readonly<ScriptContext<GitHubReviewThreadRespondResources>>,
+    context: Readonly<RequiredIdempotencyScriptContext<GitHubReviewThreadRespondResources>>,
   ): Promise<{ readonly value: GitHubReviewThreadRespondResult }> {
-    if (context.idempotencyKey === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.key_required',
-        'Script execution requires an idempotency key.',
-      );
-    }
     const operationKey = context.idempotencyKey;
     const selected = input.triage.items.map((item) => this.selection(input, item));
     const pullRequest = toProof(input);

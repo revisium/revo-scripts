@@ -1,7 +1,18 @@
-export type { ScriptContext } from './definition/script-context.js';
+export type {
+  RequiredIdempotencyScriptContext,
+  ScriptContext,
+} from './definition/script-context.js';
 export type { ScriptDefinition } from './definition/script-definition.js';
-export type { ScriptDefinitionInput } from './definition/script-definition-input.js';
-export type { ScriptHandler } from './definition/script-handler.js';
+export type {
+  OptionalIdempotencyScriptDefinitionInput,
+  RequiredIdempotencyScriptDefinitionInput,
+  ScriptDefinitionInput,
+  UnrefinedIdempotencyScriptDefinitionInput,
+} from './definition/script-definition-input.js';
+export type {
+  RequiredIdempotencyScriptHandler,
+  ScriptHandler,
+} from './definition/script-handler.js';
 export type { ScriptImplementationIdentity } from './definition/script-implementation-identity.js';
 export type { ScriptErrorCode } from './errors/script-error-code.js';
 export { ScriptFault } from './errors/script-fault.js';
@@ -14,7 +25,7 @@ export type { ScriptClock } from './execution/script-clock.js';
 export type { ScriptCredentialRequirement } from './manifest/script-credential-requirement.js';
 export type { ScriptEffect } from './manifest/script-effect.js';
 export type { ScriptEffectClass } from './manifest/script-effect-class.js';
-export type { ScriptManifestV1 } from './manifest/script-manifest.js';
+export type { ScriptManifestAuthoringV1, ScriptManifestV1 } from './manifest/script-manifest.js';
 export type { ScriptProviderContractRef } from './manifest/script-provider-contract-ref.js';
 export type { ScriptProviderRequirement } from './manifest/script-provider-requirement.js';
 export type { ScriptResourceAccess } from './manifest/script-resource-access.js';
@@ -25,6 +36,8 @@ export type { ScriptEvidence } from './result/script-evidence.js';
 export type { ScriptExecutionResult } from './result/script-execution-result.js';
 export type { ScriptFailure } from './result/script-failure.js';
 export type { ScriptHandlerResult } from './result/script-handler-result.js';
+export type { DeepReadonly } from './schema/deep-readonly.js';
 export type { ScriptSchema } from './schema/script-schema.js';
 export type { ScriptSchemaIssue } from './schema/script-schema-issue.js';
+export type { ScriptSchemaOutput } from './schema/script-schema-output.js';
 export type { ScriptSchemaResult } from './schema/script-schema-result.js';

@@ -12,8 +12,7 @@ import { NodeGitStatusClient } from './status/node-git-status-client.js';
 export class NodeGitProvider implements ScriptProviderModule {
   readonly id = 'provider:git/node';
   readonly contract = 'revo.provider.git/v1';
-  readonly implementationDigest =
-    'sha256:5b85c3d2ae175efaa6b634681e00a18e0d82f4a88e0261674d4dcc0390af39b1';
+  readonly implementationDigest: `sha256:${string}`;
   readonly provenance = {
     packageName: '@revisium/revo-scripts',
     packageVersion: '0.0.0',
@@ -22,8 +21,9 @@ export class NodeGitProvider implements ScriptProviderModule {
   readonly workspace = 'required';
   private readonly processExecutor: ProcessExecutor;
 
-  constructor(processExecutor: ProcessExecutor) {
+  constructor(processExecutor: ProcessExecutor, implementationDigest: `sha256:${string}`) {
     this.processExecutor = processExecutor;
+    this.implementationDigest = implementationDigest;
   }
 
   async createResourceClients(request: ProviderClientRequest) {

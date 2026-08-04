@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
+import type { GitHubPullRequestMergeClient } from '../../../../providers/github/index.js';
 import { createScriptSchema } from '../../../../runtime/definition/schema/create-script-schema.js';
+import type { ScriptResourceHandle } from '../../../../runtime/spec/resources/index.js';
+import type { ScriptSchemaOutput } from '../../../../runtime/spec/schema/index.js';
 import { mergeGateResolutionArtifactSchema } from '../../../approval/contracts/gate-resolution-schemas.js';
 import { approvalSubjectResultShape } from '../../../approval/subject/schemas.js';
 import {
@@ -105,3 +108,13 @@ export const githubPullRequestMergeInputSchema = createScriptSchema({
   }),
   jsonSchema: 'input',
 });
+
+export type GitHubPullRequestMergeInput = ScriptSchemaOutput<
+  typeof githubPullRequestMergeInputSchema
+>;
+export type GitHubPullRequestMergeResult = ScriptSchemaOutput<
+  typeof githubPullRequestMergeResultSchema
+>;
+export type GitHubPullRequestMergeResources = Readonly<{
+  repository: ScriptResourceHandle<Readonly<{ github: GitHubPullRequestMergeClient }>>;
+}>;

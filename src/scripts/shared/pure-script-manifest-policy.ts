@@ -10,10 +10,10 @@ type PureScriptManifestPolicy = Pick<
   | 'effects'
   | 'timeout'
   | 'retry'
-  | 'idempotency'
   | 'redaction'
   | 'events'
->;
+> &
+  Readonly<{ idempotency: 'read-only' }>;
 
 export const pureScriptManifestPolicy = (): PureScriptManifestPolicy => ({
   effectClass: 'pure',

@@ -1,9 +1,16 @@
 import { z } from 'zod';
 
+import type { GitHubPullRequestUpsertClient } from '../../../../providers/github/index.js';
 import { createScriptSchema } from '../../../../runtime/definition/schema/create-script-schema.js';
-import { githubObjectIdSchema, repositoryIdSchema } from '../../shared/schemas.js';
+import type { ScriptResourceHandle } from '../../../../runtime/spec/resources/index.js';
+import type { ScriptSchemaOutput } from '../../../../runtime/spec/schema/index.js';
+import {
+  githubObjectIdSchema,
+  githubPullRequestSchema,
+  repositoryIdSchema,
+} from '../../shared/schemas.js';
 
-export { githubPullRequestSchema as githubPullRequestUpsertResultSchema } from '../../shared/schemas.js';
+export const githubPullRequestUpsertResultSchema = githubPullRequestSchema;
 
 export const githubPullRequestUpsertInputSchema = createScriptSchema({
   id: 'revo.script.github.pull-request.upsert.input/v1',
@@ -32,3 +39,13 @@ export const githubPullRequestUpsertInputSchema = createScriptSchema({
   }),
   jsonSchema: 'input',
 });
+
+export type GitHubPullRequestUpsertInput = ScriptSchemaOutput<
+  typeof githubPullRequestUpsertInputSchema
+>;
+export type GitHubPullRequestUpsertResult = ScriptSchemaOutput<
+  typeof githubPullRequestUpsertResultSchema
+>;
+export type GitHubPullRequestUpsertResources = Readonly<{
+  repository: ScriptResourceHandle<Readonly<{ github: GitHubPullRequestUpsertClient }>>;
+}>;
