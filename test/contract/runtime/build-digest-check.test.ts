@@ -14,19 +14,21 @@ const providerIdentityCases = [
   {
     name: 'Node Git',
     changedSource: 'src/providers/git/adapters/node/node-git-command-runner.ts',
-    generatedIdentity:
-      'src/providers/git/adapters/node/generated-provider-implementation-digest.ts',
-    unrelatedIdentity:
-      'src/providers/github/adapters/fetch/generated-provider-implementation-digest.ts',
+    identitySource: 'src/providers/git/adapters/node/node-git-providers.ts',
+    unrelatedIdentity: 'src/providers/github/adapters/fetch/fetch-github-providers.ts',
   },
   {
     name: 'Fetch GitHub',
     changedSource: 'src/providers/github/adapters/fetch/github-api-client.ts',
-    generatedIdentity:
-      'src/providers/github/adapters/fetch/generated-provider-implementation-digest.ts',
-    unrelatedIdentity:
-      'src/providers/git/adapters/node/generated-provider-implementation-digest.ts',
+    identitySource: 'src/providers/github/adapters/fetch/fetch-github-providers.ts',
+    unrelatedIdentity: 'src/providers/git/adapters/node/node-git-providers.ts',
   },
+] as const;
+
+const identityStatePaths = [
+  'src/runtime/generated/build-digest.ts',
+  'src/runtime/generated/built-in-implementation.ts',
+  ...providerIdentityCases.map(({ identitySource }) => identitySource),
 ] as const;
 
 const definitionDigests = (source: string): ReadonlyMap<string, string> =>
@@ -174,7 +176,7 @@ test('does not change existing definition digests when an unrelated script is ad
 });
 
 test.each(providerIdentityCases)(
-  'rejects stale generated $name provider implementation identity',
+  'rejects a stale $name provider implementation identity without mutating identity sources',
   async ({ changedSource }) => {
     const fixture = await mkdtemp(join(tmpdir(), 'revo-scripts-provider-digest-fixture-'));
 
@@ -187,6 +189,11 @@ test.each(providerIdentityCases)(
         cp(join(repositoryRoot, 'tsconfig.json'), join(fixture, 'tsconfig.json')),
       ]);
       await symlink(join(repositoryRoot, 'node_modules'), join(fixture, 'node_modules'));
+      const identityStateBefore = await Promise.all(
+        identityStatePaths.map(
+          async (path) => [path, await readFile(join(fixture, path), 'utf8')] as const,
+        ),
+      );
       const changedPath = join(fixture, changedSource);
       await writeFile(
         changedPath,
@@ -220,6 +227,13 @@ test.each(providerIdentityCases)(
         throw new Error('Expected the isolated stale-identity check to fail.');
       }
       expect(failure.message).toContain('Generated identity metadata is stale');
+      await expect(
+        Promise.all(
+          identityStatePaths.map(
+            async (path) => [path, await readFile(join(fixture, path), 'utf8')] as const,
+          ),
+        ),
+      ).resolves.toEqual(identityStateBefore);
     } finally {
       await rm(fixture, { recursive: true, force: true });
     }
@@ -229,8 +243,8 @@ test.each(providerIdentityCases)(
 test('fans a publish-policy change out to exactly its five GitHub definitions', async () => {
   const fixture = await mkdtemp(join(tmpdir(), 'revo-scripts-build-digest-fixture-'));
   const fixtureDigest = join(fixture, 'src/runtime/generated/build-digest.ts');
-  const providerIdentityPaths = providerIdentityCases.map(({ generatedIdentity }) =>
-    join(fixture, generatedIdentity),
+  const providerIdentityPaths = providerIdentityCases.map(({ identitySource }) =>
+    join(fixture, identitySource),
   );
 
   try {
@@ -269,6 +283,7 @@ test('fans a publish-policy change out to exactly its five GitHub definitions', 
     );
 
     const after = definitionDigests(await readFile(fixtureDigest, 'utf8'));
+    expect([...after.keys()]).toEqual([...before.keys()]);
     const changedDefinitions = [...after].flatMap(([scriptId, digest]) =>
       before.get(scriptId) === digest ? [] : [scriptId],
     );
@@ -289,7 +304,7 @@ test('fans a publish-policy change out to exactly its five GitHub definitions', 
 
 test.each(providerIdentityCases)(
   'changes only the $name provider implementation identity for its emitted closure',
-  async ({ changedSource, generatedIdentity, unrelatedIdentity }) => {
+  async ({ changedSource, identitySource, unrelatedIdentity }) => {
     const fixture = await mkdtemp(join(tmpdir(), 'revo-scripts-provider-digest-fixture-'));
 
     try {
@@ -301,7 +316,7 @@ test.each(providerIdentityCases)(
         cp(join(repositoryRoot, 'tsconfig.json'), join(fixture, 'tsconfig.json')),
       ]);
       await symlink(join(repositoryRoot, 'node_modules'), join(fixture, 'node_modules'));
-      const changedIdentityPath = join(fixture, generatedIdentity);
+      const changedIdentityPath = join(fixture, identitySource);
       const unrelatedIdentityPath = join(fixture, unrelatedIdentity);
       const changedBefore = await readFile(changedIdentityPath, 'utf8');
       const unrelatedBefore = await readFile(unrelatedIdentityPath, 'utf8');
@@ -324,8 +339,23 @@ test.each(providerIdentityCases)(
         },
       );
 
-      expect(await readFile(changedIdentityPath, 'utf8')).not.toEqual(changedBefore);
+      const changedAfter = await readFile(changedIdentityPath, 'utf8');
+      expect(changedAfter).not.toEqual(changedBefore);
       expect(await readFile(unrelatedIdentityPath, 'utf8')).toEqual(unrelatedBefore);
+      await execFileAsync(
+        process.execPath,
+        ['--experimental-strip-types', join(repositoryRoot, 'scripts/generate-build-digest.ts')],
+        {
+          cwd: fixture,
+          env: {
+            ...process.env,
+            PATH: `${join(repositoryRoot, 'node_modules/.bin')}:${process.env.PATH ?? ''}`,
+            REVO_SCRIPTS_BUILD_DIGEST_ROOT: fixture,
+          },
+        },
+      );
+      await expect(readFile(changedIdentityPath, 'utf8')).resolves.toBe(changedAfter);
+      await expect(readFile(unrelatedIdentityPath, 'utf8')).resolves.toBe(unrelatedBefore);
     } finally {
       await rm(fixture, { recursive: true, force: true });
     }

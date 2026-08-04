@@ -26,11 +26,10 @@ export class GitHubPullRequestMergeHandler implements RequiredIdempotencyScriptH
     const pr = input.pullRequest;
     this.assertArtifactEquality(input);
     const resolution = input.gateResolution.resolution;
-    const override = resolution.outcome === 'override_merge';
     const audit = resolution.outcome === 'override_merge' ? resolution.audit : undefined;
     const issueRef = pr.issueRef === undefined ? undefined : this.mergeIssueRef(pr.issueRef);
     const unresolvedThreadIds = input.readiness.unresolvedThreads.map((thread) => thread.id);
-    this.assertGate(input, override, audit, unresolvedThreadIds);
+    this.assertGate(input, audit, unresolvedThreadIds);
     const snapshot = await context.resources.repository.clients.github.merge({
       number: pr.number,
       expectedHeadSha: pr.head.sha,
@@ -72,26 +71,26 @@ export class GitHubPullRequestMergeHandler implements RequiredIdempotencyScriptH
         status: snapshot.status,
         sourceBranchDeleted: true,
         ...(issueRef === undefined ? {} : { issueRef }),
-        ...(override && audit !== undefined
-          ? {
+        ...(audit === undefined
+          ? {}
+          : {
               override: {
                 actor: audit.actor,
                 auditFingerprint: this.auditFingerprint(audit),
                 threadIds: audit.threadIds,
               },
-            }
-          : {}),
+            }),
       },
     };
   }
 
   private assertGate(
     input: Readonly<GitHubPullRequestMergeInput>,
-    override: boolean,
     audit: MergeOverrideAudit | undefined,
     unresolvedThreadIds: readonly string[],
   ): void {
     const readiness = input.readiness;
+    const override = audit !== undefined;
     if (
       readiness.state !== 'open' ||
       readiness.draft ||
@@ -109,18 +108,11 @@ export class GitHubPullRequestMergeHandler implements RequiredIdempotencyScriptH
     }
     if (
       (!override && readiness.classification !== 'clean') ||
-      (override && readiness.classification !== 'review_changes') ||
-      (!override && audit !== undefined)
+      (override && readiness.classification !== 'review_changes')
     ) {
       throw new ScriptFault(
         'revo.script.idempotency.conflict',
         'The post-gate readiness snapshot does not authorize merge.',
-      );
-    }
-    if (override && audit === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.conflict',
-        'An override merge requires an audit.',
       );
     }
     if (

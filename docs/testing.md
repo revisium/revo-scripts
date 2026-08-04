@@ -88,8 +88,8 @@ The runtime foundation requires tests for:
 - input and result schema validation;
 - effect, permission, resource, retry, and idempotency coherence;
 - deterministic definition digest generation;
-- build-generated definition and provider implementation identity freshness, digest participation, and closure
-  isolation;
+- build-generated definition identity plus generator-maintained provider implementation pin freshness, digest
+  participation, and closure isolation;
 - equality of canonical manifests and definition digests for omitted versus explicit empty authoring policies;
 - rejection of `null` and present malformed authoring policies before redaction or event intent can be weakened;
 - duplicate registration, sealing, exact lookup, and missing-definition failures;
@@ -175,8 +175,10 @@ Every package-owned provider requires tests proving:
 - provider contract majors are selected solely by manifest requirements;
 - every supported permission partition constructs only its operation-specific bounded client, while zero, multiple,
   unsupported, and unrelated-only partitions keep the stable capability fault;
-- the generated provider implementation digest covers the adapter's emitted transitive closure, excludes its own
-  generated metadata, and changes independently of other adapters and definitions;
+- the generator-maintained provider implementation pin covers the provider class's emitted transitive closure, keeps
+  its private family factory outside that closure, fails on missing, duplicate, or malformed named pins, remains
+  idempotent across repeated generation, does not mutate source in check mode, and changes independently of other
+  adapters and definitions;
 - startup rejects a second registered implementation for the same provider contract;
 - provider selection never introduces implicit latest selection or fallback.
 

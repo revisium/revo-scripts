@@ -4,7 +4,6 @@ import { ScriptFault } from '../../../../runtime/spec/errors/index.js';
 import { GitHubCoordinateSchema } from '../../contracts/github-coordinate-schema.js';
 import type { GitHubRepositoryCoordinates } from '../../contracts/github-repository-coordinates.js';
 import type { FetchGitHubProviderOptions } from './fetch-github-provider-options.js';
-import { fetchGitHubProviderImplementationDigest } from './generated-provider-implementation-digest.js';
 import { GitHubApiClient } from './github-api-client.js';
 import { FetchGitHubPullRequestMergeClient } from './pull-request/fetch-github-pull-request-merge-client.js';
 import { FetchGitHubPullRequestReadinessClient } from './pull-request/fetch-github-pull-request-readiness-client.js';
@@ -46,7 +45,7 @@ const isSupportedPermission = (permission: string): permission is SupportedPermi
 export class FetchGitHubProvider implements ScriptProviderModule {
   readonly id = 'provider:github/fetch';
   readonly contract = 'revo.provider.github/v1';
-  readonly implementationDigest = fetchGitHubProviderImplementationDigest;
+  readonly implementationDigest: `sha256:${string}`;
   readonly provenance = {
     packageName: '@revisium/revo-scripts',
     packageVersion: '0.0.0',
@@ -56,8 +55,9 @@ export class FetchGitHubProvider implements ScriptProviderModule {
   readonly coordinateSchema = new GitHubCoordinateSchema();
   private readonly options: FetchGitHubProviderOptions;
 
-  constructor(options: FetchGitHubProviderOptions = {}) {
+  constructor(options: FetchGitHubProviderOptions, implementationDigest: `sha256:${string}`) {
     this.options = options;
+    this.implementationDigest = implementationDigest;
   }
 
   async createResourceClients(request: ProviderClientRequest) {

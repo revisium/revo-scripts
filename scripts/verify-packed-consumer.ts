@@ -196,6 +196,7 @@ import {
   type RevoScriptExecutionRequest,
 } from '@revisium/revo-scripts';
 import type { RevoScriptsHost } from '@revisium/revo-scripts/host';
+import type { GitCommitInput } from '@revisium/revo-scripts/git';
 import type {
   GitHubPullRequestMergeInput,
   GitHubPullRequestMergeResult,
@@ -212,6 +213,8 @@ import {
 
 declare const host: RevoScriptsHost;
 declare const processExecutor: ProcessExecutor;
+declare const gitCommitInput: GitCommitInput;
+declare const mergeInput: GitHubPullRequestMergeInput;
 
 const catalog: readonly BuiltInScriptDescriptor[] = builtInScriptCatalog();
 const echoInput: EchoInput = { message: 'type consumer' };
@@ -222,10 +225,20 @@ type MergeResultIssueAction = NonNullable<GitHubPullRequestMergeResult['issueRef
 const invalidMergeApprovalKind: MergeApprovalKind = 'plan';
 // @ts-expect-error The packed merge result declaration cannot emit the input-only none action.
 const invalidMergeResultIssueAction: MergeResultIssueAction = 'none';
+// @ts-expect-error Packed Git commit declarations keep nested author fields readonly.
+gitCommitInput.author.name = 'Mutated author';
+// @ts-expect-error Packed Git commit declarations keep the nested author object readonly.
+gitCommitInput.author = { name: 'Mutated', email: 'mutated@example.com', timestamp: 'now' };
+// @ts-expect-error Packed merge declarations keep nested readiness arrays readonly.
+mergeInput.readiness.checks.push({ name: 'mutated', required: false, status: 'success' });
+// @ts-expect-error Packed merge declarations keep nested readiness objects readonly.
+mergeInput.readiness.completeness.checks = 'truncated';
 void catalog;
 void echoResult;
 void invalidMergeApprovalKind;
 void invalidMergeResultIssueAction;
+void gitCommitInput;
+void mergeInput;
 void systemEchoScript;
 void systemScripts();
 

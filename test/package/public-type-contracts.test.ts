@@ -7,7 +7,7 @@ import type {
 } from '../../src/scripts/github/index.js';
 
 test('publishes schema-exact deeply readonly built-in data types', () => {
-  expectTypeOf<GitCommitInput['author']>().toMatchTypeOf<
+  expectTypeOf<GitCommitInput['author']>().toEqualTypeOf<
     Readonly<{ name: string; email: string; timestamp: string }>
   >();
 

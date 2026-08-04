@@ -9,7 +9,7 @@ import type {
   ScriptDefinitionInput,
   UnrefinedIdempotencyScriptDefinitionInput,
 } from '../spec/definition/index.js';
-import { ScriptFault } from '../spec/errors/index.js';
+import { validateIdempotencyKey } from '../spec/execution/validate-idempotency-key.js';
 import type { ScriptManifestAuthoringV1, ScriptManifestV1 } from '../spec/manifest/index.js';
 import type { ScriptResourceMap } from '../spec/resources/index.js';
 import { validateScriptManifest } from './validation/manifest/validate-manifest.js';
@@ -87,7 +87,10 @@ const digestDefinition = <I, O, R extends ScriptResourceMap>(
 };
 
 const executionHandler = <I, O, R extends ScriptResourceMap>(
-  input: ScriptDefinitionInput<I, O, R>,
+  input:
+    | RequiredIdempotencyScriptDefinitionInput<I, O, R>
+    | OptionalIdempotencyScriptDefinitionInput<I, O, R>
+    | UnrefinedIdempotencyScriptDefinitionInput<I, O, R>,
 ): ScriptDefinition<I, O, R>['handler'] => {
   if (input.manifest.idempotency !== 'required') {
     return input.handler;
@@ -96,16 +99,11 @@ const executionHandler = <I, O, R extends ScriptResourceMap>(
   const handler = input.handler;
   return {
     execute: async (handlerInput, context) => {
-      if (context.idempotencyKey === undefined) {
-        throw new ScriptFault(
-          'revo.script.idempotency.key_required',
-          'This script requires an idempotency key.',
-        );
-      }
+      const idempotencyKey = validateIdempotencyKey('required', context.idempotencyKey);
 
       return handler.execute(handlerInput, {
         ...context,
-        idempotencyKey: context.idempotencyKey,
+        idempotencyKey,
       });
     },
   };
@@ -117,11 +115,17 @@ export function defineScript<I, O, R extends ScriptResourceMap>(
 export function defineScript<I, O, R extends ScriptResourceMap>(
   input: OptionalIdempotencyScriptDefinitionInput<I, O, R>,
 ): ScriptDefinition<I, O, R>;
+export function defineScript<
+  I,
+  O,
+  R extends ScriptResourceMap,
+  M extends ScriptManifestAuthoringV1 = ScriptManifestAuthoringV1,
+>(input: ScriptDefinitionInput<I, O, R, M>): ScriptDefinition<I, O, R>;
 export function defineScript<I, O, R extends ScriptResourceMap>(
-  input: UnrefinedIdempotencyScriptDefinitionInput<I, O, R>,
-): ScriptDefinition<I, O, R>;
-export function defineScript<I, O, R extends ScriptResourceMap>(
-  input: ScriptDefinitionInput<I, O, R>,
+  input:
+    | RequiredIdempotencyScriptDefinitionInput<I, O, R>
+    | OptionalIdempotencyScriptDefinitionInput<I, O, R>
+    | UnrefinedIdempotencyScriptDefinitionInput<I, O, R>,
 ): ScriptDefinition<I, O, R> {
   const manifest = snapshotManifest(input.manifest);
   const implementation = { ...input.implementation };

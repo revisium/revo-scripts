@@ -213,7 +213,13 @@ runtime + host + application + providers + scripts <- testing
 - `application/registration/built-in-definition-inventory.ts` is the one explicit internal executable inventory.
   Family modules and the sorted immutable catalog derive from it without filesystem scanning or module side effects.
 - Git and GitHub do not import one another.
-- Production source never imports `testing`, test support, build output, or repository scripts.
+- Production source never imports `testing`, test support, build output, or repository scripts. Runtime and provider
+  production code do not import generated output.
+
+Each private provider-family factory owns one ordinary-source implementation digest pin and injects it into its
+internal provider constructor. The identity generator hashes the provider class's emitted dependency closure, so the
+factory and pin remain outside that closure and cannot self-hash. Generation replaces exactly the named pin; check mode
+recomputes and compares without writing.
 
 README operation/provider cards remain human-owned narrative. A machine parser or README generator is intentionally
 not part of verification: exact ids, permissions, effects, policies, family membership, and catalog order are checked

@@ -29,10 +29,11 @@ index tree capture; commit uses `commit-tree` and compare-and-swap `update-ref`;
 and never rewrites history. Commit authorship and timestamp come from validated script input rather than mutable Git
 configuration, making the object identity reproducible after a crash.
 
-The provider imports its implementation digest from provider-adjacent generated metadata. `build:identity:generate`
-hashes the adapter's emitted transitive closure with deterministic path/length framing while excluding that generated
-metadata itself; `build:identity:check` rejects stale metadata and tests prove Git changes do not alter the Fetch
-GitHub identity.
+The private `nodeGitProviders` family factory owns the ordinary-source implementation digest pin and injects it into
+the internal provider constructor. `build:identity:generate` hashes the provider class's emitted transitive closure
+with deterministic path/length framing, then replaces exactly that named factory pin. The factory and pin are outside
+the hashed closure, so the digest does not hash itself. `build:identity:check` recomputes and compares without writing;
+tests prove Git changes do not alter the Fetch GitHub identity.
 
 ## Verification
 

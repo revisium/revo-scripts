@@ -1,13 +1,13 @@
 import { expect, test } from 'vitest';
 
 import type { ProviderClientRequest } from '../../../src/host/providers/provider-client-request.js';
-import { FetchGitHubProvider } from '../../../src/providers/github/adapters/fetch/fetch-github-provider.js';
 import { FetchGitHubPullRequestMergeClient } from '../../../src/providers/github/adapters/fetch/pull-request/fetch-github-pull-request-merge-client.js';
 import { FetchGitHubPullRequestReadinessClient } from '../../../src/providers/github/adapters/fetch/pull-request/fetch-github-pull-request-readiness-client.js';
 import { FetchGitHubPullRequestReadyClient } from '../../../src/providers/github/adapters/fetch/pull-request/fetch-github-pull-request-ready-client.js';
 import { FetchGitHubPullRequestUpsertClient } from '../../../src/providers/github/adapters/fetch/pull-request/fetch-github-pull-request-upsert-client.js';
 import { FetchGitHubReviewThreadResolveClient } from '../../../src/providers/github/adapters/fetch/review-thread/fetch-github-review-thread-resolve-client.js';
 import { FetchGitHubReviewThreadRespondClient } from '../../../src/providers/github/adapters/fetch/review-thread/fetch-github-review-thread-respond-client.js';
+import { fetchGitHubProviders } from '../../../src/providers/github/index.js';
 import { ScriptFault } from '../../../src/runtime/spec/errors/index.js';
 import type { ScriptManifestV1 } from '../../../src/runtime/spec/manifest/index.js';
 import { githubPullRequestMarkReadyManifest } from '../../../src/scripts/github/pull-request/mark-ready/manifest.js';
@@ -98,10 +98,18 @@ const captureFault = async (operation: () => Promise<unknown>) => {
   throw new Error('Expected provider preparation to fail.');
 };
 
+const createProvider = () => {
+  const provider = fetchGitHubProviders()[0]?.module;
+  if (provider === undefined) {
+    throw new Error('Expected the Fetch GitHub provider.');
+  }
+  return provider;
+};
+
 test.each(supportedPermissionCases)(
   'creates only the bounded client for $manifest.permissions.0',
   async ({ manifest, client }) => {
-    const provider = new FetchGitHubProvider();
+    const provider = createProvider();
 
     const prepared = await provider.createResourceClients(requestFor(manifest));
 
@@ -110,7 +118,7 @@ test.each(supportedPermissionCases)(
 );
 
 test('ignores unrelated permissions when exactly one supported permission is declared', async () => {
-  const provider = new FetchGitHubProvider();
+  const provider = createProvider();
 
   const prepared = await provider.createResourceClients(
     requestFor(githubPullRequestUpsertManifest, [
@@ -134,7 +142,7 @@ test.each([
 ] as const)(
   'rejects the $partition permission partition with the stable capability fault',
   async ({ permissions }) => {
-    const provider = new FetchGitHubProvider();
+    const provider = createProvider();
 
     await expect(
       captureFault(() =>

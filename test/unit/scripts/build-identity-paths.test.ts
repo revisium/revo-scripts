@@ -7,6 +7,7 @@ import { expect, test } from 'vitest';
 import {
   digestForEmittedClosure,
   normalizeIdentityPath,
+  replaceProviderIdentityPin,
   resolveImportedIdentityPath,
   type OutputFile,
 } from '../../../scripts/generate-build-digest.js';
@@ -120,3 +121,49 @@ test.each(identityCases)(
     }
   },
 );
+
+test('replaces only the exact named provider identity pin', () => {
+  const before =
+    "const providerDigest =\n  'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;\n" +
+    "const unrelated = 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';\n";
+
+  expect(
+    replaceProviderIdentityPin(
+      before,
+      'providerDigest',
+      'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+    ),
+  ).toBe(
+    "const providerDigest =\n  'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' as const;\n" +
+      "const unrelated = 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';\n",
+  );
+});
+
+test.each([
+  {
+    name: 'missing',
+    source:
+      "const unrelated = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;\n",
+    message: 'Expected exactly one provider identity pin named providerDigest; found 0.',
+  },
+  {
+    name: 'ambiguous',
+    source:
+      "const providerDigest = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;\n" +
+      "const providerDigest = 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as const;\n",
+    message: 'Expected exactly one provider identity pin named providerDigest; found 2.',
+  },
+  {
+    name: 'malformed',
+    source: "const providerDigest = 'sha256:ABCDEF' as const;\n",
+    message: 'Provider identity pin providerDigest must be a lowercase SHA-256 digest.',
+  },
+] as const)('rejects a $name provider identity pin', ({ source, message }) => {
+  expect(() =>
+    replaceProviderIdentityPin(
+      source,
+      'providerDigest',
+      'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+    ),
+  ).toThrow(message);
+});

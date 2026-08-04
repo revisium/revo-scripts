@@ -116,10 +116,8 @@ test('lists every installed built-in once in stable identity order', () => {
 test('returns fresh frozen catalog arrays containing immutable descriptor snapshots', () => {
   const first: readonly BuiltInScriptDescriptor[] = builtInScriptCatalog();
   const second = builtInScriptCatalog();
-  const modules: readonly ScriptDefinitionModule[] = moduleCases.map(({ module }) => module);
   const descriptor = first[0];
 
-  expect(modules).toHaveLength(5);
   expect(first).not.toBe(second);
   expect(first).toEqual(second);
   expect(Object.isFrozen(first)).toBe(true);

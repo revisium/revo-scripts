@@ -270,8 +270,11 @@ new provider can add its own closed coordinate schema without changing the gener
 
 A provider implementation digest is generated from the adapter's emitted runtime closure with the same deterministic
 path, length, and byte framing used for a definition build digest. It excludes unrelated scripts, other adapters, and
-generated metadata. CI MUST reproduce and compare it. A changed adapter closure produces a new digest even when it
-still implements the same provider contract major.
+the private provider-family factory that owns its ordinary-source digest pin. The generator MUST replace exactly one
+named valid pin and fail closed on missing, duplicate, or malformed pins. The factory injects that pin into the
+internal provider constructor, so the pin is outside the provider class closure and cannot hash itself. CI MUST
+reproduce and compare without changing source in check mode. A changed adapter closure produces a new digest even when
+it still implements the same provider contract major.
 
 Built-in adapter implementations live under paths such as `src/providers/git/adapters/node/`. The current factory
 returns the single implementation for its contract. Registering a second implementation for that contract fails
@@ -493,9 +496,11 @@ JSON Schema MUST describe the same accepted values.
 For a statically `required` authoring manifest, `ScriptDefinitionInput` MUST require a
 `RequiredIdempotencyScriptHandler`; a manifest whose idempotency mode is not statically refined uses the general
 optional-key handler contract. The definition returned by `defineScript` keeps the general execution-handler shape so
-registries can remain heterogeneous. Its guarded handler MUST reject a malformed direct call that omits the required
-key with `revo.script.idempotency.key_required`. The normal `executeScript` path MUST reject that request during
-preflight with zero attempts, so a required built-in handler is invoked only with a statically required string key.
+registries can remain heterogeneous. Its guarded handler and normal preflight MUST use the same provider-neutral key
+validator. A missing required key fails with `revo.script.idempotency.key_required`; an empty key or one longer than
+1,024 Unicode code points fails with `revo.script.validation.input`. The normal `executeScript` path MUST reject those
+requests during preflight with zero attempts, so a required built-in handler is invoked only with a statically
+required validated string key.
 
 `defineScript` MUST validate the manifest, both schemas, policy coherence, and implementation
 identity. It MUST compute the definition digest over RFC 8785 canonical JSON containing the manifest, both JSON

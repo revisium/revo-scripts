@@ -1,12 +1,18 @@
-import type { ScriptDefinitionInput } from '../../spec/definition/index.js';
+import type { ScriptImplementationIdentity } from '../../spec/definition/index.js';
 import { ScriptFault } from '../../spec/errors/index.js';
-import type { ScriptResourceMap } from '../../spec/resources/index.js';
+import type { ScriptManifestAuthoringV1 } from '../../spec/manifest/index.js';
+import type { ScriptSchema } from '../../spec/schema/index.js';
 import { validateImplementationIdentity } from './implementation-identity-validator.js';
 import { validateJsonSchema } from './json-schema-validator.js';
 import type { ValidatedDefinitionSchemas } from './validated-definition-schemas.js';
 
-export const validateDefinition = <I, O, R extends ScriptResourceMap>(
-  input: ScriptDefinitionInput<I, O, R>,
+export const validateDefinition = <I, O>(
+  input: Readonly<{
+    manifest: ScriptManifestAuthoringV1;
+    inputSchema: ScriptSchema<I>;
+    resultSchema: ScriptSchema<O>;
+    implementation: ScriptImplementationIdentity;
+  }>,
 ): ValidatedDefinitionSchemas => {
   const inputSchema = validateJsonSchema(
     input.inputSchema,

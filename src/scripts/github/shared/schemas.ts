@@ -97,8 +97,3 @@ export const githubReadinessSchema = createScriptSchema({
 
 export type GitHubPullRequestV1 = ScriptSchemaOutput<typeof githubPullRequestSchema>;
 export type GitHubReadinessV1 = ScriptSchemaOutput<typeof githubReadinessSchema>;
-export type GitHubIssueAction = NonNullable<GitHubPullRequestV1['issueRef']>['action'];
-export type GitHubIssueRefV1 = NonNullable<GitHubPullRequestV1['issueRef']>;
-export type GitHubReadinessCheckV1 = GitHubReadinessV1['checks'][number];
-export type GitHubReadinessThreadV1 = GitHubReadinessV1['unresolvedThreads'][number];
-export type { ApprovalSubjectResult as ApprovalSubjectV1 } from '../../approval/subject/schemas.js';

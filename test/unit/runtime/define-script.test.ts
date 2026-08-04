@@ -314,6 +314,23 @@ test('refines required handler context while guarding direct definition handler 
     retryable: false,
   });
   await expect(
+    definition.handler.execute({ message: 'empty' }, { ...baseContext, idempotencyKey: '' }),
+  ).rejects.toMatchObject({
+    code: 'revo.script.validation.input',
+    message: 'Idempotency key must contain between 1 and 1024 Unicode code points.',
+    retryable: false,
+  });
+  await expect(
+    definition.handler.execute(
+      { message: 'oversized' },
+      { ...baseContext, idempotencyKey: 'x'.repeat(1_025) },
+    ),
+  ).rejects.toMatchObject({
+    code: 'revo.script.validation.input',
+    message: 'Idempotency key must contain between 1 and 1024 Unicode code points.',
+    retryable: false,
+  });
+  await expect(
     definition.handler.execute(
       { message: 'present' },
       { ...baseContext, idempotencyKey: 'required-handler-key' },

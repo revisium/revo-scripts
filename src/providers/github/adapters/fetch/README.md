@@ -29,6 +29,8 @@ Replies carry a hashed hidden operation marker so a retry can find the prior eff
 bounded comment window cannot prove absence. Pull-request merge sends the exact expected head SHA. The adapter never
 selects a pipeline node or confirms a human gate.
 
-The provider imports its implementation digest from provider-adjacent generated metadata. The identity generator
-hashes only the adapter's emitted transitive closure, excludes its own metadata, and verifies freshness plus isolation
-from Node Git and built-in definition changes in the contract suite.
+The private `fetchGitHubProviders` family factory owns the ordinary-source implementation digest pin and injects it
+into the internal provider constructor. The identity generator hashes only the provider class's emitted transitive
+closure and replaces exactly that named factory pin. Because the factory is outside the closure, the digest does not
+hash itself. The check path recomputes without writing, and the contract suite proves isolation from Node Git and
+built-in definition changes.
