@@ -1,14 +1,13 @@
 # `script:github/pull-request/readiness`
 
-| Field                    | Value                                              |
-| ------------------------ | -------------------------------------------------- |
-| Revision                 | `1`                                                |
-| Effect class and effects | `read`; `github.read`                              |
-| Permission and resource  | `github.pull-request.readiness`; `repository` read |
-| Provider and idempotency | `revo.provider.github/v1`; read-only               |
+| Field                          | Value                                              |
+| ------------------------------ | -------------------------------------------------- |
+| Revision                       | `1`                                                |
+| Operation class and operations | `read`; `github.read`                              |
+| Permission and resource        | `github.pull-request.readiness`; `repository` read |
+| Provider and idempotency       | `revo.provider.github/v1`; read-only               |
 
-Revision `1` is immutable. Any observable change requires a larger integer revision; ranges, `latest`, SemVer parsing,
-and fallback are unsupported.
+Revision `1` is immutable. Any observable change requires a larger integer revision.
 
 Reads state, draft status, mergeability, bounded check contexts, required-check identity, and bounded review threads
 for one pull request. It performs no mutation and returns `schema:githubReadiness/v1` with the observed head,

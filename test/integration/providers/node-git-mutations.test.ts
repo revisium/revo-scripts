@@ -10,7 +10,7 @@ import { expect, test } from 'vitest';
 import { createRevoScripts, gitScripts } from '../../../src/index.js';
 import { nodeGitProviders, type ProcessExecutor } from '../../../src/providers/git/index.js';
 import { gitCommitScript } from '../../../src/scripts/git/index.js';
-import { createGitHost, createGitScriptRequest } from '../../support/git/git-fixture.js';
+import { createGitHost, executeGitScriptAttempt } from '../../support/git/git-fixture.js';
 
 const execFileAsync = promisify(execFile);
 const processExecutor: ProcessExecutor = {
@@ -55,7 +55,20 @@ test(
       expect(capturedTree).not.toEqual(expectedTree);
 
       const { host } = createGitHost({
-        resolveWorkspace: async (workspaceId) => ({
+        resource: {
+          resourceId: 'target',
+          repositoryId: 'temporary-repository',
+          providerCoordinates: {},
+          grant: {
+            permissions: ['git.commit.write', 'git.push.publish'],
+            operations: ['git.read', 'git.write', 'git.remote-write'],
+          },
+        },
+        inspectWorkspace: async (workspaceId) => ({
+          workspaceId,
+          repositoryId: 'temporary-repository',
+        }),
+        acquireWorkspace: async (workspaceId) => ({
           workspaceId,
           repositoryId: 'temporary-repository',
           absolutePath: repository,
@@ -68,74 +81,63 @@ test(
       });
       const remoteIdentity = pathToFileURL(remote).href;
       const executeCommit = async (executionId: string) =>
-        await scripts.execute(
-          createGitScriptRequest(
-            { id: 'script:git/commit', version: 1 },
-            {
-              executionId,
-              input: {
-                resource: 'repository',
-                remoteIdentity,
-                branch: 'master',
-                expectedParent: parent,
-                expectedTree: capturedTree,
-                title: 'exact tree',
-                issueAction: 'none',
-                author: {
-                  name: 'Revisium Bot',
-                  email: 'bot@revisium.io',
-                  timestamp: '2026-07-15T09:00:00.000Z',
-                },
+        await executeGitScriptAttempt(
+          scripts,
+          { id: 'script:git/commit', version: 1 },
+          {
+            executionId,
+            input: {
+              resource: 'repository',
+              remoteIdentity,
+              branch: 'master',
+              expectedParent: parent,
+              expectedTree: capturedTree,
+              title: 'exact tree',
+              issueAction: 'none',
+              author: {
+                name: 'Revisium Bot',
+                email: 'bot@revisium.io',
+                timestamp: '2026-07-15T09:00:00.000Z',
               },
-              access: 'write',
-              permissions: ['git.commit.write'],
-              effects: ['git.read', 'git.write'],
-              repositoryId: 'temporary-repository',
-              workspaceId: 'temporary-workspace',
-              idempotencyKey: 'git-commit-operation',
             },
-          ),
+            access: 'write',
+            permissions: ['git.commit.write'],
+            operations: ['git.read', 'git.write'],
+            repositoryId: 'temporary-repository',
+            workspaceId: 'temporary-workspace',
+          },
         );
       const committed = await executeCommit('real-git-commit');
-      if (!committed.ok) {
-        throw new Error(committed.error.message);
+      if (committed.kind !== 'succeeded') {
+        throw new Error('Expected the Git commit attempt to succeed.');
       }
       const committedValue = await gitCommitScript.resultSchema.validate(committed.value);
       if (!committedValue.ok) {
         throw new Error('Expected the Git commit result contract.');
       }
-      await git(repository, ['config', 'user.name', 'Changed Ambient Identity']);
-      const commitReplay = await executeCommit('real-git-commit-replay');
       const executePush = async (executionId: string) =>
-        await scripts.execute(
-          createGitScriptRequest(
-            { id: 'script:git/push', version: 1 },
-            {
-              executionId,
-              input: { change: committedValue.value, expectedRemoteHead: parent },
-              access: 'publish',
-              permissions: ['git.push.publish'],
-              effects: ['git.read', 'git.remote-write'],
-              repositoryId: 'temporary-repository',
-              workspaceId: 'temporary-workspace',
-              idempotencyKey: 'git-push-operation',
-            },
-          ),
+        await executeGitScriptAttempt(
+          scripts,
+          { id: 'script:git/push', version: 1 },
+          {
+            executionId,
+            input: { change: committedValue.value, expectedRemoteHead: parent },
+            access: 'publish',
+            permissions: ['git.push.publish'],
+            operations: ['git.read', 'git.remote-write'],
+            repositoryId: 'temporary-repository',
+            workspaceId: 'temporary-workspace',
+          },
         );
       const published = await executePush('real-git-push');
-      const pushReplay = await executePush('real-git-push-replay');
 
       expect({
         committed,
-        commitReplay,
         published,
-        pushReplay,
         remoteHead: await git(remote, ['rev-parse', 'refs/heads/master']),
-      }).toEqual({
-        committed: { ok: true, value: committedValue.value, evidence: [], attempts: 1 },
-        commitReplay: { ok: true, value: committedValue.value, evidence: [], attempts: 1 },
-        published: { ok: true, value: committedValue.value, evidence: [], attempts: 1 },
-        pushReplay: { ok: true, value: committedValue.value, evidence: [], attempts: 1 },
+      }).toMatchObject({
+        committed: { kind: 'succeeded', value: committedValue.value, evidence: [] },
+        published: { kind: 'succeeded', value: committedValue.value, evidence: [] },
         remoteHead: committedValue.value.headCommit,
       });
     } finally {

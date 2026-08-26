@@ -1,0 +1,22 @@
+{
+  "result": {
+    "kind": "uncertain",
+    "trigger": "timeout",
+    "stage": "handler",
+    "evidence": []
+  },
+  "events": [
+    {
+      "emissionOrdinal": 1,
+      "event": {
+        "name": "revo.script.started",
+        "details": {
+          "script": { "id": "script:test/facade-golden-uncertain", "version": 1 },
+          "definitionDigest": "sha256:2a233c7d25970214323b4bd70be14901429d08ecff3b1f7bf2a5e272beba28cc",
+          "attemptOrdinal": 1,
+          "timestampMs": 123
+        }
+      }
+    }
+  ]
+}

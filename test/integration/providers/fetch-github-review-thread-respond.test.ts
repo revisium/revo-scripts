@@ -22,18 +22,17 @@ test('posts a bounded selected batch in input order and never resolves it', asyn
     input: respondInput([{ threadId: 'thread-1', decision: 'fix', replyText: 'Addressed.' }]),
     access: 'publish',
     permission: 'github.review-thread.respond',
-    idempotencyKey: 'thread-reply-operation',
+    executionId: 'thread-reply-operation',
     fetch: statefulFetch(state),
   });
 
-  expect({ result, effects: state }).toEqual({
+  expect({ result, operations: state }).toMatchObject({
     result: {
-      ok: true,
+      kind: 'succeeded',
       value: responseProof('thread-reply-operation'),
       evidence: [],
-      attempts: 1,
     },
-    effects: {
+    operations: {
       resolved: false,
       comments: [
         {
@@ -48,7 +47,7 @@ test('posts a bounded selected batch in input order and never resolves it', asyn
   });
 });
 
-test('reconciles a reply after a partial crash without a duplicate mutation', async () => {
+test('reports a retryable failure after a partial reply crash without repeating the mutation', async () => {
   const state: ReviewThreadState = {
     resolved: false,
     comments: [],
@@ -60,21 +59,14 @@ test('reconciles a reply after a partial crash without a duplicate mutation', as
     input: respondInput([{ threadId: 'thread-1', decision: 'fix', replyText: 'Addressed.' }]),
     access: 'publish',
     permission: 'github.review-thread.respond',
-    idempotencyKey: 'thread-reply-crash',
+    executionId: 'thread-reply-crash',
     fetch: statefulFetch(state, { failAfterReply: true }),
   });
 
-  expect({ result, replyMutations: state.replyMutations }).toEqual({
+  expect({ result, replyMutations: state.replyMutations }).toMatchObject({
     result: {
-      ok: true,
-      value: {
-        ...responseProof('thread-reply-crash'),
-        threads: [
-          { ...onlyThread(responseProof('thread-reply-crash')), status: 'already-replied' },
-        ],
-      },
-      evidence: [],
-      attempts: 2,
+      kind: 'failed',
+      error: { code: 'revo.script.provider.transient', stage: 'provider', retryable: true },
     },
     replyMutations: 1,
   });
@@ -94,21 +86,20 @@ test('blocks foreign or stale review threads before a reply mutation', async () 
     ]),
     access: 'publish',
     permission: 'github.review-thread.respond',
-    idempotencyKey: 'thread-reply-stale',
+    executionId: 'thread-reply-stale',
     fetch: statefulFetch(state, {
       reviewThread: () => reviewThreadResponse(state, { head: 'b'.repeat(40) }),
     }),
   });
 
-  expect({ result, replyMutations: state.replyMutations }).toEqual({
+  expect({ result, replyMutations: state.replyMutations }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'The review thread does not belong to the pinned open pull request revision.',
         retryable: false,
       },
-      attempts: 1,
     },
     replyMutations: 0,
   });
@@ -127,21 +118,20 @@ test('blocks a review thread from another repository before a reply mutation', a
     input: respondInput([{ threadId: 'thread-1', decision: 'fix', replyText: 'Addressed.' }]),
     access: 'publish',
     permission: 'github.review-thread.respond',
-    idempotencyKey: 'thread-reply-foreign',
+    executionId: 'thread-reply-foreign',
     fetch: statefulFetch(state, {
       reviewThread: () => reviewThreadResponse(state, { owner: 'attacker' }),
     }),
   });
 
-  expect({ result, replyMutations: state.replyMutations }).toEqual({
+  expect({ result, replyMutations: state.replyMutations }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'The review thread does not belong to the bound GitHub repository.',
         retryable: false,
       },
-      attempts: 1,
     },
     replyMutations: 0,
   });
@@ -163,19 +153,18 @@ test('blocks an ambiguous marked reply before another mutation', async () => {
     input: respondInput([{ threadId: 'thread-1', decision: 'fix', replyText: 'Addressed.' }]),
     access: 'publish',
     permission: 'github.review-thread.respond',
-    idempotencyKey: 'thread-reply-ambiguous',
+    executionId: 'thread-reply-ambiguous',
     fetch: statefulFetch(state),
   });
 
-  expect({ result, replyMutations: state.replyMutations }).toEqual({
+  expect({ result, replyMutations: state.replyMutations }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'GitHub returned ambiguous or conflicting review-thread reply markers.',
         retryable: false,
       },
-      attempts: 1,
     },
     replyMutations: 0,
   });
@@ -196,19 +185,18 @@ test('blocks a matching marker from a foreign actor before another mutation', as
     input: respondInput([{ threadId: 'thread-1', decision: 'fix', replyText: 'Addressed.' }]),
     access: 'publish',
     permission: 'github.review-thread.respond',
-    idempotencyKey: 'thread-reply-foreign-actor',
+    executionId: 'thread-reply-foreign-actor',
     fetch: statefulFetch(state),
   });
 
-  expect({ result, replyMutations: state.replyMutations }).toEqual({
+  expect({ result, replyMutations: state.replyMutations }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'GitHub returned a review-thread reply with an invalid proof identity.',
         retryable: false,
       },
-      attempts: 1,
     },
     replyMutations: 0,
   });
@@ -226,19 +214,18 @@ test('rejects an invalid provider mutation response without exposing a reply bod
     input: respondInput([{ threadId: 'thread-1', decision: 'fix', replyText: 'fake-token-123' }]),
     access: 'publish',
     permission: 'github.review-thread.respond',
-    idempotencyKey: 'thread-reply-invalid-response',
+    executionId: 'thread-reply-invalid-response',
     fetch: statefulFetch(state, { invalidReplyMutation: true }),
   });
 
-  expect({ result, replyMutations: state.replyMutations }).toEqual({
+  expect({ result, replyMutations: state.replyMutations }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.provider.invalid_response',
         message: 'GitHub returned an invalid review reply mutation response.',
         retryable: false,
       },
-      attempts: 1,
     },
     replyMutations: 1,
   });

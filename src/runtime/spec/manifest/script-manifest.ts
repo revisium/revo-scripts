@@ -1,6 +1,6 @@
 import type { ScriptCredentialRequirement } from './script-credential-requirement.js';
-import type { ScriptEffectClass } from './script-effect-class.js';
-import type { ScriptEffect } from './script-effect.js';
+import type { ScriptImpactClass } from './script-impact-class.js';
+import type { ScriptOperation } from './script-operation.js';
 import type { ScriptProviderRequirement } from './script-provider-requirement.js';
 import type { ScriptResourceRequirement } from './script-resource-requirement.js';
 
@@ -11,12 +11,12 @@ export interface ScriptManifestV1 {
   readonly summary: string;
   readonly inputSchemaId: string;
   readonly resultSchemaId: string;
-  readonly effectClass: ScriptEffectClass;
+  readonly impactClass: ScriptImpactClass;
   readonly permissions: readonly string[];
   readonly resources: readonly ScriptResourceRequirement[];
   readonly providers: readonly ScriptProviderRequirement[];
   readonly credentials: readonly ScriptCredentialRequirement[];
-  readonly effects: readonly ScriptEffect[];
+  readonly operations: readonly ScriptOperation[];
   readonly timeout: Readonly<{ wallClockMs: number }>;
   readonly retry: Readonly<{
     mode: 'never' | 'transient';

@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 
 import type { GitHubReviewThreadResolveClient } from '../../../src/providers/github/index.js';
 import { githubReviewThreadResolveScript } from '../../../src/scripts/github/index.js';
-import { createScriptContractHarness } from '../../../src/testing/index.js';
+import { createGitHubScriptContractHarness } from '../../support/github/github-contract-fixture.js';
 import { githubResource, pullRequest } from '../../support/github/github-contract-fixture.js';
 import {
   githubReviewThreadMarker,
@@ -21,13 +21,12 @@ test('resolves only the ordered response proofs', async () => {
     resolveBatch: async (request) =>
       request.items.map((item) => ({ ...item, status: 'resolved' as const })),
   };
-  const harness = createScriptContractHarness(githubReviewThreadResolveScript, {
+  const harness = createGitHubScriptContractHarness(githubReviewThreadResolveScript, {
     executionId: 'github-thread-resolve',
-    idempotencyKey: 'run:thread:resolve',
     resources: { repository: githubResource(client, 'publish') },
   });
 
-  const execution = await harness.execute({
+  const execution = await harness.runAttempt({
     schemaVersion: 'github-review-threads-resolve-input/v1',
     pullRequest,
     responses: {
@@ -51,8 +50,8 @@ test('resolves only the ordered response proofs', async () => {
     },
   });
 
-  expect(execution.result).toEqual({
-    ok: true,
+  expect(execution.result).toMatchObject({
+    kind: 'succeeded',
     value: {
       schemaVersion: 'github-review-threads-resolve-result/v1',
       pullRequest: {
@@ -72,7 +71,6 @@ test('resolves only the ordered response proofs', async () => {
       ],
     },
     evidence: [],
-    attempts: 1,
   });
 });
 
@@ -84,13 +82,12 @@ test('rejects a response proof for another pinned head before any provider call'
       return [];
     },
   };
-  const harness = createScriptContractHarness(githubReviewThreadResolveScript, {
+  const harness = createGitHubScriptContractHarness(githubReviewThreadResolveScript, {
     executionId: 'github-thread-resolve-stale',
-    idempotencyKey: 'run:thread:resolve:stale',
     resources: { repository: githubResource(client, 'publish') },
   });
 
-  const execution = await harness.execute({
+  const execution = await harness.runAttempt({
     schemaVersion: 'github-review-threads-resolve-input/v1',
     pullRequest,
     responses: {
@@ -105,15 +102,14 @@ test('rejects a response proof for another pinned head before any provider call'
     },
   });
 
-  expect({ result: execution.result, calls }).toEqual({
+  expect({ result: execution.result, calls }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'Response proofs do not match the pinned pull request revision.',
         retryable: false,
       },
-      attempts: 1,
     },
     calls: 0,
   });

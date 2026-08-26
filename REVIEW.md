@@ -11,7 +11,7 @@ Block the change when any of the following applies:
 - A deep import, broad root barrel, dependency cycle, or reverse dependency bypasses the intended package DAG.
 - New code uses `any`, `@ts-ignore`, an unchecked assertion, silent error swallowing, or an unbounded external payload.
 - System mechanics and business decisions are mixed into an unreadable unit.
-- A speculative abstraction or compatibility fallback is introduced without an approved requirement.
+- A speculative abstraction or compatibility path is introduced without an approved requirement.
 - Runtime source depends on tests, fixtures, generated output, build scripts, or repository tooling.
 - A lint, format, type, test, coverage, package, or workflow failure is suppressed instead of fixed.
 - A quality exception lacks an owner, rationale, and expiry or removal condition.

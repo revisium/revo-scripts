@@ -1,14 +1,13 @@
 # `script:github/review-threads/resolve`
 
-| Field                    | Value                                                |
-| ------------------------ | ---------------------------------------------------- |
-| Revision                 | `1`                                                  |
-| Effect class and effects | `publish`; `github.read`, `github.write`             |
-| Permission and resource  | `github.review-thread.resolve`; `repository` publish |
-| Provider and idempotency | `revo.provider.github/v1`; required                  |
+| Field                          | Value                                                |
+| ------------------------------ | ---------------------------------------------------- |
+| Revision                       | `1`                                                  |
+| Operation class and operations | `publish`; `github.read`, `github.write`             |
+| Permission and resource        | `github.review-thread.resolve`; `repository` publish |
+| Provider and idempotency       | `revo.provider.github/v1`; required                  |
 
-Revision `1` is immutable. Any observable change requires a larger integer revision; ranges, `latest`, SemVer parsing,
-and fallback are unsupported.
+Revision `1` is immutable. Any observable change requires a larger integer revision.
 
 Consumes the closed response result from the response operation and processes its at-most-100 proofs in their recorded
 order. For every item, the provider re-reads the exact bound repository, open pull-request head, thread, and the one

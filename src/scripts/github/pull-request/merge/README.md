@@ -1,14 +1,13 @@
 # `script:github/pull-request/merge`
 
-| Field                    | Value                                             |
-| ------------------------ | ------------------------------------------------- |
-| Revision                 | `1`                                               |
-| Effect class and effects | `publish`; `github.read`, `github.write`          |
-| Permission and resource  | `github.pull-request.merge`; `repository` publish |
-| Provider and idempotency | `revo.provider.github/v1`; required               |
+| Field                          | Value                                             |
+| ------------------------------ | ------------------------------------------------- |
+| Revision                       | `1`                                               |
+| Operation class and operations | `publish`; `github.read`, `github.write`          |
+| Permission and resource        | `github.pull-request.merge`; `repository` publish |
+| Provider and idempotency       | `revo.provider.github/v1`; required               |
 
-Revision `1` is immutable. Any observable change requires a larger integer revision; ranges, `latest`, SemVer parsing,
-and fallback are unsupported.
+Revision `1` is immutable. Any observable change requires a larger integer revision.
 
 Merges only one approved open, non-draft, live-mergeable pull request. Its closed input carries the exact PR artifact,
 approval subject, active gate resolution, and post-gate readiness artifact. Normal approval accepts only `clean`
@@ -24,4 +23,4 @@ approved and merged head proof, optional merge commit, merge status, source-bran
 bounded override identity (`actor`, `auditFingerprint`, and exact `threadIds`) while omitting free-text gate and audit
 fields.
 
-It replaces the orchestrator merge effect and does not create a human authorization. Verified by `test/contract/github/pull-request-merge.test.ts` and `pnpm verify`.
+It performs the orchestrator merge operation and does not create a human authorization. Verified by `test/contract/github/pull-request-merge.test.ts` and `pnpm verify`.

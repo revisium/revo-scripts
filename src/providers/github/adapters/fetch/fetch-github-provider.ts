@@ -50,7 +50,7 @@ export class FetchGitHubProvider implements ScriptProviderModule {
     packageName: '@revisium/revo-scripts',
     packageVersion: '0.0.0',
   };
-  readonly effects = ['github.read', 'github.write'] as const;
+  readonly operations = ['github.read', 'github.write'] as const;
   readonly workspace = 'none';
   readonly coordinateSchema = new GitHubCoordinateSchema();
   private readonly options: FetchGitHubProviderOptions;

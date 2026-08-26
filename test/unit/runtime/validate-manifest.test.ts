@@ -105,12 +105,12 @@ test('rejects string, fractional, negative, and unsafe script revisions', () => 
 test('rejects duplicate resource and event identities plus invalid JSON pointers', () => {
   const fault = captureManifestFault({
     ...validManifest,
-    effectClass: 'read',
+    impactClass: 'read',
     resources: [
       { name: 'repository', kind: 'repository', access: 'read' },
       { name: 'repository', kind: 'repository', access: 'read' },
     ],
-    effects: ['git.read'],
+    operations: ['git.read'],
     redaction: {
       ...validManifest.redaction,
       inputPaths: ['token', 'token'],
@@ -138,13 +138,13 @@ test('rejects duplicate resource and event identities plus invalid JSON pointers
   });
 });
 
-test('rejects resource and effect access above the declared effect class', () => {
+test('rejects resource and operation access above the declared impact class', () => {
   const fault = captureManifestFault({
     ...validManifest,
-    effectClass: 'read',
+    impactClass: 'read',
     permissions: ['git.status.write'],
     resources: [{ name: 'repository', kind: 'repository', access: 'write' }],
-    effects: ['git.write'],
+    operations: ['git.write'],
     idempotency: 'required',
   });
 
@@ -156,9 +156,9 @@ test('rejects resource and effect access above the declared effect class', () =>
       issues: [
         {
           path: '/resources/0/access',
-          message: 'Resource access exceeds the read effect class.',
+          message: 'Resource access exceeds the read impact class.',
         },
-        { path: '/effects/0', message: 'Effect is not permitted by the read effect class.' },
+        { path: '/operations/0', message: 'Operation is not permitted by the read impact class.' },
       ],
     },
   });
@@ -188,7 +188,7 @@ test('rejects lifecycle namespace declarations before registration', () => {
 test('rejects duplicate and dangling provider or credential requirements', () => {
   const fault = captureManifestFault({
     ...validManifest,
-    effectClass: 'read',
+    impactClass: 'read',
     permissions: ['git.status.read'],
     resources: [{ name: 'repository', kind: 'repository', access: 'read' }],
     providers: [
@@ -199,7 +199,7 @@ test('rejects duplicate and dangling provider or credential requirements', () =>
       { name: 'account', provider: 'github', providerRequirement: 'git' },
       { name: 'account', provider: 'github', providerRequirement: 'missing' },
     ],
-    effects: ['git.read'],
+    operations: ['git.read'],
   });
 
   expect(fault).toEqual({

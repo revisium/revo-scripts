@@ -2,12 +2,12 @@ import type { ScriptManifestV1 } from '../../../runtime/spec/manifest/index.js';
 
 type GitHubPublishManifestPolicyV1 = Pick<
   ScriptManifestV1,
-  | 'effectClass'
+  | 'impactClass'
   | 'permissions'
   | 'resources'
   | 'providers'
   | 'credentials'
-  | 'effects'
+  | 'operations'
   | 'timeout'
   | 'retry'
   | 'idempotency'
@@ -29,12 +29,12 @@ export const githubPublishManifestPolicyV1 = <
   }>,
 ) =>
   ({
-    effectClass: 'publish',
+    impactClass: 'publish',
     permissions: [facts.permission],
     resources: [{ name: 'repository', kind: 'repository', access: 'publish' }],
     providers: [{ name: 'github', contract: 'revo.provider.github/v1', resource: 'repository' }],
     credentials: [{ name: 'token', provider: 'github', providerRequirement: 'github' }],
-    effects: ['github.read', 'github.write'],
+    operations: ['github.read', 'github.write'],
     timeout: { wallClockMs: facts.wallClockMs },
     retry: {
       mode: 'transient',

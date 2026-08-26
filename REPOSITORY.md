@@ -22,7 +22,7 @@ A Draft ADR or specification is a proposal. It does not override current package
 An approved Draft governs only its explicitly approved implementation slice. It must become Accepted before the target
 behavior is described as shipped.
 When code and an Accepted spec disagree, stop and resolve the contract rather than silently treating either as a
-compatibility fallback.
+compatibility path.
 
 For every built-in script, the runtime schema value is authoritative for its public input and result shape. Public
 Input/Result names are deeply readonly aliases extracted through the library-neutral `ScriptSchema<T>` boundary;
@@ -41,19 +41,19 @@ src/
     spec/       portable manifests, schemas, definitions, results, and errors
     definition/ definition construction, schema adapters, and validation
     registry/   explicit exact-version registry
-    execution/  provider-neutral events, redaction, retries, and one-script execution
+    execution/  provider-neutral events, redaction, and one-script attempt execution
     validation/ dependency-neutral validation primitives
     index.ts    curated public low-level entrypoint
   host/
-    bindings/     immutable execution bindings
-    credentials/  credential resolution port and resolved handle
+    resources/    resource inspection port and trusted descriptor
+    credentials/  credential inspection/acquisition port and descriptor
     workspaces/   workspace resolution port and trusted allocation
     providers/    trusted provider module SPI
   application/
     contracts/    consumer facade contracts
     registration/ definition module composition
-    providers/    provider catalog and execution preparation
-    execution/    generic one-script coordination
+    providers/    provider catalog and binding preparation
+    execution/    generic one-attempt coordination and local observation state
   providers/
     git/
       contracts/      handler-safe Git client contracts
@@ -100,19 +100,19 @@ src/
     spec/       portable script contracts
     definition/ definition construction and validation
     registry/   explicit exact-version definition registry
-    execution/  provider-neutral low-level execution
+    execution/  provider-neutral low-level attempt execution
     validation/ dependency-neutral validation primitives
     index.ts    curated public low-level entrypoint
   host/
-    bindings/     immutable execution bindings
-    credentials/  credential integration contracts
+    resources/    resource inspection contracts
+    credentials/  credential inspection/acquisition contracts
     workspaces/   workspace integration contracts
     providers/    trusted provider module SPI
   application/
     contracts/    createRevoScripts facade contracts
     registration/ definition module composition
-    providers/    provider catalog and execution preparation
-    execution/    generic execute path
+    providers/    provider catalog and binding preparation
+    execution/    generic prepare, execute, cancel, and reconcile path
 
   providers/
     git/
@@ -210,8 +210,12 @@ runtime + host + application + providers + scripts <- testing
 - Execution is provider-neutral and does not import definition construction, built-in Git, or GitHub definitions.
 - `host` owns privileged integration types but no host implementation or resource lifecycle.
 - Only `application` composes host resolvers, exact registries, provider adapters, and definition modules.
+- Application owns prepared-binding admission, one physical attempt, bounded process-local observation state, and
+  sealed terminal-result evidence; it never owns a durable run ledger, terminal-event publication, or retry schedule.
+  The per-attempt live sink receives only started/custom events. A durable host persists and publishes a terminal
+  result with its sealed `terminalEvent` atomically.
 - `application/registration/built-in-definition-inventory.ts` is the one explicit internal executable inventory.
-  Family modules and the sorted immutable catalog derive from it without filesystem scanning or module side effects.
+  Family modules and the sorted immutable catalog derive from it without filesystem scanning or module side operations.
 - Git and GitHub do not import one another.
 - Production source never imports `testing`, test support, build output, or repository scripts. Runtime and provider
   production code do not import generated output.
@@ -222,7 +226,7 @@ factory and pin remain outside that closure and cannot self-hash. Generation rep
 recomputes and compares without writing.
 
 README operation/provider cards remain human-owned narrative. A machine parser or README generator is intentionally
-not part of verification: exact ids, permissions, effects, policies, family membership, and catalog order are checked
+not part of verification: exact ids, permissions, operations, policies, family membership, and catalog order are checked
 from canonical manifests and the explicit inventory instead of creating a second source of truth inside prose.
 
 - Tests import explicit modules; there is no broad test-support barrel.
@@ -289,8 +293,8 @@ new resource lifecycle that the stable host integration contract cannot represen
 ## Package surface
 
 The root entrypoint exposes the high-level `createRevoScripts` facade, built-in definition-module factories, and the
-four low-level SDK/runtime functions: `defineScript`, `createScriptSchema`, `createScriptRegistry`, and
-`executeScript`. Provider factories, faults, individual built-ins, privileged host contracts, and testing mechanics
+low-level authoring SDK: `defineScript`, `createScriptSchema`, and `createScriptRegistry`. Provider factories, faults,
+individual built-ins, privileged host contracts, and testing mechanics
 remain on explicit domain subpaths. Adding a source file does not make it public; `package.json` is authoritative for
 shipped exports.
 

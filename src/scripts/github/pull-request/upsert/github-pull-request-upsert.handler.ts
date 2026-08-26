@@ -1,7 +1,4 @@
-import type {
-  RequiredIdempotencyScriptContext,
-  RequiredIdempotencyScriptHandler,
-} from '../../../../runtime/spec/definition/index.js';
+import type { ScriptContext, ScriptHandler } from '../../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../../runtime/spec/errors/index.js';
 import { toGitHubPullRequest } from '../../shared/to-github-pull-request.js';
 import type {
@@ -10,14 +7,14 @@ import type {
   GitHubPullRequestUpsertResult,
 } from './schemas.js';
 
-export class GitHubPullRequestUpsertHandler implements RequiredIdempotencyScriptHandler<
+export class GitHubPullRequestUpsertHandler implements ScriptHandler<
   GitHubPullRequestUpsertInput,
   GitHubPullRequestUpsertResult,
   GitHubPullRequestUpsertResources
 > {
   async execute(
     input: Readonly<GitHubPullRequestUpsertInput>,
-    context: Readonly<RequiredIdempotencyScriptContext<GitHubPullRequestUpsertResources>>,
+    context: Readonly<ScriptContext<GitHubPullRequestUpsertResources>>,
   ): Promise<{ readonly value: GitHubPullRequestUpsertResult }> {
     const body = this.body(input);
     const request = {
@@ -26,7 +23,7 @@ export class GitHubPullRequestUpsertHandler implements RequiredIdempotencyScript
       title: input.title,
       body,
       draft: input.draft,
-      operationKey: context.idempotencyKey,
+      operationKey: context.executionId,
       marker: {
         headSha: input.head.sha,
         title: input.title,

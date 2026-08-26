@@ -6,5 +6,5 @@ import type { ScriptContractHarness } from './script-contract-harness.js';
 
 export const createScriptContractHarness = <I, O, R extends ScriptResourceMap>(
   definition: ScriptDefinition<I, O, R>,
-  options: ScriptContractHarnessOptions<R>,
-): ScriptContractHarness<O> => new DefaultScriptContractHarness(definition, options);
+  options: ScriptContractHarnessOptions,
+): ScriptContractHarness => new DefaultScriptContractHarness(definition, options);

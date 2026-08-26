@@ -4,15 +4,14 @@
 | ----------------- | ------------------------------- |
 | Script id         | `script:git/status`             |
 | Revision          | `1`                             |
-| Effect class      | `read`                          |
-| Effects           | `filesystem.read`, `git.read`   |
+| Operation class   | `read`                          |
+| Operations        | `filesystem.read`, `git.read`   |
 | Permission        | `git.status.read`               |
 | Resource          | `repository` with `read` access |
 | Provider contract | `revo.provider.git/v1`          |
 | Idempotency       | `read-only`                     |
 
-Revision `1` is immutable. Any observable change requires a larger integer revision; ranges, `latest`, SemVer parsing,
-and fallback are unsupported.
+Revision `1` is immutable. Any observable change requires a larger integer revision.
 
 ## Operation
 
@@ -23,7 +22,7 @@ path or execution provenance.
 ## Files
 
 - `schemas.ts` — exact input/output schemas, schema-derived public aliases, and explicit resource capabilities.
-- `manifest.ts` — permissions, resources, effects, timeout, retry, redaction, and events.
+- `manifest.ts` — permissions, resources, operations, timeout, retry, redaction, and events.
 - `git-status.handler.ts` — stateless bounded operation.
 - `script.ts` — definition composition root.
 

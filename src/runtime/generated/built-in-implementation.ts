@@ -6,7 +6,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-approval-subject',
         version,
         buildDigest:
-          'sha256:88ba5afb94348c33d90f1d4cdd729f48babcd1b465f94045d907f7d3ea411e02' as const,
+          'sha256:15ab949860b69e4289fd3bfafe9ef32637e90ebcd8022257b3dcf3b1e01c8ac2' as const,
       };
     }
     case 'script:system/echo': {
@@ -14,7 +14,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-system-echo',
         version,
         buildDigest:
-          'sha256:6d8dca5eee1b69762d884005ec198d957210c21584dc8c458ffb257ac8140bd9' as const,
+          'sha256:a7b529e7d606e9c7743b59cbacd88ad2f4afa1fb47c9c03ea3a0dcf92e1b7a26' as const,
       };
     }
     case 'script:git/commit': {
@@ -22,7 +22,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-git-commit',
         version,
         buildDigest:
-          'sha256:d3c1a1741d0b77d084f8adc92567b9a3a2af828ec147995c08cc23a8c7ee4628' as const,
+          'sha256:1888a6e88d485461824adc0edc7ed2bfbf2fde322f96f0415b6beb1124f8f6a2' as const,
       };
     }
     case 'script:git/push': {
@@ -30,7 +30,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-git-push',
         version,
         buildDigest:
-          'sha256:3da453995c8f62adffc06121fdc01bdb6c97320b547154ba068b585d002b4f63' as const,
+          'sha256:40b9d10a4e4a25200a5f9c17468e8e1e0fbe7f3cf0f24c4a5c7f035fd4abc63f' as const,
       };
     }
     case 'script:git/status': {
@@ -38,7 +38,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-git-status',
         version,
         buildDigest:
-          'sha256:3b48513767cfff072a592041e0b9f47e7d96824824c8f7e3d89b8da04f97c473' as const,
+          'sha256:fdbbb2b9f54e10a8e1b37a63d969c161b9a8bd270436b270bdcdf2d5f300b86b' as const,
       };
     }
     case 'script:github/pull-request/mark-ready': {
@@ -46,7 +46,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-github-pull-request-mark-ready',
         version,
         buildDigest:
-          'sha256:703faab2d5c272b1910c44d52837abd4a6bd02ff348f14f40445398da12cc147' as const,
+          'sha256:97f816f37b1ceba5bfd0c45e19a924067ae83c0435069df2f9ec400edc8bf0ca' as const,
       };
     }
     case 'script:github/pull-request/merge': {
@@ -54,7 +54,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-github-pull-request-merge',
         version,
         buildDigest:
-          'sha256:f4b0cdcdafe835391b7b09818a790a6c50a22ccb6f97e8b468186cbf52b7b11d' as const,
+          'sha256:44c1ea7e5877457a3427480a89066a984e496a5bb6a222a735e5b7e26df994ee' as const,
       };
     }
     case 'script:github/pull-request/readiness': {
@@ -62,7 +62,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-github-pull-request-readiness',
         version,
         buildDigest:
-          'sha256:4fcd0ce65246fb764766a2789ad1b68d1640b9e07933cb6dd09061c73e480dba' as const,
+          'sha256:33e0cc52395985a170f29b839097bb8b3f6c17e96c79ac005b5afdf9786c253b' as const,
       };
     }
     case 'script:github/pull-request/upsert': {
@@ -70,7 +70,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-github-pull-request-upsert',
         version,
         buildDigest:
-          'sha256:ae838accfe8a8332dab3140bef32de73958cfcd0422d3938203646c08c7ee25e' as const,
+          'sha256:e57330f39ecfb45a1d171bcdfad37030f3da53c5e570eeebcd8a4e1eabd0c410' as const,
       };
     }
     case 'script:github/review-threads/resolve': {
@@ -78,7 +78,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-github-review-threads-resolve',
         version,
         buildDigest:
-          'sha256:311339c786b49524180c8135b19cd91d1e5adf190302dc1940f6b022cf96fca3' as const,
+          'sha256:b6a16b114150e61f86757d7ef69932266d90ae9f255fadcdb613dd41e99541de' as const,
       };
     }
     case 'script:github/review-threads/respond': {
@@ -86,7 +86,7 @@ export const builtInImplementation = (scriptId: string, version: string) => {
         id: 'revo.builtin.script-github-review-threads-respond',
         version,
         buildDigest:
-          'sha256:866a7a686569759002b978d0b6b6251bab3cf19586e9662e4bcd2c221ac4ec10' as const,
+          'sha256:7b93c5c7955f8f378eb6008bb87c9654de7ff75f584e0bf4c9aa82f3cbadb431' as const,
       };
     }
     default: {

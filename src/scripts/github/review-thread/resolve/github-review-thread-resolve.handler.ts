@@ -1,7 +1,4 @@
-import type {
-  RequiredIdempotencyScriptContext,
-  RequiredIdempotencyScriptHandler,
-} from '../../../../runtime/spec/definition/index.js';
+import type { ScriptContext, ScriptHandler } from '../../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../../runtime/spec/errors/index.js';
 import type {
   GitHubReviewThreadResolveInput,
@@ -9,14 +6,14 @@ import type {
   GitHubReviewThreadResolveResult,
 } from './schemas.js';
 
-export class GitHubReviewThreadResolveHandler implements RequiredIdempotencyScriptHandler<
+export class GitHubReviewThreadResolveHandler implements ScriptHandler<
   GitHubReviewThreadResolveInput,
   GitHubReviewThreadResolveResult,
   GitHubReviewThreadResolveResources
 > {
   async execute(
     input: Readonly<GitHubReviewThreadResolveInput>,
-    context: Readonly<RequiredIdempotencyScriptContext<GitHubReviewThreadResolveResources>>,
+    context: Readonly<ScriptContext<GitHubReviewThreadResolveResources>>,
   ): Promise<{ readonly value: GitHubReviewThreadResolveResult }> {
     const proof = input.responses.pullRequest;
     if (

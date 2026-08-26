@@ -1,7 +1,7 @@
-export type DeepReadonly<T> = T extends (...arguments_: never[]) => unknown
+export type DeepReadonly<T> = T extends (...args: never[]) => unknown
   ? T
   : T extends readonly unknown[]
-    ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+    ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
     : T extends object
-      ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+      ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
       : T;

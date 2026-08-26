@@ -1,1129 +1,143 @@
-# Script runtime v1 specification
+# Script runtime v1
 
-- **Status:** Accepted
-- **Version:** v1
-- **Owners:** package SDK, runtime, registry, and built-in scripts
-- **Related ADR:** [ADR-0001](../adr/0001-script-sdk-and-runtime-boundary.md)
-- **Testing:** [Testing](../testing.md)
-- **Source refinement:** [Orchestrator milestone 11 contract](https://github.com/revisium/orchestrator/blob/master/docs/specs/script-runtime-v1.spec.md)
+`@revisium/revo-scripts` owns script definitions, manifest validation, provider
+adapters, resource/credential safety and one physical attempt. It does not own
+pipeline transitions, persistence, or retry scheduling.
 
-## Scope
+## Terms
 
-This specification defines the proposed stable public SDK and runtime for one bounded Revo script: serializable
-manifests, runtime schemas and definitions, explicit registration, the high-level consumer facade, host bindings,
-provider modules, execution context and result, errors, events, redaction, payload bounds, extension trust, public
-entrypoints, and the bounded built-in operations shipped by this repository.
+- A **binding input** is compact resource references and credential aliases from
+  a run profile.
+- A **prepared binding** is the portable, immutable validation snapshot. It
+  contains no workspace path, credential secret, client, signal or disposer.
+- An **execution** is one durable operation. `executionId` is its only package
+  idempotency identity.
+- An **attempt** is one physical handler/provider call. `attemptId` identifies
+  that call and `attemptOrdinal` starts at one.
 
-It does not define pipeline routing, durable workflow state, human gates, workspace allocation, credential storage,
-artifact persistence, provider account selection policy, or automatic plugin discovery. It defines how opaque
-workspace and credential bindings cross into trusted provider infrastructure after the host has made those decisions.
-
-The key words MUST, MUST NOT, SHOULD, SHOULD NOT, MAY, REQUIRED, and OPTIONAL are interpreted following RFC 2119 and
-BCP 14 when, and only when, they appear in all capitals.
-
-## Current Contract
-
-The repository implements the root, `spec`, `runtime`, `host`, `approval`, `git`, `github`, `providers/git`,
-`providers/github`, and `testing` entrypoints; the `createRevoScripts` facade; package-owned Node Git and Fetch GitHub
-providers; and the approval-subject, Git status/commit/push, pull-request upsert/ready/readiness/merge, and review-thread
-reply/resolve operations. Coordinate and credential enforcement, internal provider selection, declarations, exports, package
-content, architecture boundaries, local Git integration, and mocked GitHub provider contracts are executable gates.
-The npm package is not published. Multi-revision source retention, a stable external custom-script distribution
-contract, and orchestrator cutover remain deferred.
-
-## Target Contract
-
-### Package responsibility
-
-The package MUST define, validate, register, test, and execute one bounded script. It MAY ship built-ins with
-independent integer revisions that use the same definition contract. A built-in MUST own its complete observable
-operation, including provider calls, normalization, stale-state checks, idempotency and crash reconciliation,
-provider-error mapping, and result construction.
-
-The package MUST provide package-owned production provider modules for its built-in Git and GitHub operations. A
-consumer MUST NOT implement one capability, handler, or dispatch branch per built-in script. Adding a definition that
-uses an already installed provider family MUST require only a package upgrade, an exact pipeline reference, and a valid
-execution-plan grant; it MUST NOT require a host executor code change.
-
-The package MUST NOT choose the next pipeline operation, mutate a pipeline cursor, create or resolve a human gate,
-allocate or release a workspace, read mutable playbook state, or access DBOS, Prisma, or NestJS.
-
-General-purpose Revo helpers MUST NOT be added. A utility belongs in the package only when it directly supports script
-definition, validation, execution, a built-in operation, or contract testing.
-
-### Consumer facade and startup composition
-
-The high-level host integration is composed once:
+## Host composition
 
 ```ts
-type RevoScriptsOptions = {
-  definitions: readonly ScriptDefinitionModule[];
-  providers: readonly ScriptProviderRegistration[];
-  host: RevoScriptsHost;
-};
-
-type RevoScriptsHost = {
-  workspaces: WorkspaceResolver;
-  credentials: CredentialResolver;
-  events: EventSink;
-  clock?: ScriptClock;
-};
-
-type ScriptDefinitionModule = {
-  id: string;
-  provenance: {
-    packageName: string;
-    packageVersion: string;
-  };
-  registerInto(registrar: ScriptDefinitionRegistrar): void;
-};
-
-type ScriptDefinitionRegistrar = {
-  register<I, O, R extends ScriptResourceMap>(definition: ScriptDefinition<I, O, R>): void;
-};
-
-type ScriptProviderContractRef = `revo.provider.${string}/v${number}`;
-
-type ScriptProviderRegistration = {
-  module: ScriptProviderModule;
-};
-
-type ScriptProviderModule = {
-  id: `provider:${string}`;
-  contract: ScriptProviderContractRef;
-  implementationDigest: `sha256:${string}`;
-  provenance: {
-    packageName: string;
-    packageVersion: string;
-  };
-  effects: readonly ScriptEffect[];
-  workspace: 'required' | 'none';
-  coordinateSchema?: ScriptSchema<Readonly<Record<string, unknown>>>;
-  createResourceClients(request: ProviderClientRequest): Promise<PreparedProviderClients>;
-};
-
-type ScriptProviderDescriptor = Pick<
-  ScriptProviderModule,
-  'id' | 'contract' | 'implementationDigest' | 'provenance' | 'effects' | 'workspace'
->;
-
-type PreparedProviderClients = {
-  clients: Readonly<Record<string, object>>;
-  dispose(): Promise<void>;
-};
-
-type RevoScripts = {
-  execute(request: RevoScriptExecutionRequest): Promise<ScriptExecutionResult<unknown>>;
-  listManifests(): readonly ScriptManifestV1[];
-  listProviderImplementations(): readonly ScriptProviderDescriptor[];
-};
-
-declare function createRevoScripts(options: RevoScriptsOptions): RevoScripts;
+const scripts = createRevoScripts({
+  definitions, // optional: package built-ins are the default
+  providers, // optional: package providers are the default
+  host: { resources, workspaces, credentials, clock },
+});
 ```
 
-`createRevoScripts` MUST explicitly enumerate every trusted definition and provider module. Package-provided
-`approvalScripts()`, `gitScripts()`, and `githubScripts()` modules register one selected family; `builtInScripts()` is a convenience
-composition of every built-in family for hosts that install every corresponding provider. A host MUST NOT need a
-provider for an unselected definition family. The callback shape preserves each concrete definition's input, output,
-and resource generics without `any`, unsafe casts, or an impossible heterogeneous array type. This is explicit module
-registration, not directory scanning or import-time side-effect registration.
+`resources.inspect(ref)`, `workspaces.inspect(ref)` and
+`credentials.inspect(alias)` provide metadata only. The package uses them while
+preparing a binding. `workspaces.acquire(ref)` and
+`credentials.acquire(alias)` return the live path or secret only immediately
+before an attempt; all acquired leases and provider clients are disposed on
+every outcome.
 
-Startup MUST fail on a duplicate definition identity, more than one provider implementation for one contract, a
-missing provider contract required by a selected definition module, or an invalid definition. One provider module MUST
-NOT repeat an effect in its own effect list. Separate resource-scoped provider requirements MAY declare the same effect
-because resource association disambiguates them. The facade MUST seal its definition and provider registries before
-returning. Updating the package MAY make additional definitions available through the same selected family module, but
-a run can execute one only when its request names the exact id and positive integer revision and its bindings grant all
-declared requirements.
-
-Exactly one implementation MAY be registered for a provider contract. The provider catalog selects it solely from the
-manifest contract requirement. Registration never selects a default, and execution MUST NOT consult an implementation
-id supplied by a consumer or fall back to another implementation.
-
-Client keys contributed to one resource handle MUST be unique across selected providers. A duplicate client key fails
-preflight, disposes every client and credential lease already constructed for that attempt, and invokes no handler.
-It returns `revo.script.provider.client_conflict`.
-
-The low-level `defineScript`, `createScriptRegistry`, and `executeScript` APIs remain the SDK/runtime foundation for
-definition authors, provider contract tests, and advanced trusted hosts. The high-level facade is the primary pipeline
-consumer API.
-
-### Host bindings and privileged resolvers
-
-Portable pipeline data names logical resources and credential slots. The immutable execution plan binds those names to
-host-owned identities:
+## Durable host API
 
 ```ts
-type ScriptResourceBinding = {
-  resourceId: string;
-  kind: 'repository';
-  repositoryId: string;
-  workspaceId?: string;
-  access: 'read' | 'write' | 'publish' | 'admin';
-  grant: {
-    permissions: readonly string[];
-    effects: readonly ScriptEffect[];
-  };
-  providerCoordinates: Readonly<Record<string, unknown>>;
-};
-
-type ScriptCredentialBinding = {
-  alias: string;
-  provider: string;
-};
-
-type ScriptExecutionBindings = {
-  resources: Readonly<Record<string, ScriptResourceBinding>>;
-  credentials: Readonly<Record<string, ScriptCredentialBinding>>;
-};
-
-type RevoScriptExecutionRequest = {
-  executionId: string;
-  script: {
-    id: `script:${string}`;
-    version: number;
-  };
-  input: unknown;
-  bindings: ScriptExecutionBindings;
-  idempotencyKey?: string;
-  signal?: AbortSignal;
-};
+const binding = await scripts.prepareBinding(bindingInput, { signal });
+const result = await scripts.executeAttempt(
+  {
+    executionId,
+    attemptId,
+    attemptOrdinal,
+    script: binding.script,
+    binding,
+    input,
+  },
+  { signal, events },
+);
 ```
 
-The portable pipeline node contains only exact script id and integer revision, input, and logical resource requirements. It does
-not contain a provider id, provider implementation, definition digest, path, or credential alias. During execution-plan
-compilation, generic host code applies host policy and records logical bindings. The package resolves the exact
-definition and each required provider contract from its sealed catalogs during `execute`.
-
-The execution request MUST contain no absolute workspace path, secret value, provider client, executable source, or ambient account
-selection. Resource and credential binding names MUST match the selected manifest exactly; extra or missing bindings
-fail before a provider is constructed. Each manifest provider contract MUST resolve to exactly one registered
-implementation before privileged host state is resolved. One request contains at most 16 resource bindings. One
-binding contains at most 64 unique permissions and 16 unique effects. Binding strings use the corresponding manifest
-limits, and the complete binding payload is subject to the 1 MiB input bound. Provider-coordinate bounds are defined
-with their schema rules below.
-
-`WorkspaceResolver` and `CredentialResolver` are privileged host integration ports. They resolve only bound opaque
-identities. Their resolved values are visible to the selected trusted provider module and MUST NOT be copied into a
-handler context, result, event, artifact, or public error.
-
-```ts
-type WorkspaceResolver = {
-  resolve(workspaceId: string, signal: AbortSignal): Promise<TrustedWorkspaceAllocation>;
-};
-
-type TrustedWorkspaceAllocation = {
-  workspaceId: string;
-  repositoryId: string;
-  absolutePath: string;
-};
-
-type CredentialResolver = {
-  resolve(binding: ScriptCredentialBinding, signal: AbortSignal): Promise<ResolvedCredential>;
-};
-
-type ResolvedCredential = {
-  alias: string;
-  provider: string;
-  secret: string;
-  dispose(): Promise<void>;
-};
-
-type ProviderClientRequest = {
-  manifest: ScriptManifestV1;
-  provider: ScriptProviderRequirement;
-  requirement: ScriptResourceRequirement;
-  binding: ScriptResourceBinding;
-  workspace?: TrustedWorkspaceAllocation;
-  credentials: Readonly<Record<string, ResolvedCredential>>;
-  signal: AbortSignal;
-};
-```
-
-These privileged types MUST be exported only from a host/provider integration entrypoint, never from `spec`, a script
-domain entrypoint, or `ScriptContext`. Implementations SHOULD prefer a short-lived credential lease or callback scope
-when the host can support it; a provider MUST discard the resolved credential after the execution attempt.
-
-`ProviderClientRequest` contains the already-authorized provider requirement, the resource requirement named by its
-`resource` field and that resource's matching binding, the resolved workspace allocation when required, only the
-resolved credentials assigned to that provider requirement, and the abort signal. The central runtime validates the
-intersection before invoking a provider; a provider MUST NOT widen access or expose privileged values in its returned
-client object.
-
-A provider with `workspace: 'required'` fails before construction when its binding has no `workspaceId`. A provider
-with `workspace: 'none'` receives no resolved workspace even if the run has one. The facade MUST NOT resolve an unused
-workspace merely because one exists in the execution bindings.
-
-Workspace need is provider-module-wide in v1. A provider family with both workspace-bound and workspace-free effects
-MUST expose separate explicit provider modules under distinct contract refs, for example
-`revo.provider.example.workspace/v1` and `revo.provider.example.api/v1`. A module MUST NOT make workspace resolution
-conditional on a concrete script id. Exactly one implementation is registered for each distinct contract ref.
-
-Provider coordinates are immutable binding facts required to address a provider resource without reading mutable local
-state. A GitHub coordinate is `{ owner, repository }`; a GitHub operation MUST NOT derive it from a workspace remote at
-execution time. A provider that needs a coordinate declares a closed `coordinateSchema`; a provider that needs none
-omits it. On each resource binding, coordinate keys MUST exactly match the manifest provider-requirement names attached
-to that resource whose selected implementations declare a schema. A missing required coordinate, a coordinate for a
-provider without a schema, or an unknown, duplicate, invalid, or unbounded coordinate fails before workspace or
-credential resolution. The collection is limited to eight entries and its complete JSON representation to 16 KiB. A
-new provider can add its own closed coordinate schema without changing the generic binding type.
-
-A provider implementation digest is generated from the adapter's emitted runtime closure with the same deterministic
-path, length, and byte framing used for a definition build digest. It excludes unrelated scripts, other adapters, and
-the private provider-family factory that owns its ordinary-source digest pin. The generator MUST replace exactly one
-named valid pin and fail closed on missing, duplicate, or malformed pins. The factory injects that pin into the
-internal provider constructor, so the pin is outside the provider class closure and cannot hash itself. CI MUST
-reproduce and compare without changing source in check mode. A changed adapter closure produces a new digest even when
-it still implements the same provider contract major.
-
-Built-in adapter implementations live under paths such as `src/providers/git/adapters/node/`. The current factory
-returns the single implementation for its contract. Registering a second implementation for that contract fails
-startup; execution performs no fallback. Provider contracts and adapters remain owned and published by
-`@revisium/revo-scripts`; v1 defines no separately released provider package seam.
-
-A new provider family is installed by adding an explicit provider/definition module plus host credential and resource
-configuration. Generic pipeline execution MUST remain unchanged. A host-layer change is justified only when the new
-provider requires a resource lifecycle that `ScriptExecutionBindings` and the existing resolvers cannot safely
-represent.
-
-### Serializable manifest
-
-```ts
-type ScriptManifestV1 = {
-  schemaVersion: 'revo.script.manifest/v1';
-  id: `script:${string}`;
-  version: number;
-  summary: string;
-  inputSchemaId: string;
-  resultSchemaId: string;
-  effectClass: 'pure' | 'read' | 'write' | 'publish' | 'admin';
-  permissions: readonly string[];
-  resources: readonly ScriptResourceRequirement[];
-  providers: readonly ScriptProviderRequirement[];
-  credentials: readonly ScriptCredentialRequirement[];
-  effects: readonly ScriptEffect[];
-  timeout: { wallClockMs: number };
-  retry: {
-    mode: 'never' | 'transient';
-    maxAttempts: number;
-    backoffMs: readonly number[];
-  };
-  idempotency: 'read-only' | 'required' | 'not-retryable';
-  redaction: {
-    inputPaths: readonly string[];
-    resultPaths: readonly string[];
-    errorPaths: readonly string[];
-    eventPaths: readonly string[];
-  };
-  events: {
-    allowed: readonly string[];
-    detailPaths: readonly string[];
-  };
-};
-
-type ScriptManifestAuthoringV1 = Omit<ScriptManifestV1, 'redaction' | 'events'> & {
-  redaction?: ScriptManifestV1['redaction'];
-  events?: ScriptManifestV1['events'];
-};
-
-type ScriptResourceRequirement = {
-  name: string;
-  kind: 'repository';
-  access: 'read' | 'write' | 'publish' | 'admin';
-};
-
-type ScriptProviderRequirement = {
-  name: string;
-  contract: ScriptProviderContractRef;
-  resource: string;
-};
-
-type ScriptCredentialRequirement = {
-  name: string;
-  provider: string;
-  providerRequirement: string;
-};
-
-type ScriptEffect =
-  | 'filesystem.read'
-  | 'filesystem.write'
-  | 'git.read'
-  | 'git.write'
-  | 'git.remote-write'
-  | 'github.read'
-  | 'github.write';
-```
-
-`ScriptManifestAuthoringV1` is only the typed `defineScript` construction boundary. Authors MAY omit `redaction` or
-`events` only when the omitted value means the complete empty policy. `defineScript` MUST normalize those omissions to
-explicit empty collections before validation, snapshotting, or digest computation. Omitted and explicit empty policies
-MUST therefore produce equal canonical manifests and equal definition digests. Only `undefined` denotes omission;
-`null` or any present malformed policy MUST reach closed manifest validation and fail. `ScriptManifestV1` itself
-remains the complete canonical transport: definitions, registries, catalogs, and digests MUST always contain explicit
-`redaction` and `events` objects.
-
-The canonical manifest MUST be JSON-serializable and MUST reject unknown fields. The script id MUST match
-`^script:[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$`. A version identifies one immutable observable contract and MUST be a
-positive safe integer. Script versions are revisions, not SemVer, and MUST NOT accept a range, tag, `latest`, string,
-or fallback interpretation.
-
-Schema identifiers MUST be stable identifiers rather than filesystem paths. Permission identifiers MUST be
-namespaced. Resource, provider-slot, and credential names MUST match `^[a-z][a-z0-9-]*$`. Provider contract refs MUST
-match `^revo\.provider\.[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*/v[1-9][0-9]*$`. Credential provider ids MUST be stable
-lowercase identifiers and MUST NOT identify an account. Resource, provider-slot, and credential names MUST each be
-unique within one manifest. Duplicate permissions, resources, provider requirements, credentials, effects, event
-names, or redaction paths MUST be rejected. Every provider requirement MUST reference exactly one resource name
-declared by the same manifest. Multiple providers MAY attach bounded clients to one resource; a provider needed on two
-resources uses two uniquely named requirements. Every credential requirement MUST reference exactly one declared
-provider-requirement name.
-
-The `ScriptProviderContractRef` template literal is a readable TypeScript approximation. Provider-contract creation
-and manifest validation MUST apply the stricter runtime pattern above, including rejection of `v0`.
-
-Script ids, schema ids, permission ids, event names, provider contract refs, credential provider ids, and
-implementation ids MUST be no longer
-than 256 Unicode code points. Resource names, provider-slot names, and credential names MUST be no longer than 128
-Unicode code points. A summary MUST be no longer than 512 Unicode code points. A manifest MUST contain at most 16 resources, eight
-provider requirements, 16 credential requirements, 64 permissions, 64 custom event names, and 128 redaction or detail
-paths; each path MUST be no longer than 512 Unicode code points. No extension point may accept an unbounded string,
-collection, or arbitrary nested payload.
-
-Effect-class coherence is fixed by this table:
-
-| Effect class | Maximum resource access | Permitted effects                                                                             |
-| ------------ | ----------------------- | --------------------------------------------------------------------------------------------- |
-| `pure`       | no resource             | none                                                                                          |
-| `read`       | `read`                  | `filesystem.read`, `git.read`, `github.read`                                                  |
-| `write`      | `write`                 | `filesystem.read`, `git.read`, `github.read`, `filesystem.write`, `git.write`, `github.write` |
-| `publish`    | `publish`               | every `write` effect and `git.remote-write`                                                   |
-| `admin`      | `admin`                 | every `publish` effect                                                                        |
-
-`admin` is distinguished by its resource access and operation permission rather than a generic provider effect.
-Pull-request merge is a `publish` operation in v1 because it publishes an exact reviewed revision without repository
-administration. The mutation-effect set is
-exactly `filesystem.write`, `git.write`, `git.remote-write`, and `github.write`.
-
-Effect ownership describes the bounded surface exposed to a handler, not every implementation detail used inside a
-provider. The bounded Git status client deliberately declares both `filesystem.read` and `git.read`: it observes
-working-tree bytes as well as Git object and index state while producing one immutable status snapshot. Other private
-filesystem mechanics inside a Git provider remain covered by the operation's declared Git effect. Startup rejects a
-definition whose declared effect has no installed owner.
-
-A permission id identifies one bounded operation authorization, such as `git.status.read` or
-`github.pull-request.merge`. All permission ids declared by a manifest MUST be present in the prepared host grant.
-Permissions do not imply an effect or resource access and cannot widen either. `defineScript` validates permission
-syntax and uniqueness; a capability contract and its per-script contract tests own the mapping from invoked operations
-to permission ids.
-
-A `pure` manifest MUST have empty permissions, resources, providers, credentials, and effects. All other effect classes MAY
-declare operation permissions and credential requirements within their resource and effect maximums. A non-`pure`
-manifest with any permission, credential, or effect MUST declare at least one resource. A credential requirement names
-a logical slot such as `github`, its credential-system provider, and the provider requirement allowed to receive it.
-The execution bindings bind the slot to one alias such as `github-publication-account`. Each provider construction
-receives only credentials assigned to its requirement. Manifests and script input MUST NOT contain credential aliases
-or secret values. The prepared host grant is the union of the immutable permission and effect grants on the resource
-handles supplied for that execution.
-
-A provider requirement names the bounded client slot a handler expects, the resource handle that receives that client,
-and the compatible provider protocol major. It MUST NOT name an adapter implementation, npm package version, account,
-transport, or implementation digest. Every declared non-empty effect set MUST be covered by the sole registered
-implementations of the declared provider contracts.
-
-`timeout.wallClockMs` covers the complete execution including attempts and backoff. It MUST be a positive safe integer
-no greater than 300,000. The executor MUST stop starting attempts when the remaining deadline cannot accommodate the
-next backoff.
-
-`retry.maxAttempts` includes the first attempt and MUST be between one and five. `never` requires one attempt and no
-backoff. `transient` requires `backoffMs.length === maxAttempts - 1`. Each backoff MUST be a non-negative safe integer.
-
-`read-only` MUST NOT declare a mutation effect. `required` MUST declare at least one mutation effect and requires a
-host-provided idempotency key. `not-retryable` MUST declare at least one mutation effect and requires one attempt.
-
-### Schemas and definitions
-
-```ts
-type ScriptSchema<T> = {
-  id: string;
-  validate(value: unknown): Promise<ScriptSchemaResult<T>>;
-  toJsonSchema(): Readonly<Record<string, unknown>>;
-};
-
-type ScriptSchemaResult<T> =
-  { ok: true; value: T } | { ok: false; issues: readonly ScriptSchemaIssue[] };
-
-type ScriptSchemaIssue = {
-  message: string;
-  path: readonly (string | number)[];
-};
-
-type ScriptDefinition<I, O, R extends ScriptResourceMap> = {
-  manifest: ScriptManifestV1;
-  inputSchema: ScriptSchema<I>;
-  resultSchema: ScriptSchema<O>;
-  handler: ScriptHandler<I, O, R>;
-  implementation: {
-    id: string;
-    version: string;
-    buildDigest: `sha256:${string}`;
-  };
-  definitionDigest: `sha256:${string}`;
-};
-
-interface ScriptHandler<I, O, R extends ScriptResourceMap> {
-  execute(input: Readonly<I>, context: Readonly<ScriptContext<R>>): Promise<ScriptHandlerResult<O>>;
-}
-
-type RequiredIdempotencyScriptContext<R extends ScriptResourceMap> = ScriptContext<R> & {
-  idempotencyKey: string;
-};
-
-interface RequiredIdempotencyScriptHandler<I, O, R extends ScriptResourceMap> {
-  execute(
-    input: Readonly<I>,
-    context: Readonly<RequiredIdempotencyScriptContext<R>>,
-  ): Promise<ScriptHandlerResult<O>>;
-}
-```
-
-`ScriptSchema` MUST remain validation-library-neutral. The initial adapter SHOULD accept Standard Schema V1 validators
-and Standard JSON Schema V1 converters. Built-ins MAY use Zod through that adapter; Zod types MUST NOT become required
-members of the runtime definition contract.
-
-JSON Schemas MUST target Draft 2020-12, carry the schema id declared by the manifest, describe JSON-compatible values,
-and reject unknown object properties unless a schema explicitly models a bounded map. Runtime validation and emitted
-JSON Schema MUST describe the same accepted values.
-
-For a statically `required` authoring manifest, `ScriptDefinitionInput` MUST require a
-`RequiredIdempotencyScriptHandler`; a manifest whose idempotency mode is not statically refined uses the general
-optional-key handler contract. The definition returned by `defineScript` keeps the general execution-handler shape so
-registries can remain heterogeneous. Its guarded handler and normal preflight MUST use the same provider-neutral key
-validator. A missing required key fails with `revo.script.idempotency.key_required`; an empty key or one longer than
-1,024 Unicode code points fails with `revo.script.validation.input`. The normal `executeScript` path MUST reject those
-requests during preflight with zero attempts, so a required built-in handler is invoked only with a statically
-required validated string key.
-
-`defineScript` MUST validate the manifest, both schemas, policy coherence, and implementation
-identity. It MUST compute the definition digest over RFC 8785 canonical JSON containing the manifest, both JSON
-Schemas, implementation id, implementation version, and build digest. It MUST return a TypeScript-readonly definition
-snapshot that does not retain caller-owned collections.
-
-A manifest MAY declare `classification` as a bounded RFC 6901 pointer into its closed result value. This is a generic
-consumer hint, not a concrete-script dispatch rule: a host reads the declared pointer after normal schema validation.
-`script:github/pull-request/readiness` declares `/classification` and returns `clean`, `review_changes`, or `blocked`.
-
-Handler source and executable schema objects MUST NOT be serialized into a manifest, event, artifact, or definition
-identity. A build digest is generated by the trusted package build rather than hand-authored or recomputed during execution.
-It covers the emitted runtime closure for that exact script definition, including its schemas and transitive owned
-helpers, but excludes unrelated definitions and generated build metadata. Adding an unrelated script MUST NOT change
-an existing definition digest when that existing definition's contract and executable closure are byte-identical.
-Helpers in the runtime closure of a published revision are retained with that revision or copied into a new revision-owned
-closure before modification. A mutable shared helper MUST NOT silently change an already-published definition digest.
-
-The target generator performs a fresh temporary TypeScript emission, sorts the owned runtime closure by
-POSIX-relative path, and feeds each relative path, NUL, decimal byte length, NUL, exact bytes, and NUL into one SHA-256
-stream. Discovered and resolved paths are normalized to POSIX separators before lookup and use locale-independent
-ordering, so equivalent Windows and POSIX emissions produce the same framed digest input. CI regenerates into a
-temporary location and compares the committed/generated metadata byte-for-byte. Stale metadata, a digest mismatch, or
-an unavailable exact definition implementation blocks startup/recovery before provider construction. Historical
-executable retention is a release/deployment responsibility, but build identity is part of the v1 definition contract.
-
-### Revisioning and exact retention
-
-The npm package version, script revision, provider contract version, and provider implementation digest answer
-different questions:
-
-| Identity                       | Meaning                                                     | Selected by            |
-| ------------------------------ | ----------------------------------------------------------- | ---------------------- |
-| npm package SemVer             | Release vehicle containing definitions and providers        | deployment             |
-| exact script integer revision  | Immutable observable operation contract and implementation  | portable pipeline node |
-| provider contract major        | Bounded client protocol compatibility, for example Git `v1` | script manifest        |
-| provider implementation digest | Exact trusted adapter build provenance                      | package composition    |
-
-A script id is stable across revisions. The pipeline MUST name one positive exact integer and MUST NOT use `latest`,
-a range, tag, string, SemVer parser, or fallback. A published `(id, revision)` is immutable. Any observable change to
-its manifest, schemas, result, stable error mapping, effect behavior, or handler implementation requires a larger
-integer revision. A future package release MAY contain multiple revisions of one script simultaneously after a
-source-retention and export design is accepted. The current implementation keeps one exact revision in a flat
-operation directory such as `src/scripts/git/status/`; folder names are not revision identities. Removing or replacing
-a published revision requires an audit proving that no supported pipeline, active execution, or recoverable run
-references it.
-
-A provider contract uses a major-only ref such as `revo.provider.git/v1`. A script depends on that protocol, not an
-adapter. A breaking bounded-client change creates `v2`; `v1` and `v2` MAY coexist as distinct contracts during
-migration. A provider adapter has no separate public SemVer in v1. Its implementation digest and package provenance
-describe the installed implementation, but consumers do not select or pin it. One implementation is registered per
-contract, and changing observable script behavior still requires a larger script revision.
-
-### Handler context
-
-```ts
-type ScriptContext<R extends ScriptResourceMap> = {
-  executionId: string;
-  attempt: number;
-  idempotencyKey?: string;
-  resources: R;
-  signal: AbortSignal;
-  emit: (event: ScriptCustomEvent) => Promise<void>;
-};
-
-type RequiredIdempotencyScriptContext<R extends ScriptResourceMap> = ScriptContext<R> & {
-  idempotencyKey: string;
-};
-
-type ScriptResourceHandle<TClients extends object> = {
-  name: string;
-  kind: 'repository';
-  access: 'read' | 'write' | 'publish' | 'admin';
-  grant: {
-    permissions: readonly string[];
-    effects: readonly ScriptEffect[];
-  };
-  clients: TClients;
-};
-
-type ScriptResourceMap = Readonly<Record<string, ScriptResourceHandle<object>>>;
-```
-
-The facade runtime MUST construct the context and prepared resource handles after validating the exact definition,
-input, host bindings, manifest maximums, and grants. Handler input MUST NOT provide context fields. A handler MUST
-receive only the clients permitted by the manifest, binding grant, credential requirements, and provider
-module intersection.
-
-The external facade and low-level execution requests keep `idempotencyKey` optional because preflight owns the stable
-missing-key failure. After preflight, a required-idempotency handler context exposes `idempotencyKey: string`; built-in
-required-write handlers MUST NOT recover that invariant with a cast, non-null assertion, or repeated optional check.
-
-Handlers MUST NOT receive a raw workspace path, unrestricted shell, process environment, token resolver, generic
-network client, database client, global mutable logger, host resolver, or orchestration service. A provider module MUST
-expose only bounded domain clients. Resolved paths and credentials are private provider closure state and MUST NOT be
-readable properties of a returned client.
-
-The definition's resource-map generic MUST give each handler a statically typed resource name and client set. The
-registry MAY erase that generic internally only after definition validation. A built-in handler MUST NOT cast an
-unknown client into a stronger port.
-
-The runtime MUST pass TypeScript-readonly input and context views. Runtime `Object.freeze` is not part of the contract;
-the trusted handler MUST NOT mutate either view. A handler is a stateless class instance, MUST execute one bounded
-operation through `execute`, and MUST return domain data. It MUST NOT keep execution state in instance fields, start
-its own retry loop, or invoke another registered script.
-
-### Results and failures
-
-```ts
-type ScriptHandlerResult<O> = {
-  value: O;
-  evidence?: readonly ScriptEvidence[];
-};
-
-type ScriptExecutionResult<O> =
-  | {
-      ok: true;
-      value: O;
-      evidence: readonly ScriptEvidence[];
-      attempts: number;
-    }
-  | {
-      ok: false;
-      error: ScriptFailure;
-      attempts: number;
-    };
-
-type ScriptFailure = {
-  code: ScriptErrorCode;
-  message: string;
-  retryable: boolean;
-  details?: Readonly<Record<string, unknown>>;
-};
-
-type ScriptEvidence = {
-  kind: 'artifact' | 'log' | 'external';
-  ref: string;
-  summary?: string;
-};
-
-type ScriptErrorCode =
-  | `revo.script.validation.${string}`
-  | `revo.script.permission.${string}`
-  | `revo.script.timeout.${string}`
-  | `revo.script.execution.${string}`
-  | `revo.script.provider.${string}`
-  | `revo.script.idempotency.${string}`;
-
-declare class ScriptFault extends Error {
-  readonly code: ScriptErrorCode;
-  readonly retryable: boolean;
-  readonly details?: Readonly<Record<string, unknown>>;
-}
-```
-
-The public executor MUST return the discriminated execution result and MUST NOT leak an unknown thrown value across
-the package boundary. A handler MAY throw a package-defined typed fault. The executor owns conversion of typed and
-unknown thrown values to the public failure. `ScriptHandlerResult<O>` is success-only; a handler MUST NOT return a
-failure-shaped value.
-
-Error codes MUST be stable lowercase namespaced identifiers in these families:
-
-- `revo.script.validation.*`
-- `revo.script.permission.*`
-- `revo.script.timeout.*`
-- `revo.script.execution.*`
-- `revo.script.provider.*`
-- `revo.script.idempotency.*`
-
-The initial runtime MUST define at least these exact codes:
-
-| Code                                          | Meaning                                                                   | Retryable    |
-| --------------------------------------------- | ------------------------------------------------------------------------- | ------------ |
-| `revo.script.validation.manifest`             | Manifest or policy coherence is invalid.                                  | No           |
-| `revo.script.validation.input`                | Input or execution request identity is invalid.                           | No           |
-| `revo.script.validation.result`               | Handler output does not satisfy the declared schema.                      | No           |
-| `revo.script.validation.event`                | A custom event is not JSON-compatible.                                    | No           |
-| `revo.script.validation.payload_limit`        | A bounded payload limit was exceeded.                                     | No           |
-| `revo.script.permission.resource`             | A prepared resource does not satisfy the manifest grant.                  | No           |
-| `revo.script.permission.effect`               | A prepared effect grant does not satisfy the manifest.                    | No           |
-| `revo.script.permission.event`                | A custom event name or detail path is undeclared.                         | No           |
-| `revo.script.permission.grant`                | A required operation permission is absent from the prepared grant.        | No           |
-| `revo.script.timeout.deadline`                | The total wall-clock deadline expired.                                    | No           |
-| `revo.script.execution.definition_missing`    | Registry lookup found no exact definition.                                | No           |
-| `revo.script.execution.digest_mismatch`       | Exact lookup found a different definition digest.                         | No           |
-| `revo.script.execution.event_sink`            | The injected event sink rejected an event.                                | No           |
-| `revo.script.execution.registry_not_sealed`   | Execution was requested before registry sealing.                          | No           |
-| `revo.script.execution.blocked`               | Safe continuation requires operator or newer external state.              | No           |
-| `revo.script.execution.unexpected`            | An untyped handler or runtime failure occurred.                           | No           |
-| `revo.script.provider.unavailable`            | A bounded provider capability is unavailable.                             | No           |
-| `revo.script.provider.client_conflict`        | Selected providers contributed the same client key to one resource.       | No           |
-| `revo.script.provider.credential_unavailable` | A bound credential alias cannot be resolved.                              | Per manifest |
-| `revo.script.provider.transient`              | A provider reported an explicitly retry-safe transient failure.           | Per manifest |
-| `revo.script.idempotency.key_required`        | A write requires an absent idempotency key.                               | No           |
-| `revo.script.idempotency.conflict`            | Observed external state conflicts with the operation key or precondition. | No           |
-
-Provider text and stack traces are evidence, not codes. They MUST be redacted and bounded before inclusion in a public
-failure or event.
-
-A handler-provided `retryable` value is advisory. It MUST NOT make a code retryable when the error table or manifest
-forbids retry.
-
-Input and result JSON payloads MUST be no larger than 1 MiB each when UTF-8 encoded. One event MUST be no larger than
-64 KiB. Evidence MUST contain no more than 64 items. Each evidence ref MUST be no longer than 2,048 Unicode code
-points, and each evidence summary MUST be no longer than 4,096 Unicode code points.
-
-### Events and redaction
-
-```ts
-type ScriptCustomEvent = {
-  name: string;
-  details?: Readonly<Record<string, unknown>>;
-};
-
-type ScriptLifecycleEvent = {
-  name:
-    'revo.script.started' | 'revo.script.retrying' | 'revo.script.succeeded' | 'revo.script.failed';
-  details: Readonly<Record<string, unknown>>;
-};
-
-type EventSink = {
-  emit(event: ScriptLifecycleEvent | ScriptCustomEvent): Promise<void>;
-};
-```
-
-The runtime MUST emit `revo.script.started`, `revo.script.retrying`, `revo.script.succeeded`, and
-`revo.script.failed` through an injected `EventSink` when those lifecycle transitions occur. Lifecycle payloads MUST
-contain script identity, execution identity, attempt, timing, and redacted bounded details only.
-
-A preflight failure during registry resolution, input validation, resource validation, or idempotency validation MUST
-emit one failed event without a preceding started event. Once preflight succeeds, the runtime MUST emit exactly one
-started event, zero or more retrying events, and exactly one succeeded or failed event in that order. These ordering
-requirements apply while the sink accepts events.
-
-A high-level facade failure before definition resolution MUST include the requested script id and integer revision and
-MUST omit `definitionDigest`. After resolution, every lifecycle event MUST use the definition digest recovered from the
-sealed registry; no consumer-supplied digest participates in event identity.
-
-A handler MAY emit only event names declared by `manifest.events.allowed`. Custom details MUST contain only paths
-allowed by `manifest.events.detailPaths`. Empty objects and arrays are leaves at their own JSON Pointer path.
-Undeclared names, detail paths, or non-JSON values MUST fail before reaching the sink.
-Custom event names MUST be namespaced and MUST NOT use the reserved `revo.script.*` lifecycle namespace.
-
-An undeclared custom event fails the active attempt with `revo.script.permission.event`. A rejected `EventSink.emit`
-fails execution with `revo.script.execution.event_sink`; the runtime MUST NOT retry the handler because an external
-effect may already have occurred. When the sink itself rejects, the runtime returns the structured failure without
-attempting to report that failure through the same rejected sink.
-
-Redaction MUST occur before data reaches an event sink, failure detail, evidence summary, or diagnostic artifact.
-Redaction paths and event detail paths use RFC 6901 JSON Pointer. Invalid pointers MUST fail definition validation.
-
-The typed `value: O` returned to the trusted caller MUST remain schema-valid and MUST NOT be mutated into an
-incompatible placeholder. Input and result redaction paths apply only when the runtime creates a serialized projection;
-the initial runtime creates no such projection and never places input or result values in events. Error and event paths
-are enforced now. Script result schemas and handlers MUST NOT treat secrets or provider tokens as domain output. The
-runtime contract suite MUST fail when a fixture secret remains visible in any applicable declared public projection.
-
-### Registry
-
-```ts
-declare const registeredScriptBrand: unique symbol;
-
-interface RegisteredScript<I, O, R extends ScriptResourceMap> {
-  readonly manifest: ScriptManifestV1;
-  readonly definitionDigest: `sha256:${string}`;
-  readonly implementation: Readonly<{ id: string; version: string }>;
-  readonly [registeredScriptBrand]: {
-    readonly input: I;
-    readonly output: O;
-    readonly resources: R;
-  };
-}
-
-interface ScriptRegistry {
-  register<I, O, R extends ScriptResourceMap>(
-    definition: ScriptDefinition<I, O, R>,
-  ): RegisteredScript<I, O, R>;
-  seal(): void;
-  resolve(id: string, version: number): RegisteredScript<unknown, unknown, ScriptResourceMap>;
-  getExact(
-    id: string,
-    version: number,
-    digest: `sha256:${string}`,
-  ): RegisteredScript<unknown, unknown, ScriptResourceMap>;
-  listManifests(): readonly ScriptManifestV1[];
-}
-```
-
-Registration MUST be explicit. Directory scanning, package discovery, import-time side-effect registration, revision
-ranges, string/SemVer parsing, and implicit latest-revision selection are forbidden.
-
-Registration MUST reject every duplicate `(id, version)` entry, including a byte-identical re-registration. A sealed
-registry MUST reject further registration. Lookup order and listing MUST be deterministic regardless of registration
-order. Before constructing a lookup key, `resolve` and `getExact` MUST validate that the runtime revision value is a
-positive safe integer. They MUST NOT coerce or alias a string, fractional, zero, negative, or unsafe revision. Exact
-lookup MUST fail closed on an absent or mismatched digest.
-
-A registered-script handle is opaque and belongs to the registry that created it. The registry keeps the executable
-definition private and uses the handle only to recover that exact definition. A handle from another registry or a
-handle whose identity no longer resolves MUST fail before a handler runs.
-
-Each registry MUST track a private runtime token for every returned handle; matching public identity and digest fields
-do not make a foreign handle valid. The unique-symbol brand in the public type is phantom type information and does not
-require a public runtime property.
-
-`resolve` and `getExact` MUST throw a typed `ScriptFault` for missing identity or digest mismatch. When the same lookup
-fails inside `executeScript`, the executor MUST return the corresponding structured execution failure. Resolution and
-execution MUST require a sealed registry.
-
-The package MAY provide a function that registers its built-ins into a caller-owned registry. It MUST NOT create a
-process-global mutable registry.
-
-### Execution
-
-The high-level facade MUST perform this provider-neutral sequence for every execution request:
-
-1. validate and bound the execution identity;
-2. resolve the exact sealed definition by id and positive integer revision;
-3. validate and bound input before resolving privileged host state;
-4. require exact resource and credential binding names;
-5. intersect manifest maximums with resource access, permission grants, effect grants, and credential provider ids;
-6. resolve the sole registered provider implementation for every manifest contract requirement;
-7. validate bounded provider coordinates through the selected modules' closed schemas;
-8. resolve only the workspace allocations and credential aliases required by that intersection;
-9. construct each bounded client from its selected provider implementation and attach it only to the resource named by
-   the provider requirement;
-10. call the low-level executor with immutable input, resource handles, and no privileged host service;
-11. dispose credential leases and provider clients in `finally` paths;
-12. return the validated typed result or structured failure.
-
-No facade, provider registry, or binding resolver may compare a concrete script id. Provider selection uses only
-declared contract requirements and rejects duplicate implementations at startup. Definition selection uses the exact
-sealed registry. The facade MUST NOT resolve a workspace or credential for invalid input, denied access, an absent
-definition, or a missing provider contract.
-
-Provider construction, handler execution, custom event emission, result validation, retry backoff, and provider
-disposal share the one total wall-clock deadline. Provider construction failures use the stable provider or permission
-error families and MUST NOT leak a path, secret, ambient account, raw command, or response body.
-
-The low-level execution contract is:
-
-```ts
-type ExecuteScriptRequest<R extends ScriptResourceMap> = {
-  executionId: string;
-  input: unknown;
-  resources: R;
-  idempotencyKey?: string;
-  eventSink: EventSink;
-  clock?: ScriptClock;
-  signal?: AbortSignal;
-};
-
-type ScriptClock = {
-  now(): number;
-  sleep(ms: number, signal: AbortSignal): Promise<void>;
-};
-
-declare function executeScript<I, O, R extends ScriptResourceMap>(
-  registry: ScriptRegistry,
-  script: RegisteredScript<I, O, R>,
-  request: ExecuteScriptRequest<R>,
-): Promise<ScriptExecutionResult<O>>;
-```
-
-`ScriptClock` is a bounded test seam for timestamps and retry backoff. The runtime provides a real default. A caller MAY
-provide a deterministic clock; a handler MUST NOT receive it or control its own retry timing. The hard deadline uses a
-platform timer independently of `ScriptClock`, so an injected clock cannot disable the safety bound.
-
-`executionId` MUST be a non-empty string no longer than 256 Unicode code points. A valid raw execution id is its
-lifecycle event projection. An invalid id is replaced with `[INVALID_EXECUTION_ID]` in its preflight failure event so
-the invalid value cannot bypass event bounds. An idempotency key MUST be a non-empty string no longer than 1,024 Unicode
-code points and MUST NOT be copied into an event, failure, or provider marker without applying the operation's
-fingerprint contract.
-
-`executeScript` MUST perform the same generic steps for every already-prepared definition:
-
-1. validate and bound the execution identity;
-2. require a sealed registry and resolve the registered handle to its exact private definition;
-3. validate and bound input;
-4. verify the prepared resource grant against the manifest;
-5. derive or require idempotency context according to the manifest;
-6. emit the started event;
-7. execute with one total wall-clock deadline and an abort signal;
-8. retry only typed transient failures permitted by the manifest;
-9. validate and bound the handler result;
-10. preserve the validated typed result and redact declared event/diagnostic projections, failures, evidence, and
-    events;
-11. emit succeeded or failed;
-12. return the typed execution result.
-
-Generic execution MUST NOT branch on a concrete script id, provider, or host identity. A timeout MUST abort the active
-attempt and return a timeout-family failure. Exhausted transient retries MUST preserve the last stable failure code and
-record the total attempt count.
-
-When the executor stops before a permitted retry because the remaining deadline cannot accommodate the next backoff,
-it MUST return `revo.script.timeout.deadline` and record the total attempts already executed.
-
-The total wall-clock timeout includes identity and input validation, registry resolution, all attempts, backoff, result
-validation, custom events, and lifecycle event emission. A never-settling `EventSink` MUST NOT outlive the deadline.
-
-The runtime does not persist results or events. A result MUST contain only the schema-declared domain payload. It MUST
-NOT contain a run id, node id, ordinal, attempt id, workspace id, execution-plan hash, artifact id, or output
-provenance.
-
-A host MAY persist the validated domain output through its own adapter. A durable host MAY wrap it in one generic
-`ArtifactEnvelope` whose schema identity and digest come from the resolved definition and whose `OutputProvenance` comes from
-durable execution context. That envelope is not a script result and is not defined by this package. The wrapping MUST
-NOT compare a concrete script id or duplicate provenance inside the domain payload. Any event or diagnostic projection
-persisted by a host MUST use the runtime-redacted projection.
-
-### Trusted modules and deferred custom-script contract
-
-The runtime accepts explicitly imported trusted definition modules for internal composition and contract testing. V1
-does not define a stable external custom-script distribution, compatibility, or trust contract.
-
-The host owns installation trust. It MUST explicitly import definition and provider modules during startup composition.
-The package MUST NOT download code, evaluate source text, resolve module paths from manifests, hot-load packages, or
-read mutable configuration to discover executable definitions.
-
-A future custom-script contract may reuse an installed provider family's bounded contract, but it requires a separate
-accepted design. A custom effect family still requires an explicit provider contract and trusted implementation. A
-provider module is trusted executable host infrastructure, not pipeline data. Its contract requirement appears in the
-manifest; its id, implementation digest, and package provenance remain package catalog metadata and are not consumer
-execution-request fields.
-
-### Public entrypoints
-
-The target entrypoints are:
-
-| Entrypoint                                | Contract                                                                  |
-| ----------------------------------------- | ------------------------------------------------------------------------- |
-| `@revisium/revo-scripts`                  | Consumer facade, built-in module factories, and small curated stable API. |
-| `@revisium/revo-scripts/spec`             | Manifest, schema, definition, result, and error contracts.                |
-| `@revisium/revo-scripts/runtime`          | Definition, registry, validation, redaction, events, and execution.       |
-| `@revisium/revo-scripts/host`             | Privileged host/provider integration contracts.                           |
-| `@revisium/revo-scripts/approval`         | Approval-subject definition and domain result types.                      |
-| `@revisium/revo-scripts/git`              | Built-in Git definitions and domain result types.                         |
-| `@revisium/revo-scripts/github`           | Built-in GitHub definitions and domain result types.                      |
-| `@revisium/revo-scripts/providers/git`    | Bounded Git contract and trusted provider-family factory.                 |
-| `@revisium/revo-scripts/providers/github` | Bounded GitHub contract and trusted provider-family factory.              |
-| `@revisium/revo-scripts/testing`          | Contract harness, fixtures, recording sinks, clocks, and fake providers.  |
-
-Only implemented entrypoints MAY appear in `package.json`. The GitHub entrypoint MUST NOT be published as an empty
-placeholder. Filesystem layout alone MUST NOT make a module public. Deep imports around the export map are unsupported.
-
-The root entrypoint exports `createRevoScripts`, `approvalScripts`, `builtInScripts`, `gitScripts`, `githubScripts`, and the four primary
-low-level runtime functions as a curated convenience API. Provider factories remain on explicit `/providers/*` subpaths so script and
-provider ownership are not mixed. The root MUST NOT re-export faults, individual domain definitions, testing
-mechanics, privileged resolved bindings, or every internal module. Production script entrypoints MUST NOT export
-process execution, raw credentials, resolved workspace paths, or unrestricted provider clients. The privileged `/host`
-entrypoint is for trusted integration code and MUST NOT be imported by a handler.
-
-Root facade function signatures MAY reference privileged `/host` types so TypeScript can check startup composition,
-but the root MUST NOT export those types as named values or convenience aliases. Consumers that implement or annotate
-host/provider integrations import the types explicitly from `/host`; package export validation proves script-domain
-entrypoints do not expose them.
-
-### Dependency direction
-
-The internal dependency graph MUST remain acyclic and follow this direction:
-
-```text
-runtime/spec <- runtime/definition
-runtime/spec <- runtime/registry
-runtime/spec + runtime/registry + runtime/validation <- runtime/execution
-runtime/definition + runtime/registry + runtime/execution <- runtime/index
-runtime/spec <- host
-runtime/spec <- providers/*/contracts
-runtime/spec + host + providers/*/contracts <- providers/*/adapters
-runtime/spec + runtime/definition + providers/*/contracts <- scripts/*
-runtime + host + providers/*/adapters + scripts/* <- application
-runtime + application + providers + scripts <- testing
-```
-
-`runtime/spec` and neutral `runtime/validation` primitives MUST NOT import another package area. Runtime definition
-construction MUST NOT import registry or execution. Registry MAY import only portable spec contracts. Execution MAY
-import registry, spec, and neutral validation primitives; it MUST NOT import definition construction, host, providers,
-scripts, or application code. `runtime/index.ts` is a curated public entrypoint and MUST NOT own implementation. Host contracts MUST NOT
-import provider implementations. Provider contract directories MAY import only
-portable spec types; they are handler-safe and MUST NOT export adapter construction or host-resolution types. Adapters
-implement the trusted provider-module SPI from `host`, import their own bounded contract, and MUST NOT import
-concrete scripts. Scripts MAY import their category's bounded provider contracts but MUST NOT import adapters, `/host`,
-process, credential, or workspace-resolution modules. Git and GitHub scripts MUST NOT import one another. The
-application layer behind the consumer facade is the composition root. Production code MUST NOT import testing.
-Consumers MUST use public subpaths rather than internal files.
-
-### Built-in operation contracts
-
-Every built-in has exact revision `1`, a closed input schema, a closed result schema, one operation-specific
-permission, and only the provider client required for that operation. The current inventory is:
-
-| Script                                  | Effect class | Result schema                            | Required fence                                                                      |
-| --------------------------------------- | ------------ | ---------------------------------------- | ----------------------------------------------------------------------------------- |
-| `script:approval/subject`               | `pure`       | `schema:approvalSubject/v1`              | closed provider-neutral input                                                       |
-| `script:git/status`                     | `read`       | `schema:workspaceChange/v1`              | immutable commit and tree captures                                                  |
-| `script:git/commit`                     | `write`      | `schema:gitChange/v1`                    | exact parent, tree, and operation marker                                            |
-| `script:git/push`                       | `publish`    | `schema:gitChange/v1`                    | ancestry proof and exact remote-head CAS lease                                      |
-| `script:github/pull-request/upsert`     | `publish`    | `schema:githubPullRequest/v1`            | head/draft fence and metadata reconciliation                                        |
-| `script:github/pull-request/mark-ready` | `publish`    | `schema:githubPullRequest/v1`            | exact pull-request head                                                             |
-| `script:github/pull-request/readiness`  | `read`       | `schema:githubReadiness/v1`              | exact pull-request head                                                             |
-| `script:github/review-threads/respond`  | `publish`    | `schema:githubReviewThreadsRespond/v1`   | selected PR/head and canonical reply marker/readback                                |
-| `script:github/review-threads/resolve`  | `publish`    | `schema:githubReviewThreadsResolve/v1`   | response proof and exact resolution readback                                        |
-| `script:github/pull-request/merge`      | `publish`    | `schema:githubPullRequestMergeResult/v1` | approval/readiness equality, exact-head squash, and source-branch deletion readback |
-
-The review-thread response operation accepts closed triage and selects only ordered `fix` and `wontfix` items;
-`question` items have no GitHub effect. It appends exactly this terminal marker, derived inside the trusted Fetch
-adapter rather than supplied by the caller:
-
-```text
-<!-- revo-thread-reply:v1 key=sha256:<operation-key> pr=<number> head=<git-commit> thread=sha256:<thread-id> body=sha256:<reply-body> -->
-```
-
-Every digest is lowercase SHA-256 over UTF-8 bytes, and reply body normalization is CRLF-to-LF followed by trimming.
-Before every write and after it, the adapter verifies the bound repository, open pull request, exact head, selected
-thread, one marker, normalized-body digest, and pinned credential actor. Resolution consumes the response result and
-requires the exact reply id, marker, and fingerprint to remain visible before reporting `resolved` or
-`already-resolved`. Both operations are bounded to 100 unique threads, keep input order in output, and expose no reply
-body, actor identity, credential alias, or raw provider payload.
-
-### Orchestrator traceability matrix
-
-This package replaces the bounded effect portions of the orchestrator milestone contract; pipeline decisions,
-artifacts, and human gates remain host-owned. The proof column is the primary executable contract.
-
-| Replaced orchestrator behavior | Package operation                       | Contract owner                             | Primary proof                                                                                                             |
-| ------------------------------ | --------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Workspace status capture       | `script:git/status`                     | Git status script and Node Git adapter     | `test/contract/git/status.test.ts`, `test/integration/providers/node-git-provider.test.ts`                                |
-| Exact local commit             | `script:git/commit`                     | Git commit script and Node Git adapter     | `test/contract/git/commit.test.ts`, `test/integration/providers/node-git-mutations.test.ts`                               |
-| Exact branch publication       | `script:git/push`                       | Git push script and Node Git adapter       | `test/contract/git/push.test.ts`, `test/integration/providers/node-git-mutations.test.ts`                                 |
-| Pull-request create/update     | `script:github/pull-request/upsert`     | GitHub upsert script and Fetch adapter     | `test/contract/github/pull-request-upsert.test.ts`, `test/integration/providers/fetch-github-pull-request-upsert.test.ts` |
-| Draft-to-ready transition      | `script:github/pull-request/mark-ready` | GitHub ready script and Fetch adapter      | `test/contract/github/pull-request-mark-ready.test.ts`                                                                    |
-| Read-only PR readiness         | `script:github/pull-request/readiness`  | GitHub readiness script and Fetch adapter  | `test/contract/github/pull-request-readiness.test.ts`                                                                     |
-| Review reply                   | `script:github/review-threads/respond`  | Review response script and Fetch adapter   | `test/contract/github/review-thread-respond.test.ts`                                                                      |
-| Review-thread resolution       | `script:github/review-threads/resolve`  | Review resolution script and Fetch adapter | `test/contract/github/review-thread-resolve.test.ts`                                                                      |
-| Exact-head merge               | `script:github/pull-request/merge`      | GitHub merge script and Fetch adapter      | `test/contract/github/pull-request-merge.test.ts`                                                                         |
-| Gate subject normalization     | `script:approval/subject`               | Approval subject script                    | `test/contract/approval/subject.test.ts`                                                                                  |
-
-`script:git/status` has closed input, permission `git.status.read`, one read-only repository resource,
-`revo.provider.git/v1`, effects `filesystem.read` and `git.read`, a 5,000 ms wall-clock timeout, no retry, and read-only
-idempotency. Its exact
-result is:
-
-```ts
-type GitStatusResultV1 = {
-  schemaVersion: 'workspace-change/v1';
-  baseCapture: `git-commit:${string}`;
-  headCapture: `git-tree:${string}`;
-  changedPaths: readonly {
-    path: string;
-    status: 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked';
-  }[];
-  clean: boolean;
-};
-```
-
-Commit and tree object ids MUST be lowercase hexadecimal with 40 or 64 characters. Each path MUST contain between one
-and 4,096 characters; the array MUST contain at most 2,048 items and be sorted by path. `clean` is true exactly when
-the array is empty. The provider MUST capture `headCapture` through a temporary Git index and MUST NOT mutate the real
-index. The result MUST NOT contain raw Git output, a workspace path, a credential, or execution provenance.
-
-Git commit input includes bounded author name, email, and ISO-8601 timestamp. The provider MUST apply the same explicit
-identity to author and committer fields so recreating an unreferenced commit after a crash produces the same object id;
-mutable repository identity or wall-clock time MUST NOT affect it. Git mutation results use `git-change/v1` and
-preserve repository identity, remote identity, branch, base commit, exact head commit, and a bounded commit list.
-GitHub pull-request results preserve repository id, `pullRequestId`, number, URL, exact
-head/base, state, draft state, and optional merge commit. The dedicated merge result is
-`github-pull-request-merge-result/v1`: it contains PR identity, approved and merged exact source heads, optional merge
-commit, fixed `squash` method, `merged` or `already-merged` status, confirmed source-branch deletion, optional issue
-reference, and only the redacted bounded override identity and audit fingerprint. Its closed input requires the PR artifact,
-approval subject, active gate resolution, and post-gate readiness artifact. Subject URI/revision, PR identity,
-repository identity, head, and readiness time ordering MUST agree. Normal approval requires `clean`; an override
-requires sorted unique audit thread ids equal to the current unresolved non-outdated set, plus matching actor and head.
-Closed/draft/live-unmergeable state, incomplete evidence, required-check blockers, and moved or unverifiable source
-heads are non-bypassable. The provider validates current PR metadata, exact GitHub `closingIssuesReferences` for
-`issueAction: close`, or the canonical non-closing `Refs` token for `issueAction: refs`, requests one
-exact-head REST squash merge, deletes only the exact source ref, and reads back both the merged head and deleted source
-branch. An exact already-merged head is adopted without a duplicate merge; source-branch deletion reconciliation
-remains inside the bounded provider client. The operation never repairs PR metadata or marks a draft ready. Readiness
-returns explicit bounded blockers. Review-thread operations return only the pinned thread receipt. Exact JSON examples
-are normative documentation in the root README and are validated by the corresponding contract suites.
-
-Required-check identity is the union of matching branch-protection contexts and GitHub's credential-scoped rules
-evaluated for the exact base branch, including repository and organization rulesets. The adapter MUST preserve
-`complete`, `unavailable`, and `truncated` identity evidence; only a complete empty union denotes zero configured
-checks. Overlapping contexts are deduplicated by exact name before classification.
-
-Provider adapters MUST construct operation-specific clients from declared permissions and access. They MUST NOT select
-behavior by concrete script id. Missing access MUST fail before workspace or credential resolution. Mutation retries
-are allowed only with a host-derived idempotency key and provider-owned reconciliation that prevents duplicate effects.
-The public contract kit derives every required-write scenario from registered manifests. Each scenario MUST model a
-successful effect whose first host result is lost, then assert one provider mutation and the typed adopted result of a
-same-key execution.
-
-## Validation
-
-The required proof is defined in [Testing](../testing.md). `pnpm verify` MUST include focused runtime tests, script
-contract tests, provider contract tests, architecture checks, public type tests, coverage, build, declaration and
-export validation, package content validation, and a pack dry-run before the runtime is declared shipped.
-
-Consumer compatibility proof MUST demonstrate that two arbitrary scripts in the same provider family execute through
-one facade path without a concrete-id branch or per-operation host capability. Provider proof MUST demonstrate that
-invalid input or grants resolve no privileged host binding, handlers cannot observe resolved paths or credentials,
-real Git status/commit/push proofs need no consumer-provided Git implementation, and GitHub provider tests exercise
-the same facade with a transport double at the package-owned Fetch boundary.
-
-The package MUST remain unpublished until its runtime entrypoints and every exported built-in pass the full local
-gates, hosted CI, static analysis, and review. Publishing requires a separate human approval.
-
-## Compatibility
-
-The package is pre-release and currently has no runtime compatibility commitment. Once a definition revision is
-published, changing its manifest, schemas, observable result, error mapping, effects, or handler behavior requires a
-larger integer revision.
-
-Adding a new definition is compatible. Removing a definition revision or provider contract is compatible only after a
-usage audit proves that no supported pipeline, active execution, or recoverable run requires it. The registries provide
-no alias, revision range, implicit latest, string/SemVer interpretation, fallback implementation, or deep-import
-compatibility path.
-
-## Future Work
-
-- Multi-revision source retention and external usage-audit workflow.
-- Stable external custom-script distribution and trust contract.
-- Live GitHub provider compatibility workflow in a dedicated test repository.
-- Direct orchestrator cutover to the package-owned contracts without compatibility fallbacks.
-- Consumer compatibility workflow against retained package releases.
+`prepareBinding` validates the exact script pin, all resource and credential
+slots, grants, provider compatibility and metadata. It rejects malformed or
+unauthorized data with `ScriptFault` before external dispatch.
+
+`executeAttempt` validates the pinned binding and input, acquires live host
+handles just in time, then calls the handler at most once. It returns a terminal
+`succeeded`, `failed`, `cancelled`, or `timedOut` result when completion is
+proven. If timeout or cancellation occurs and work has not stopped after the
+fixed `terminationGraceMs: 1000` policy snapshot, it returns
+`uncertain { trigger, stage, evidence }`. That is not a terminal result and
+does not authorize retry or release an in-use handle. The package supervises the
+late settlement in process; a later `reconcileAttempt` becomes terminal if it
+settles, otherwise a restart/eviction is `unknown`. A retryable terminal failure
+and the manifest retry policy are returned to the durable host; this package
+never sleeps for backoff or starts another attempt.
+
+`cancelAttempt` and `reconcileAttempt` only return a terminal result when it is
+known. They return the same `uncertain` observation while the local supervisor
+owns an unresolved timed-out/cancelled attempt, and `unknown` for active or
+crash-uncertain work. Neither turns uncertainty into false `notFound` or
+success.
+
+Every terminal result has a required, portable `terminalEvent`; its type is
+coupled to the result branch rather than being a broad event-emission union:
+
+- `succeeded` → `ScriptSucceededTerminalEventEmission`, containing
+  `revo.script.succeeded` with its evidence count;
+- `failed` → `ScriptFailedTerminalEventEmission`, containing
+  `revo.script.failed` with the failure code, stage, and retryability;
+- `cancelled` → `ScriptCancelledTerminalEventEmission`, containing
+  `revo.script.cancelled` with lifecycle details; and
+- `timedOut` → `ScriptTimedOutTerminalEventEmission`, containing
+  `revo.script.timed_out` with the timeout failure code.
+
+An individual terminal result cannot contain a terminal emission from another
+branch, a started event, or a custom event.
+
+The durable host persists and publishes this pair atomically. `uncertain` has
+no `terminalEvent`; a later terminal reconciliation returns the same sealed
+terminal result.
+
+## Attempt observation state
+
+The facade keeps process-local observation state for accepted physical attempt
+identities. It is not a durable execution ledger.
+
+- A duplicate `(executionId, attemptId)` is rejected before host acquisition or
+  handler dispatch.
+- At most 1,024 active or uncertain identities are retained. Admission above
+  that bound returns the retryable `revo.script.execution.capacity` fault.
+- At most 1,024 terminal results are retained in first-in-first-out order. An
+  evicted terminal identity has no local proof and therefore reconciles as
+  `unknown`.
+- `cancelAttempt` asks an active attempt to stop, but returns `unknown` until
+  terminal evidence exists. A terminal identity returns `alreadyTerminal`; an
+  unresolved supervised identity returns its `uncertain` result.
+- `reconcileAttempt` returns `terminal`, the current `uncertain` result, or
+  `unknown`. The public schema also reserves `notFound` for a future
+  implementation that can prove no external dispatch; the current in-process
+  facade has no such durable proof and returns `unknown` instead.
+
+The operation `executionId` and physical `attemptId` are both required because
+one operation can have several separately persisted physical attempts. The
+library never chooses the next attempt or delay; the durable host makes that
+decision from the returned retry policy and terminal result.
+
+## Events and failures
+
+An attempt receives its own live event sink. It receives only
+`revo.script.started` and manifest-declared custom events in one serial positive
+ordinal lane. Before a custom event reaches the sink, the package verifies its
+name, applies redaction, deep-owns JSON and enforces the 65,536-byte bound.
+Invalid events do not reach the sink and latch a non-retryable handler failure
+even if handler code catches the rejection. Terminal lifecycle events are sealed
+into a proven result after that live lane settles; they are never sent to the
+sink.
+
+Failures are portable, redacted values. Cleanup failure wins over sink failure;
+sink failure wins over timeout, cancellation, handler/provider failure or
+success. Earlier outcomes are retained as structured causes, never as raw
+exception text. Secrets, absolute paths and provider responses never appear in
+prepared bindings, events, results or failures.
+
+## Authoring and manifests
+
+`defineScript` has one handler context: `executionId`, `attemptOrdinal`, bounded
+resources, `signal` and custom-event `emit`. It has no second idempotency key or
+conditional handler families. A manifest uses `operations` and `impactClass`.
+
+`retry` remains a declarative policy snapshot. The durable host may create a
+next attempt only when the policy allows it, the returned failure is retryable,
+the ordinal remains below the cap and idempotency is not `not-retryable`.

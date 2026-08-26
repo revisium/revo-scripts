@@ -1,14 +1,13 @@
 # `script:github/review-threads/respond`
 
-| Field                    | Value                                                |
-| ------------------------ | ---------------------------------------------------- |
-| Revision                 | `1`                                                  |
-| Effect class and effects | `publish`; `github.read`, `github.write`             |
-| Permission and resource  | `github.review-thread.respond`; `repository` publish |
-| Provider and idempotency | `revo.provider.github/v1`; required                  |
+| Field                          | Value                                                |
+| ------------------------------ | ---------------------------------------------------- |
+| Revision                       | `1`                                                  |
+| Operation class and operations | `publish`; `github.read`, `github.write`             |
+| Permission and resource        | `github.review-thread.respond`; `repository` publish |
+| Provider and idempotency       | `revo.provider.github/v1`; required                  |
 
-Revision `1` is immutable. Any observable change requires a larger integer revision; ranges, `latest`, SemVer parsing,
-and fallback are unsupported.
+Revision `1` is immutable. Any observable change requires a larger integer revision.
 
 Accepts closed triage for one exact open pull request and processes at most 100 unique selected threads in triage order.
 Only `fix` and `wontfix` items are selected. A `question` item requires a matching bounded continuation resolution;

@@ -1,5 +1,5 @@
-export interface TrustedWorkspaceAllocation {
-  readonly workspaceId: string;
-  readonly repositoryId: string;
+import type { WorkspaceDescriptor } from './workspace-descriptor.js';
+
+export interface TrustedWorkspaceAllocation extends WorkspaceDescriptor {
   readonly absolutePath: string;
 }

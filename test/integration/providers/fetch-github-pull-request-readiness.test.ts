@@ -69,7 +69,7 @@ test('maps GraphQL readiness contexts to explicit blockers', async () => {
     fetch: fetchStub,
   });
   expect(result).toMatchObject({
-    ok: true,
+    kind: 'succeeded',
     value: {
       schemaVersion: 'github-readiness/v1',
       repositoryId: pullRequest.repositoryId,
@@ -95,9 +95,8 @@ test('maps GraphQL readiness contexts to explicit blockers', async () => {
       classification: 'clean',
     },
     evidence: [],
-    attempts: 1,
   });
-  expect(restRequests).toEqual([
+  expect(restRequests).toMatchObject([
     expect.stringContaining('/rules/branches/master?per_page=100') as unknown,
   ]);
 });

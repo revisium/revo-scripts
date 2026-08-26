@@ -1,0 +1,43 @@
+{
+  "result": {
+    "kind": "failed",
+    "error": {
+      "code": "revo.script.provider.rejected",
+      "message": "Provider rejected the operation.",
+      "retryable": false,
+      "stage": "provider",
+      "details": null,
+      "causes": []
+    },
+    "evidence": [],
+    "terminalEvent": {
+      "emissionOrdinal": 2,
+      "event": {
+        "name": "revo.script.failed",
+        "details": {
+          "script": { "id": "script:test/facade-golden-failed", "version": 1 },
+          "definitionDigest": "sha256:b30bfa8c1f68c3dda36ca64d3144e0fe5634b7bf4015c00abcfecdcc1168e08b",
+          "attemptOrdinal": 1,
+          "timestampMs": 123,
+          "code": "revo.script.provider.rejected",
+          "stage": "provider",
+          "retryable": false
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "emissionOrdinal": 1,
+      "event": {
+        "name": "revo.script.started",
+        "details": {
+          "script": { "id": "script:test/facade-golden-failed", "version": 1 },
+          "definitionDigest": "sha256:b30bfa8c1f68c3dda36ca64d3144e0fe5634b7bf4015c00abcfecdcc1168e08b",
+          "attemptOrdinal": 1,
+          "timestampMs": 123
+        }
+      }
+    }
+  ]
+}

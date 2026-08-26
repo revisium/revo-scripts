@@ -1,0 +1,38 @@
+{
+  "result": {
+    "kind": "succeeded",
+    "value": { "echoed": "golden" },
+    "evidence": [],
+    "terminalEvent": {
+      "emissionOrdinal": 3,
+      "event": {
+        "name": "revo.script.succeeded",
+        "details": {
+          "script": { "id": "script:test/facade-golden-succeeded", "version": 1 },
+          "definitionDigest": "sha256:6ee459dab389083d087ae283ec70300c41ff95a9ba031a81969947158647f80d",
+          "attemptOrdinal": 1,
+          "timestampMs": 123,
+          "evidenceCount": 0
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "emissionOrdinal": 1,
+      "event": {
+        "name": "revo.script.started",
+        "details": {
+          "script": { "id": "script:test/facade-golden-succeeded", "version": 1 },
+          "definitionDigest": "sha256:6ee459dab389083d087ae283ec70300c41ff95a9ba031a81969947158647f80d",
+          "attemptOrdinal": 1,
+          "timestampMs": 123
+        }
+      }
+    },
+    {
+      "emissionOrdinal": 2,
+      "event": { "name": "consumer.progress", "details": { "phase": "handler" } }
+    }
+  ]
+}

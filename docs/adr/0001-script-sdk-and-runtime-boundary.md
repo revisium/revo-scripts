@@ -6,7 +6,7 @@
 
 ## Context
 
-Revo needs operations with independent revisions for Git, GitHub, and future bounded effects. Keeping their definitions
+Revo needs operations with independent revisions for Git, GitHub, and future bounded operations. Keeping their definitions
 inside a host application couples operation releases to orchestration releases and gives external authors no stable
 way to implement compatible scripts. A catalog alone would still leave every host to invent validation, registration,
 execution, errors, events, and test conventions.
@@ -20,15 +20,17 @@ runtime discovery of untrusted code or an unrestricted utility surface.
 definition and validation, explicit registry mechanics, single-script execution policy, reusable contract testing,
 independently exported bounded built-in scripts, and the trusted provider implementations used by those built-ins.
 
-The primary consumer API will be a `createRevoScripts` facade composed once at host startup from stable host services,
-explicit trusted definition modules, and explicit provider modules. The host will use one generic execution call for
-every script. Generic host code will not compare concrete script identifiers, construct per-operation capabilities, or
-implement a built-in's Git or GitHub behavior.
+The primary consumer API is a `createRevoScripts` facade composed once at host startup from stable host services,
+explicit trusted definition modules, and explicit provider modules. Its durable flow is
+`prepareBinding → executeAttempt → cancelAttempt / reconcileAttempt`. The host uses those generic calls for every
+script; it does not compare concrete script identifiers, construct per-operation capabilities, or implement a
+built-in's Git or GitHub behavior.
 
-That call accepts only execution identity, an exact script id with a positive integer revision, input, bindings, and an
-optional abort signal and idempotency key. The package resolves the definition and the one registered implementation
-for each manifest provider contract internally. Consumers do not compile a script plan, supply a definition digest, or
-select provider implementations.
+`prepareBinding` accepts an exact script pin and compact resource references and credential aliases. It returns the
+portable validated snapshot. `executeAttempt` accepts the operation `executionId`, one physical `attemptId`, ordinal,
+prepared binding, input, per-attempt abort signal, and event sink. The package resolves the definition and the one
+registered implementation for each manifest provider contract internally. Consumers do not compile a script plan,
+supply a definition digest, or select provider implementations.
 
 Built-in scripts will own the complete bounded operation: provider calls, normalization, stale-state fences,
 idempotency and crash reconciliation, provider-error mapping, and typed result. Package-owned provider modules will
@@ -75,14 +77,14 @@ Package, script, provider-contract, and provider-implementation identity are del
 Provider implementations do not receive a second public SemVer in v1. Their exact digest and package provenance are
 sufficient for build provenance, while the contract major expresses compatibility. Execution selects the sole
 registered implementation by manifest contract. Startup rejects duplicate implementations for one contract, and
-execution never chooses `latest`, uses a range, parses script SemVer, or falls back to another implementation.
+execution never chooses `latest`, uses a range, or parses script SemVer.
 
 V1 keeps one built-in implementation per provider contract. A provider-family factory registers that implementation;
 registering another implementation for the same contract is invalid. Provider contracts and adapters remain subpaths of
 `@revisium/revo-scripts`; separate provider npm packages are outside this architecture.
 
 Orchestration, durable workflow state, workspace lifecycle, credentials, human gates, and artifact persistence remain
-outside the package. The host supplies logical resource and credential aliases from its immutable execution plan; the
+outside the package. The host supplies logical resource and credential aliases from its immutable prepared binding; the
 package performs the selected operation and returns domain data or a structured failure. The exact facade, host,
 provider, binding, and handler boundaries are defined in the linked specification.
 
@@ -95,25 +97,25 @@ GitHub handler cannot receive mutation methods, while the host remains generic.
 This ADR extracts and generalizes the bounded-operation design documented by orchestrator
 [ADR-0011](https://github.com/revisium/orchestrator/blob/master/docs/adr/0011-system-script-runtime-and-trusted-extensions.md),
 [script runtime v1](https://github.com/revisium/orchestrator/blob/master/docs/specs/script-runtime-v1.spec.md), and
-[resources, workspaces, and effects v1](https://github.com/revisium/orchestrator/blob/master/docs/specs/resources-workspaces-effects-v1.spec.md).
+[resources, workspaces, and operations v1](https://github.com/revisium/orchestrator/blob/master/docs/specs/resources-workspaces-operations-v1.spec.md).
 It does not silently replace those documents. Package acceptance establishes the reusable contract; orchestrator
 adoption requires one direct cutover update to consume it and delete the duplicated internal contract without an alias
 or compatibility adapter.
 
-| Concern             | Preserved decision                                                                                   | Package refinement                                                                                                                     | Required orchestrator adoption action                                        |
-| ------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Operation boundary  | One bounded handler; no routing, gates, workspace lifecycle, raw path, token, shell, DBOS, or Prisma | No change                                                                                                                              | Consume package handlers through the generic facade                          |
-| Public SDK          | Milestone 11 deferred a public SDK until the internal model was proven                               | This repository is the separately reviewed SDK and provider implementation                                                             | Amend ADR-0011's phase scope before cutover                                  |
-| Manifest identity   | Closed versioned manifest and exact definition identity                                              | `revo.script.manifest/v1` uses one exact positive integer revision; named resources and credential slots generalize the internal shape | Replace the internal schema directly; do not translate between schemas       |
-| Verdict routing     | Optional schema-validated JSON Pointer                                                               | Deferred from package v1; domain results remain provider-neutral payloads                                                              | Keep pipeline branching and fragment semantics in orchestrator               |
-| Executable identity | Definition digest includes a trusted generated build digest                                          | The package resolves it internally from the exact script id and revision; unrelated additions do not change it                         | Persist package results without adding a consumer-supplied definition digest |
-| Errors and events   | Typed failures and lifecycle/progress events                                                         | Lowercase `revo.script.*` codes and `revo.script.*` lifecycle names are the package vocabulary                                         | Update the orchestrator contract and persisted event mapping atomically      |
-| Credentials         | Host-selected Git/GitHub aliases, never secrets                                                      | Named provider-neutral slots bind to aliases; provider modules resolve only declared slots                                             | Compile existing aliases into package bindings                               |
-| Git status effects  | Internal milestone listed `filesystem.read` plus `git.read`                                          | The status manifest preserves both effects because its bounded Git client observes working-tree bytes and Git object/index state       | Preserve both effects when adopting the package contract                     |
+| Concern               | Preserved decision                                                                                   | Package refinement                                                                                                                     | Required orchestrator adoption action                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Operation boundary    | One bounded handler; no routing, gates, workspace lifecycle, raw path, token, shell, DBOS, or Prisma | No change                                                                                                                              | Consume package handlers through the generic facade                          |
+| Public SDK            | Milestone 11 deferred a public SDK until the internal model was proven                               | This repository is the separately reviewed SDK and provider implementation                                                             | Amend ADR-0011's phase scope before cutover                                  |
+| Manifest identity     | Closed versioned manifest and exact definition identity                                              | `revo.script.manifest/v1` uses one exact positive integer revision; named resources and credential slots generalize the internal shape | Replace the internal schema directly; do not translate between schemas       |
+| Verdict routing       | Optional schema-validated JSON Pointer                                                               | Deferred from package v1; domain results remain provider-neutral payloads                                                              | Keep pipeline branching and fragment semantics in orchestrator               |
+| Executable identity   | Definition digest includes a trusted generated build digest                                          | The package resolves it internally from the exact script id and revision; unrelated additions do not change it                         | Persist package results without adding a consumer-supplied definition digest |
+| Errors and events     | Typed failures and lifecycle/progress events                                                         | Lowercase `revo.script.*` codes and `revo.script.*` lifecycle names are the package vocabulary                                         | Update the orchestrator contract and persisted event mapping atomically      |
+| Credentials           | Host-selected Git/GitHub aliases, never secrets                                                      | Named provider-neutral slots bind to aliases; provider modules resolve only declared slots                                             | Compile existing aliases into package bindings                               |
+| Git status operations | Internal milestone listed `filesystem.read` plus `git.read`                                          | The status manifest preserves both operations because its bounded Git client observes working-tree bytes and Git object/index state    | Preserve both operations when adopting the package contract                  |
 
 The source orchestrator documents remain marked `Draft` in their file headers even though issue
 [#342](https://github.com/revisium/orchestrator/issues/342) records their decision package as accepted. Until status is
-reconciled in orchestrator, this repository treats them as design sources rather than claiming an already-effective
+reconciled in orchestrator, this repository treats them as design sources rather than claiming an already-applied
 cross-repository supersession.
 
 ## Alternatives Considered
@@ -127,7 +129,7 @@ cross-repository supersession.
 - **Require the host to implement one capability per operation.** Rejected because adding a script would continue to
   require orchestrator code changes and would leave most operation behavior outside the package.
 - **Give handlers raw paths, tokens, shell, or generic network access.** Rejected because apparent autonomy would bypass
-  resource grants, leak host-owned secrets and lifecycle state, and make effect auditing impractical.
+  resource grants, leak host-owned secrets and lifecycle state, and make operation auditing impractical.
 - **Keep provider implementations in each consumer.** Rejected for built-ins because it would duplicate behavior and
   prevent the package from proving an operation end to end. Hosts may still replace a provider through an explicit
   trusted provider module when required by their platform.
@@ -141,8 +143,8 @@ cross-repository supersession.
 - **Give provider implementations their own public SemVer in v1.** Rejected because it adds a fourth user-selected
   compatibility axis without improving deterministic recovery; the protocol major plus exact implementation digest
   already separates compatibility from identity.
-- **Support automatic plugin discovery.** Rejected because installation and trust policy belong to the host, and
-  implicit loading weakens startup auditability.
+- **Discover executable modules automatically.** Rejected because installation and trust policy belong to the host,
+  and implicit loading weakens startup auditability.
 
 ## Consequences
 

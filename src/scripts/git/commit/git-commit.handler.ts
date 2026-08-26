@@ -1,18 +1,15 @@
-import type {
-  RequiredIdempotencyScriptContext,
-  RequiredIdempotencyScriptHandler,
-} from '../../../runtime/spec/definition/index.js';
+import type { ScriptContext, ScriptHandler } from '../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../runtime/spec/errors/index.js';
 import type { GitCommitInput, GitCommitResources, GitCommitResult } from './schemas.js';
 
-export class GitCommitHandler implements RequiredIdempotencyScriptHandler<
+export class GitCommitHandler implements ScriptHandler<
   GitCommitInput,
   GitCommitResult,
   GitCommitResources
 > {
   async execute(
     input: Readonly<GitCommitInput>,
-    context: Readonly<RequiredIdempotencyScriptContext<GitCommitResources>>,
+    context: Readonly<ScriptContext<GitCommitResources>>,
   ): Promise<{ readonly value: GitCommitResult }> {
     if (input.resource !== context.resources.repository.name) {
       throw new ScriptFault(
@@ -26,7 +23,7 @@ export class GitCommitHandler implements RequiredIdempotencyScriptHandler<
       expectedParent: input.expectedParent,
       expectedTree: input.expectedTree,
       message: this.message(input),
-      operationKey: context.idempotencyKey,
+      operationKey: context.executionId,
       author: input.author,
       signal: context.signal,
     });

@@ -53,7 +53,7 @@ test('defines one read-only script snapshot with a stable identity digest', () =
       version: '1.0.0',
       buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000040',
     },
-    definitionDigest: 'sha256:9263afa450331156030b0da31137c8a060ddb5b2fcd4e55bfb909a8ed8aa0ade',
+    definitionDigest: 'sha256:f2b38df4e1f5cb1702eb7338e98f249cd2d27ffeff0e98c4a0efdaa950d1de01',
     handler,
   });
   expect(definition.manifest).not.toBe(manifest);
@@ -264,17 +264,17 @@ test.each([
   },
 );
 
-test('refines required handler context while guarding direct definition handler calls', async () => {
-  const receivedKeys: string[] = [];
+test('passes execution identity through the one authoring context', async () => {
+  const receivedIds: string[] = [];
   const definition = defineScript({
     manifest: {
       ...manifest,
       id: 'script:test/required-handler',
-      summary: 'Exercises required handler context refinement.',
-      effectClass: 'write',
+      summary: 'Exercises the single authoring context.',
+      impactClass: 'write',
       permissions: ['git.test.write'],
       resources: [{ name: 'repository', kind: 'repository', access: 'write' }],
-      effects: ['git.write'],
+      operations: ['git.write'],
       idempotency: 'required',
     },
     inputSchema,
@@ -286,20 +286,20 @@ test('refines required handler context while guarding direct definition handler 
     },
     handler: {
       execute: async (input, context) => {
-        receivedKeys.push(context.idempotencyKey);
+        receivedIds.push(context.executionId);
         return { value: { echoed: input.message } };
       },
     },
   });
   const baseContext = {
     executionId: 'direct-handler',
-    attempt: 1,
+    attemptOrdinal: 1,
     resources: {
       repository: {
         name: 'repository',
         kind: 'repository',
         access: 'write',
-        grant: { permissions: ['git.test.write'], effects: ['git.write'] },
+        grant: { permissions: ['git.test.write'], operations: ['git.write'] },
         clients: {},
       },
     },
@@ -307,45 +307,19 @@ test('refines required handler context while guarding direct definition handler 
     emit: async () => undefined,
   } as const;
 
-  await expect(
-    definition.handler.execute({ message: 'missing' }, baseContext),
-  ).rejects.toMatchObject({
-    code: 'revo.script.idempotency.key_required',
-    retryable: false,
+  await expect(definition.handler.execute({ message: 'present' }, baseContext)).resolves.toEqual({
+    value: { echoed: 'present' },
   });
-  await expect(
-    definition.handler.execute({ message: 'empty' }, { ...baseContext, idempotencyKey: '' }),
-  ).rejects.toMatchObject({
-    code: 'revo.script.validation.input',
-    message: 'Idempotency key must contain between 1 and 1024 Unicode code points.',
-    retryable: false,
-  });
-  await expect(
-    definition.handler.execute(
-      { message: 'oversized' },
-      { ...baseContext, idempotencyKey: 'x'.repeat(1_025) },
-    ),
-  ).rejects.toMatchObject({
-    code: 'revo.script.validation.input',
-    message: 'Idempotency key must contain between 1 and 1024 Unicode code points.',
-    retryable: false,
-  });
-  await expect(
-    definition.handler.execute(
-      { message: 'present' },
-      { ...baseContext, idempotencyKey: 'required-handler-key' },
-    ),
-  ).resolves.toEqual({ value: { echoed: 'present' } });
-  expect(receivedKeys).toEqual(['required-handler-key']);
+  expect(receivedIds).toEqual(['direct-handler']);
 });
 
 test('rejects duplicate bounded manifest entries with stable diagnostics', () => {
   const invalidManifest = {
     ...manifest,
-    effectClass: 'read',
+    impactClass: 'read',
     permissions: ['git.status.read', 'git.status.read'],
     resources: [{ name: 'repository', kind: 'repository', access: 'read' }],
-    effects: ['git.read', 'git.read'],
+    operations: ['git.read', 'git.read'],
   } as const satisfies ScriptManifestV1;
 
   const fault = captureFault(() =>
@@ -373,20 +347,20 @@ test('rejects duplicate bounded manifest entries with stable diagnostics', () =>
           message: 'Permission identifiers must be unique.',
         },
         {
-          path: '/effects/1',
-          message: 'Effects must be unique.',
+          path: '/operations/1',
+          message: 'Operations must be unique.',
         },
       ],
     },
   });
 });
 
-test('rejects incoherent effect, retry, and idempotency policies', () => {
+test('rejects incoherent operation, retry, and idempotency policies', () => {
   const invalidManifest = {
     ...manifest,
     permissions: ['git.status.read'],
     resources: [{ name: 'repository', kind: 'repository', access: 'read' }],
-    effects: ['git.read'],
+    operations: ['git.read'],
     retry: { mode: 'never', maxAttempts: 2, backoffMs: [10] },
     idempotency: 'required',
   } as const satisfies ScriptManifestV1;
@@ -420,8 +394,8 @@ test('rejects incoherent effect, retry, and idempotency policies', () => {
           message: 'Pure scripts must not declare resources.',
         },
         {
-          path: '/effects',
-          message: 'Pure scripts must not declare effects.',
+          path: '/operations',
+          message: 'Pure scripts must not declare operations.',
         },
         {
           path: '/retry',
@@ -429,7 +403,7 @@ test('rejects incoherent effect, retry, and idempotency policies', () => {
         },
         {
           path: '/idempotency',
-          message: 'Required idempotency must declare a mutation effect.',
+          message: 'Required idempotency must declare a mutation operation.',
         },
       ],
     },

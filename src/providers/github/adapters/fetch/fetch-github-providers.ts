@@ -3,7 +3,7 @@ import type { FetchGitHubProviderOptions } from './fetch-github-provider-options
 import { FetchGitHubProvider } from './fetch-github-provider.js';
 
 const fetchGitHubProviderImplementationDigest =
-  'sha256:9c8081e0fca0809354e0bde46fa8db6a6740b23e38b070a3123ced4438d9826a' as const;
+  'sha256:30cf672ff8e4c5fb2662284e3ca1d93297a5f75a720ec3c7932384a74b808dd4' as const;
 
 export const fetchGitHubProviders = (
   options: FetchGitHubProviderOptions = {},
