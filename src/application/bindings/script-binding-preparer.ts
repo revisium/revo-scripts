@@ -178,7 +178,7 @@ export class ScriptBindingPreparer {
         }
 
         const descriptor = await this.options.host.resources.inspect(binding.resourceRef, context);
-        if (descriptor === undefined || descriptor.kind !== requirement.kind) {
+        if (descriptor?.kind !== requirement.kind) {
           throw new ScriptFault(
             'revo.script.permission.resource',
             `Resource binding ${requirement.name} does not match the script manifest.`,
@@ -207,7 +207,7 @@ export class ScriptBindingPreparer {
             binding.workspaceRef,
             context,
           );
-          if (workspace === undefined || workspace.repositoryId !== descriptor.repositoryId) {
+          if (workspace?.repositoryId !== descriptor.repositoryId) {
             throw new ScriptFault(
               'revo.script.provider.workspace_mismatch',
               'Resolved workspace does not match the resource binding.',
@@ -245,11 +245,7 @@ export class ScriptBindingPreparer {
           );
         }
         const descriptor = await this.options.host.credentials.inspect(alias, context);
-        if (
-          descriptor === undefined ||
-          descriptor.alias !== alias ||
-          descriptor.provider !== requirement.provider
-        ) {
+        if (descriptor?.alias !== alias || descriptor?.provider !== requirement.provider) {
           throw new ScriptFault(
             'revo.script.permission.credential',
             `Credential binding ${requirement.name} does not match the manifest.`,

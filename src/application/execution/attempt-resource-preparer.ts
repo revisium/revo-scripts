@@ -10,6 +10,10 @@ import type { ProviderCatalog } from '../providers/provider-catalog.js';
 import { AcquiredAttemptResources, disposeAll } from './acquired-attempt-resources.js';
 import { PartialAcquireFailure } from './partial-acquire-failure.js';
 
+type ProviderRequirement = ScriptManifestV1['providers'][number];
+type ResourceRequirement = ScriptManifestV1['resources'][number];
+type PreparedResource = PreparedScriptBinding['resources'][string];
+
 export class AttemptResourcePreparer {
   private readonly options: ResolvedRevoScriptsOptions;
   private readonly catalog: ProviderCatalog;
@@ -31,114 +35,187 @@ export class AttemptResourcePreparer {
     const credentials: CredentialLease[] = [];
 
     try {
-      for (const providerRequirement of manifest.providers) {
-        const requirement = manifest.resources.find(
-          (resource) => resource.name === providerRequirement.resource,
-        );
-        if (requirement === undefined) {
-          throw new ScriptFault(
-            'revo.script.validation.manifest',
-            'Provider requirement references an unknown resource.',
-          );
-        }
-        const resource = binding.resources[requirement.name];
-        if (resource === undefined) {
-          throw new ScriptFault(
-            'revo.script.permission.resource',
-            `Resource binding ${requirement.name} does not match the script manifest.`,
-          );
-        }
-        const provider = this.catalog.requireProvider(providerRequirement);
-        // eslint-disable-next-line no-await-in-loop -- preserve ordered acquisition for deterministic cleanup.
-        const workspace = await this.acquireWorkspace(provider.workspace, resource, signal);
-        // eslint-disable-next-line no-await-in-loop -- credential leases are recorded before the next provider starts.
-        const providerCredentials = await this.acquireCredentials(
-          manifest,
-          providerRequirement.name,
-          binding,
-          signal,
-          credentials,
-        );
-        // eslint-disable-next-line no-await-in-loop -- one provider may own the resource client lifecycle.
-        const prepared = await provider.createResourceClients({
-          manifest,
-          provider: providerRequirement,
-          requirement,
-          binding: {
-            resourceId: resource.descriptor.resourceId,
-            kind: resource.descriptor.kind,
-            repositoryId: resource.descriptor.repositoryId,
-            ...(resource.workspaceRef === undefined ? {} : { workspaceId: resource.workspaceRef }),
-            access: requirement.access,
-            grant: {
-              permissions: [...resource.descriptor.grant.permissions],
-              operations: [...resource.descriptor.grant.operations],
-            },
-            providerCoordinates: structuredClone(resource.descriptor.providerCoordinates),
-          },
-          ...(workspace === undefined ? {} : { workspace }),
-          credentials: providerCredentials,
-          signal,
-        });
-        // Record before merging: a duplicate client name must still dispose this
-        // provider's freshly-created clients.
-        providers.push(prepared);
-        const target = clientsByResource.get(requirement.name);
-        if (target === undefined) {
-          throw new ScriptFault(
-            'revo.script.permission.resource',
-            `Provider references unknown resource ${requirement.name}.`,
-          );
-        }
-        for (const [name, client] of Object.entries(prepared.clients)) {
-          if (Object.hasOwn(target, name)) {
-            throw new ScriptFault(
-              'revo.script.provider.client_conflict',
-              `Provider client ${name} is already attached to resource ${requirement.name}.`,
-            );
-          }
-          target[name] = client;
-        }
-      }
-
-      const resources: Record<string, ScriptResourceHandle<object>> = {};
-      for (const requirement of manifest.resources) {
-        const resource = binding.resources[requirement.name];
-        if (resource === undefined) {
-          throw new ScriptFault(
-            'revo.script.permission.resource',
-            `Resource binding ${requirement.name} does not match the script manifest.`,
-          );
-        }
-        resources[requirement.name] = {
-          name: requirement.name,
-          kind: requirement.kind,
-          access: requirement.access,
-          grant: {
-            permissions: [...resource.descriptor.grant.permissions],
-            operations: [...resource.descriptor.grant.operations],
-          },
-          clients: clientsByResource.get(requirement.name) ?? {},
-        };
-      }
-      return new AcquiredAttemptResources(resources, providers, credentials);
+      await this.acquireProviderClients(
+        manifest,
+        binding,
+        signal,
+        clientsByResource,
+        providers,
+        credentials,
+      );
+      return new AcquiredAttemptResources(
+        this.createResourceHandles(manifest, binding, clientsByResource),
+        providers,
+        credentials,
+      );
     } catch (error: unknown) {
-      try {
-        await disposeAll(providers, credentials);
-      } catch (cleanup: unknown) {
-        throw new PartialAcquireFailure(
-          error,
-          cleanup instanceof ScriptFault
-            ? cleanup
-            : new ScriptFault(
-                'revo.script.execution.cleanup',
-                'Provider resources could not be disposed safely.',
-                { cause: cleanup },
-              ),
+      return this.disposeAfterFailedAcquire(error, providers, credentials);
+    }
+  }
+
+  private async acquireProviderClients(
+    manifest: ScriptManifestV1,
+    binding: PreparedScriptBinding,
+    signal: AbortSignal,
+    clientsByResource: Map<string, Record<string, object>>,
+    providers: PreparedProviderClients[],
+    credentials: CredentialLease[],
+  ): Promise<void> {
+    for (const providerRequirement of manifest.providers) {
+      // eslint-disable-next-line no-await-in-loop -- preserve ordered acquisition for deterministic cleanup.
+      await this.acquireProviderClientsForRequirement(
+        manifest,
+        binding,
+        providerRequirement,
+        signal,
+        clientsByResource,
+        providers,
+        credentials,
+      );
+    }
+  }
+
+  private async acquireProviderClientsForRequirement(
+    manifest: ScriptManifestV1,
+    binding: PreparedScriptBinding,
+    providerRequirement: ProviderRequirement,
+    signal: AbortSignal,
+    clientsByResource: Map<string, Record<string, object>>,
+    providers: PreparedProviderClients[],
+    credentials: CredentialLease[],
+  ): Promise<void> {
+    const requirement = this.requireResourceRequirement(manifest, providerRequirement);
+    const resource = this.requireBoundResource(binding, requirement);
+    const provider = this.catalog.requireProvider(providerRequirement);
+    const workspace = await this.acquireWorkspace(provider.workspace, resource, signal);
+    const providerCredentials = await this.acquireCredentials(
+      manifest,
+      providerRequirement.name,
+      binding,
+      signal,
+      credentials,
+    );
+    const prepared = await provider.createResourceClients({
+      manifest,
+      provider: providerRequirement,
+      requirement,
+      binding: {
+        resourceId: resource.descriptor.resourceId,
+        kind: resource.descriptor.kind,
+        repositoryId: resource.descriptor.repositoryId,
+        ...(resource.workspaceRef === undefined ? {} : { workspaceId: resource.workspaceRef }),
+        access: requirement.access,
+        grant: {
+          permissions: [...resource.descriptor.grant.permissions],
+          operations: [...resource.descriptor.grant.operations],
+        },
+        providerCoordinates: structuredClone(resource.descriptor.providerCoordinates),
+      },
+      ...(workspace === undefined ? {} : { workspace }),
+      credentials: providerCredentials,
+      signal,
+    });
+    // Record before merging: a duplicate client name must still dispose this
+    // provider's freshly-created clients.
+    providers.push(prepared);
+    this.mergeProviderClients(clientsByResource, requirement.name, prepared);
+  }
+
+  private requireResourceRequirement(
+    manifest: ScriptManifestV1,
+    providerRequirement: ProviderRequirement,
+  ): ResourceRequirement {
+    const requirement = manifest.resources.find(
+      (resource) => resource.name === providerRequirement.resource,
+    );
+    if (requirement === undefined) {
+      throw new ScriptFault(
+        'revo.script.validation.manifest',
+        'Provider requirement references an unknown resource.',
+      );
+    }
+    return requirement;
+  }
+
+  private requireBoundResource(
+    binding: PreparedScriptBinding,
+    requirement: ResourceRequirement,
+  ): PreparedResource {
+    const resource = binding.resources[requirement.name];
+    if (resource === undefined) {
+      throw new ScriptFault(
+        'revo.script.permission.resource',
+        `Resource binding ${requirement.name} does not match the script manifest.`,
+      );
+    }
+    return resource;
+  }
+
+  private mergeProviderClients(
+    clientsByResource: Map<string, Record<string, object>>,
+    resourceName: string,
+    prepared: PreparedProviderClients,
+  ): void {
+    const target = clientsByResource.get(resourceName);
+    if (target === undefined) {
+      throw new ScriptFault(
+        'revo.script.permission.resource',
+        `Provider references unknown resource ${resourceName}.`,
+      );
+    }
+    for (const [name, client] of Object.entries(prepared.clients)) {
+      if (Object.hasOwn(target, name)) {
+        throw new ScriptFault(
+          'revo.script.provider.client_conflict',
+          `Provider client ${name} is already attached to resource ${resourceName}.`,
         );
       }
-      throw error;
+      target[name] = client;
     }
+  }
+
+  private createResourceHandles(
+    manifest: ScriptManifestV1,
+    binding: PreparedScriptBinding,
+    clientsByResource: Map<string, Record<string, object>>,
+  ): Record<string, ScriptResourceHandle<object>> {
+    const resources: Record<string, ScriptResourceHandle<object>> = {};
+    for (const requirement of manifest.resources) {
+      const resource = this.requireBoundResource(binding, requirement);
+      resources[requirement.name] = {
+        name: requirement.name,
+        kind: requirement.kind,
+        access: requirement.access,
+        grant: {
+          permissions: [...resource.descriptor.grant.permissions],
+          operations: [...resource.descriptor.grant.operations],
+        },
+        clients: clientsByResource.get(requirement.name) ?? {},
+      };
+    }
+    return resources;
+  }
+
+  private async disposeAfterFailedAcquire(
+    error: unknown,
+    providers: readonly PreparedProviderClients[],
+    credentials: readonly CredentialLease[],
+  ): Promise<never> {
+    try {
+      await disposeAll(providers, credentials);
+    } catch (cleanupError: unknown) {
+      throw new PartialAcquireFailure(
+        error,
+        cleanupError instanceof ScriptFault
+          ? cleanupError
+          : new ScriptFault(
+              'revo.script.execution.cleanup',
+              'Provider resources could not be disposed safely.',
+              { cause: cleanupError },
+            ),
+      );
+    }
+    throw error;
   }
 
   private async acquireWorkspace(
@@ -178,7 +255,7 @@ export class AttemptResourcePreparer {
         continue;
       }
       const descriptor = binding.credentials[requirement.name];
-      if (descriptor === undefined || descriptor.provider !== requirement.provider) {
+      if (descriptor?.provider !== requirement.provider) {
         throw new ScriptFault(
           'revo.script.permission.credential',
           `Credential binding ${requirement.name} does not match the manifest.`,

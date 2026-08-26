@@ -171,22 +171,17 @@ export class AttemptExecutionCoordinator {
         primary = outcomeForFault(deadlineFault, controller.signal.aborted, phase);
       } else if (latched !== undefined) {
         primary = failed(latched, 'handler');
+      } else if (!isJsonValue(validatedResult.value)) {
+        primary = failed(
+          new ScriptFault('revo.script.validation.result', 'Script result is not JSON-compatible.'),
+          'handler',
+        );
       } else {
-        if (!isJsonValue(validatedResult.value)) {
-          primary = failed(
-            new ScriptFault(
-              'revo.script.validation.result',
-              'Script result is not JSON-compatible.',
-            ),
-            'handler',
-          );
-        } else {
-          primary = {
-            kind: 'succeeded',
-            value: validatedResult.value,
-            evidence: validatedResult.evidence,
-          };
-        }
+        primary = {
+          kind: 'succeeded',
+          value: validatedResult.value,
+          evidence: validatedResult.evidence,
+        };
       }
     } catch (error: unknown) {
       if (error instanceof PartialAcquireFailure) {
@@ -286,6 +281,17 @@ export class AttemptExecutionCoordinator {
         'Prepared script binding is invalid.',
       );
     }
+    this.requireExactDefinitionBinding(script, input);
+    this.requireExactImplementationBinding(script, input);
+    this.requireExactProviderBindings(script, input);
+    this.requireExactResourceBindings(script, input);
+    this.requireExactCredentialBindings(script, input);
+  }
+
+  private requireExactDefinitionBinding(
+    script: RegisteredScript<unknown, unknown, ScriptResourceMap>,
+    input: ScriptAttemptInput,
+  ): void {
     if (
       input.binding.schemaVersion !== 'prepared-script-binding/v1' ||
       input.binding.script.id !== input.script.id ||
@@ -297,7 +303,12 @@ export class AttemptExecutionCoordinator {
         'Prepared script binding does not match the exact script definition.',
       );
     }
+  }
 
+  private requireExactImplementationBinding(
+    script: RegisteredScript<unknown, unknown, ScriptResourceMap>,
+    input: ScriptAttemptInput,
+  ): void {
     if (
       input.binding.implementation.id !== script.implementation.id ||
       input.binding.implementation.version !== script.implementation.version ||
@@ -315,7 +326,12 @@ export class AttemptExecutionCoordinator {
         'Prepared script binding does not match the exact script definition.',
       );
     }
+  }
 
+  private requireExactProviderBindings(
+    script: RegisteredScript<unknown, unknown, ScriptResourceMap>,
+    input: ScriptAttemptInput,
+  ): void {
     const expectedProviders = script.manifest.providers.map((requirement) =>
       this.catalog.describe(requirement),
     );
@@ -331,7 +347,12 @@ export class AttemptExecutionCoordinator {
         'Prepared script binding does not match the selected providers.',
       );
     }
+  }
 
+  private requireExactResourceBindings(
+    script: RegisteredScript<unknown, unknown, ScriptResourceMap>,
+    input: ScriptAttemptInput,
+  ): void {
     const resourceNames = script.manifest.resources.map((resource) => resource.name);
     if (!hasExactNames(input.binding.resources, resourceNames)) {
       throw new ScriptFault(
@@ -342,10 +363,9 @@ export class AttemptExecutionCoordinator {
     for (const requirement of script.manifest.resources) {
       const resource = input.binding.resources[requirement.name];
       if (
-        resource === undefined ||
-        resource.descriptor.kind !== requirement.kind ||
-        resource.requirement.kind !== requirement.kind ||
-        resource.requirement.access !== requirement.access
+        resource?.descriptor.kind !== requirement.kind ||
+        resource?.requirement.kind !== requirement.kind ||
+        resource?.requirement.access !== requirement.access
       ) {
         throw new ScriptFault(
           'revo.script.validation.binding',
@@ -376,7 +396,12 @@ export class AttemptExecutionCoordinator {
         );
       }
     }
+  }
 
+  private requireExactCredentialBindings(
+    script: RegisteredScript<unknown, unknown, ScriptResourceMap>,
+    input: ScriptAttemptInput,
+  ): void {
     const credentialNames = script.manifest.credentials.map((credential) => credential.name);
     if (!hasExactNames(input.binding.credentials, credentialNames)) {
       throw new ScriptFault(

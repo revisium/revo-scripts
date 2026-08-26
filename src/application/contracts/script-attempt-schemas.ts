@@ -13,8 +13,8 @@ const boundedIdentifier = z
 
 const hasControlCharacter = (value: string): boolean => {
   for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index);
-    if (code <= 31 || code === 127) {
+    const codePoint = value.codePointAt(index);
+    if (codePoint !== undefined && (codePoint <= 31 || codePoint === 127)) {
       return true;
     }
   }
