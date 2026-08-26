@@ -1,6 +1,6 @@
 export type { ScriptCredentialRequirement } from './script-credential-requirement.js';
-export type { ScriptEffect } from './script-effect.js';
-export type { ScriptEffectClass } from './script-effect-class.js';
+export type { ScriptOperation } from './script-operation.js';
+export type { ScriptImpactClass } from './script-impact-class.js';
 export type { ScriptManifestAuthoringV1, ScriptManifestV1 } from './script-manifest.js';
 export type { ScriptProviderContractRef } from './script-provider-contract-ref.js';
 export type { ScriptProviderRequirement } from './script-provider-requirement.js';

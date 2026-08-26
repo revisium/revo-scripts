@@ -69,7 +69,7 @@ const requestFor = (
       kind: 'repository',
       repositoryId: 'repository-123',
       access: requirement.access,
-      grant: { permissions, effects: manifest.effects },
+      grant: { permissions, operations: manifest.operations },
       providerCoordinates: {
         github: { owner: 'revisium', repository: 'revo-scripts' },
       },

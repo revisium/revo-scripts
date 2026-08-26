@@ -1,0 +1,41 @@
+{
+  "result": {
+    "kind": "timedOut",
+    "error": {
+      "code": "revo.script.timeout.wall_clock",
+      "message": "Script wall-clock deadline expired.",
+      "retryable": false,
+      "stage": "timeout",
+      "details": null,
+      "causes": []
+    },
+    "evidence": [],
+    "terminalEvent": {
+      "emissionOrdinal": 2,
+      "event": {
+        "name": "revo.script.timed_out",
+        "details": {
+          "script": { "id": "script:test/facade-golden-timed-out", "version": 1 },
+          "definitionDigest": "sha256:208b98c1fb5b354f40d9c6f28f6179a3d25950df9e96bd6008a5cc68f548f207",
+          "attemptOrdinal": 1,
+          "timestampMs": 123,
+          "code": "revo.script.timeout.wall_clock"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "emissionOrdinal": 1,
+      "event": {
+        "name": "revo.script.started",
+        "details": {
+          "script": { "id": "script:test/facade-golden-timed-out", "version": 1 },
+          "definitionDigest": "sha256:208b98c1fb5b354f40d9c6f28f6179a3d25950df9e96bd6008a5cc68f548f207",
+          "attemptOrdinal": 1,
+          "timestampMs": 123
+        }
+      }
+    }
+  ]
+}

@@ -1,14 +1,14 @@
 # Node Git provider
 
-| Field          | Value                                                          |
-| -------------- | -------------------------------------------------------------- |
-| Provider id    | `provider:git/node`                                            |
-| Contract       | `revo.provider.git/v1`                                         |
-| Owned effects  | `filesystem.read`, `git.read`, `git.write`, `git.remote-write` |
-| Workspace      | required                                                       |
-| Credentials    | none                                                           |
-| Public factory | `nodeGitProviders`                                             |
-| Selection      | sole `revo.provider.git/v1` implementation                     |
+| Field            | Value                                                          |
+| ---------------- | -------------------------------------------------------------- |
+| Provider id      | `provider:git/node`                                            |
+| Contract         | `revo.provider.git/v1`                                         |
+| Owned operations | `filesystem.read`, `git.read`, `git.write`, `git.remote-write` |
+| Workspace        | required                                                       |
+| Credentials      | none                                                           |
+| Public factory   | `nodeGitProviders`                                             |
+| Selection        | sole `revo.provider.git/v1` implementation                     |
 
 ## Responsibility
 

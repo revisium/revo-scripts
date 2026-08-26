@@ -1,0 +1,43 @@
+{
+  "result": {
+    "kind": "failed",
+    "error": {
+      "code": "revo.script.execution.cleanup",
+      "message": "Provider resources could not be disposed safely.",
+      "retryable": false,
+      "stage": "cleanup",
+      "details": null,
+      "causes": [{ "kind": "fault", "code": "revo.script.provider.rejected", "stage": "provider" }]
+    },
+    "evidence": [],
+    "terminalEvent": {
+      "emissionOrdinal": 2,
+      "event": {
+        "name": "revo.script.failed",
+        "details": {
+          "script": { "id": "script:test/facade-cleanup-over-handler", "version": 1 },
+          "definitionDigest": "sha256:ebf8aec82c875127b1863583452d901945d2340f937e862b39efa31ed44d7ec4",
+          "attemptOrdinal": 1,
+          "timestampMs": 123,
+          "code": "revo.script.execution.cleanup",
+          "stage": "cleanup",
+          "retryable": false
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "emissionOrdinal": 1,
+      "event": {
+        "name": "revo.script.started",
+        "details": {
+          "script": { "id": "script:test/facade-cleanup-over-handler", "version": 1 },
+          "definitionDigest": "sha256:ebf8aec82c875127b1863583452d901945d2340f937e862b39efa31ed44d7ec4",
+          "attemptOrdinal": 1,
+          "timestampMs": 123
+        }
+      }
+    }
+  ]
+}

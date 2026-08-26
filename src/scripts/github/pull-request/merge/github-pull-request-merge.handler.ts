@@ -1,7 +1,4 @@
-import type {
-  RequiredIdempotencyScriptContext,
-  RequiredIdempotencyScriptHandler,
-} from '../../../../runtime/spec/definition/index.js';
+import type { ScriptContext, ScriptHandler } from '../../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../../runtime/spec/errors/index.js';
 import type {
   GitHubPullRequestMergeInput,
@@ -14,14 +11,14 @@ type MergeOverrideAudit = Extract<
   { readonly outcome: 'override_merge' }
 >['audit'];
 
-export class GitHubPullRequestMergeHandler implements RequiredIdempotencyScriptHandler<
+export class GitHubPullRequestMergeHandler implements ScriptHandler<
   GitHubPullRequestMergeInput,
   GitHubPullRequestMergeResult,
   GitHubPullRequestMergeResources
 > {
   async execute(
     input: Readonly<GitHubPullRequestMergeInput>,
-    context: Readonly<RequiredIdempotencyScriptContext<GitHubPullRequestMergeResources>>,
+    context: Readonly<ScriptContext<GitHubPullRequestMergeResources>>,
   ): Promise<{ readonly value: GitHubPullRequestMergeResult }> {
     const pr = input.pullRequest;
     this.assertArtifactEquality(input);
@@ -35,7 +32,7 @@ export class GitHubPullRequestMergeHandler implements RequiredIdempotencyScriptH
       expectedHeadSha: pr.head.sha,
       ...(issueRef === undefined ? {} : { expectedIssueRef: issueRef }),
       method: 'squash',
-      operationKey: context.idempotencyKey,
+      operationKey: context.executionId,
       signal: context.signal,
     });
     if (

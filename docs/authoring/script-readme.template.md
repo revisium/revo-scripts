@@ -8,8 +8,8 @@ Every built-in operation must keep a `README.md` beside its definition with thes
 | ------------------ | ------------------------ |
 | Script id          | Stable namespaced id     |
 | Revision           | Exact positive integer   |
-| Effect class       | Manifest effect class    |
-| Effects            | Complete effect list     |
+| Impact class       | Manifest impact class    |
+| Operations         | Complete operation list  |
 | Permissions        | Complete permission list |
 | Resources          | Names, kinds, and access |
 | Provider contracts | Exact required contracts |
@@ -19,8 +19,8 @@ Every built-in operation must keep a `README.md` beside its definition with thes
 
 Describe one bounded business operation, its typed result, and its explicit non-responsibilities.
 
-State that `(script id, revision)` is immutable, every observable change increments the revision, and consumers use no
-range, `latest`, tag, SemVer parser, or fallback.
+State that `(script id, revision)` is immutable, every observable change increments the revision, and consumers use one
+exact positive integer revision.
 
 ## Files
 

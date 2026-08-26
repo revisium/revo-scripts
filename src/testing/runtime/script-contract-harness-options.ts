@@ -1,8 +1,3 @@
-import type { ScriptResourceMap } from '../../runtime/spec/resources/index.js';
-
-export interface ScriptContractHarnessOptions<R extends ScriptResourceMap> {
-  readonly resources: R;
+export interface ScriptContractHarnessOptions {
   readonly executionId?: string;
-  readonly idempotencyKey?: string;
-  readonly nowMs?: number;
 }

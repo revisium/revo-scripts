@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 
 import type { GitHubPullRequestReadyClient } from '../../../src/providers/github/index.js';
 import { githubPullRequestMarkReadyScript } from '../../../src/scripts/github/index.js';
-import { createScriptContractHarness } from '../../../src/testing/index.js';
+import { createGitHubScriptContractHarness } from '../../support/github/github-contract-fixture.js';
 import { githubResource, pullRequest } from '../../support/github/github-contract-fixture.js';
 
 test('marks only the pinned pull request revision ready', async () => {
@@ -15,18 +15,16 @@ test('marks only the pinned pull request revision ready', async () => {
       nodeId: readyPullRequest.pullRequestId,
     }),
   };
-  const harness = createScriptContractHarness(githubPullRequestMarkReadyScript, {
+  const harness = createGitHubScriptContractHarness(githubPullRequestMarkReadyScript, {
     executionId: 'github-pr-ready',
-    idempotencyKey: 'run:pr:ready',
     resources: { repository: githubResource(client, 'publish') },
   });
 
-  const execution = await harness.execute({ pullRequest });
+  const execution = await harness.runAttempt({ pullRequest });
 
-  expect(execution.result).toEqual({
-    ok: true,
+  expect(execution.result).toMatchObject({
+    kind: 'succeeded',
     value: readyPullRequest,
     evidence: [],
-    attempts: 1,
   });
 });

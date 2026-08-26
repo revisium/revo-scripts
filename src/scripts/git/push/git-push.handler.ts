@@ -1,24 +1,21 @@
-import type {
-  RequiredIdempotencyScriptContext,
-  RequiredIdempotencyScriptHandler,
-} from '../../../runtime/spec/definition/index.js';
+import type { ScriptContext, ScriptHandler } from '../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../runtime/spec/errors/index.js';
 import type { GitPushInput, GitPushResources, GitPushResult } from './schemas.js';
 
-export class GitPushHandler implements RequiredIdempotencyScriptHandler<
+export class GitPushHandler implements ScriptHandler<
   GitPushInput,
   GitPushResult,
   GitPushResources
 > {
   async execute(
     input: Readonly<GitPushInput>,
-    context: Readonly<RequiredIdempotencyScriptContext<GitPushResources>>,
+    context: Readonly<ScriptContext<GitPushResources>>,
   ): Promise<{ readonly value: GitPushResult }> {
     const request = {
       remoteIdentity: input.change.remoteIdentity,
       branch: input.change.branch,
       headCommit: input.change.headCommit,
-      operationKey: context.idempotencyKey,
+      operationKey: context.executionId,
       signal: context.signal,
     };
     const published = await context.resources.repository.clients.git.push(

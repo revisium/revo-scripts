@@ -39,15 +39,14 @@ test('marks a pinned draft ready through GraphQL', async () => {
     input: { pullRequest },
     access: 'publish',
     permission: 'github.pull-request.mark-ready',
-    idempotencyKey: 'mark-ready-operation',
+    executionId: 'mark-ready-operation',
     fetch: fetchStub,
   });
 
-  expect(result).toEqual({
-    ok: true,
+  expect(result).toMatchObject({
+    kind: 'succeeded',
     value: { ...pullRequest, draft: false },
     evidence: [],
-    attempts: 1,
   });
 });
 
@@ -58,19 +57,18 @@ test('treats an already-ready pull request as an idempotent success', async () =
     input: { pullRequest: { ...pullRequest, draft: false } },
     access: 'publish',
     permission: 'github.pull-request.mark-ready',
-    idempotencyKey: 'mark-ready-replay',
+    executionId: 'mark-ready-replay',
     fetch: async () => {
       calls += 1;
       return jsonResponse(restPullRequest({ draft: false }));
     },
   });
 
-  expect({ result, calls }).toEqual({
+  expect({ result, calls }).toMatchObject({
     result: {
-      ok: true,
+      kind: 'succeeded',
       value: { ...pullRequest, draft: false },
       evidence: [],
-      attempts: 1,
     },
     calls: 1,
   });
@@ -83,7 +81,7 @@ test('rejects a terminal non-draft pull request instead of adopting it as ready'
     input: { pullRequest: { ...pullRequest, draft: false } },
     access: 'publish',
     permission: 'github.pull-request.mark-ready',
-    idempotencyKey: 'mark-ready-terminal',
+    executionId: 'mark-ready-terminal',
     fetch: async (_url, init) => {
       if (init?.method === 'POST') {
         mutations += 1;
@@ -99,15 +97,14 @@ test('rejects a terminal non-draft pull request instead of adopting it as ready'
     },
   });
 
-  expect({ result, mutations }).toEqual({
+  expect({ result, mutations }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'The pull request is not open at the pinned revision.',
         retryable: false,
       },
-      attempts: 1,
     },
     mutations: 0,
   });

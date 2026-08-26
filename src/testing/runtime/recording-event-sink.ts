@@ -1,13 +1,16 @@
-import type { EventSink, ScriptEvent } from '../../runtime/spec/events/index.js';
+import type {
+  EventSink,
+  ScriptLiveEventEmission,
+} from '../../application/contracts/script-attempt.js';
 
 export class RecordingEventSink implements EventSink {
-  private readonly events: ScriptEvent[] = [];
+  private readonly events: ScriptLiveEventEmission[] = [];
 
-  async emit(event: ScriptEvent): Promise<void> {
-    this.events.push(structuredClone(event));
+  async emit(emission: ScriptLiveEventEmission): Promise<void> {
+    this.events.push(structuredClone(emission));
   }
 
-  read(): readonly ScriptEvent[] {
+  read(): readonly ScriptLiveEventEmission[] {
     return structuredClone(this.events);
   }
 }

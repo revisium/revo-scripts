@@ -1,7 +1,7 @@
-import type { ScriptEffect, ScriptManifestV1 } from '../../../../spec/manifest/index.js';
+import type { ScriptOperation, ScriptManifestV1 } from '../../../../spec/manifest/index.js';
 import type { ManifestValidationIssue } from '../manifest-validation-issue.js';
 
-const mutationEffects = new Set<ScriptEffect>([
+const mutationOperations = new Set<ScriptOperation>([
   'filesystem.write',
   'git.write',
   'git.remote-write',
@@ -11,20 +11,22 @@ const mutationEffects = new Set<ScriptEffect>([
 export const validateIdempotencyPolicy = (
   manifest: ScriptManifestV1,
 ): readonly ManifestValidationIssue[] => {
-  const declaresMutation = manifest.effects.some((effect) => mutationEffects.has(effect));
+  const declaresMutation = manifest.operations.some((operation) =>
+    mutationOperations.has(operation),
+  );
 
   if (manifest.idempotency === 'read-only' && declaresMutation) {
     return [
       {
         path: '/idempotency',
-        message: 'Read-only idempotency must not declare a mutation effect.',
+        message: 'Read-only idempotency must not declare a mutation operation.',
       },
     ];
   }
 
   if (manifest.idempotency === 'required' && !declaresMutation) {
     return [
-      { path: '/idempotency', message: 'Required idempotency must declare a mutation effect.' },
+      { path: '/idempotency', message: 'Required idempotency must declare a mutation operation.' },
     ];
   }
 
@@ -35,7 +37,7 @@ export const validateIdempotencyPolicy = (
     return [
       {
         path: '/idempotency',
-        message: 'Not-retryable idempotency requires a mutation effect and one attempt.',
+        message: 'Not-retryable idempotency requires a mutation operation and one attempt.',
       },
     ];
   }

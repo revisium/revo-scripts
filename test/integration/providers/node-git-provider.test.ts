@@ -8,7 +8,7 @@ import { expect, test } from 'vitest';
 
 import { createRevoScripts, gitScripts } from '../../../src/index.js';
 import { nodeGitProviders, type ProcessExecutor } from '../../../src/providers/git/index.js';
-import { createGitHost, createGitScriptRequest } from '../../support/git/git-fixture.js';
+import { createGitHost, executeGitScriptAttempt } from '../../support/git/git-fixture.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -54,7 +54,17 @@ test('executes the production Node Git provider against a real temporary reposit
     const expectedTree = await git(repository, ['write-tree']);
 
     const { host } = createGitHost({
-      resolveWorkspace: async (workspaceId) => ({
+      resource: {
+        resourceId: 'target',
+        repositoryId: 'temporary-repository',
+        providerCoordinates: {},
+        grant: { permissions: ['git.status.read'], operations: ['filesystem.read', 'git.read'] },
+      },
+      inspectWorkspace: async (workspaceId) => ({
+        workspaceId,
+        repositoryId: 'temporary-repository',
+      }),
+      acquireWorkspace: async (workspaceId) => ({
         workspaceId,
         repositoryId: 'temporary-repository',
         absolutePath: repository,
@@ -65,24 +75,23 @@ test('executes the production Node Git provider against a real temporary reposit
       providers: nodeGitProviders({ processExecutor }),
       host,
     });
-    const result = await scripts.execute(
-      createGitScriptRequest(
-        { id: 'script:git/status', version: 1 },
-        {
-          executionId: 'real-git-status',
-          input: {
-            resource: 'repository',
-            baseCapture: `git-commit:${headSha}`,
-            headCapture: `git-tree:${expectedTree}`,
-          },
-          repositoryId: 'temporary-repository',
-          workspaceId: 'temporary-workspace',
+    const result = await executeGitScriptAttempt(
+      scripts,
+      { id: 'script:git/status', version: 1 },
+      {
+        executionId: 'real-git-status',
+        input: {
+          resource: 'repository',
+          baseCapture: `git-commit:${headSha}`,
+          headCapture: `git-tree:${expectedTree}`,
         },
-      ),
+        repositoryId: 'temporary-repository',
+        workspaceId: 'temporary-workspace',
+      },
     );
 
-    expect(result).toEqual({
-      ok: true,
+    expect(result).toMatchObject({
+      kind: 'succeeded',
       value: {
         schemaVersion: 'workspace-change/v1',
         baseCapture: `git-commit:${headSha}`,
@@ -94,7 +103,6 @@ test('executes the production Node Git provider against a real temporary reposit
         clean: false,
       },
       evidence: [],
-      attempts: 1,
     });
   } finally {
     await rm(repository, { recursive: true, force: true });

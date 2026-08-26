@@ -1,8 +1,8 @@
 import { expect, test } from 'vitest';
 
-import type { GitCommitClient } from '../../../src/providers/git/index.js';
+import type { GitCommitClient, GitCommitRequest } from '../../../src/providers/git/index.js';
 import { gitCommitScript } from '../../../src/scripts/git/index.js';
-import { createScriptContractHarness } from '../../../src/testing/index.js';
+import { createGitScriptContractHarness } from '../../support/git/git-fixture.js';
 
 const parent = '0123456789abcdef0123456789abcdef01234567';
 const tree = '89abcdef0123456789abcdef0123456789abcdef';
@@ -27,9 +27,8 @@ test('commits the exact approved tree and returns a provenance-free Git change',
       };
     },
   };
-  const harness = createScriptContractHarness(gitCommitScript, {
+  const harness = createGitScriptContractHarness(gitCommitScript, {
     executionId: 'git-commit-contract',
-    idempotencyKey: 'run:commit:1',
     resources: {
       repository: {
         name: 'repository',
@@ -37,14 +36,14 @@ test('commits the exact approved tree and returns a provenance-free Git change',
         access: 'write',
         grant: {
           permissions: ['git.commit.write'],
-          effects: ['git.read', 'git.write'],
+          operations: ['git.read', 'git.write'],
         },
         clients: { git: client },
       },
     },
   });
 
-  const execution = await harness.execute({
+  const execution = await harness.runAttempt({
     resource: 'repository',
     remoteIdentity: 'github.com/revisium/revo-scripts',
     branch: 'revo/task-run',
@@ -55,9 +54,9 @@ test('commits the exact approved tree and returns a provenance-free Git change',
     author,
   });
 
-  expect({ result: execution.result, requests }).toEqual({
+  expect({ result: execution.result, requests }).toMatchObject({
     result: {
-      ok: true,
+      kind: 'succeeded',
       value: {
         schemaVersion: 'git-change/v1',
         repositoryId: 'repository',
@@ -68,7 +67,6 @@ test('commits the exact approved tree and returns a provenance-free Git change',
         commits: [head],
       },
       evidence: [],
-      attempts: 1,
     },
     requests: [
       {
@@ -77,61 +75,11 @@ test('commits the exact approved tree and returns a provenance-free Git change',
         expectedParent: parent,
         expectedTree: tree,
         message: 'feat: add bounded scripts',
-        operationKey: 'run:commit:1',
+        operationKey: 'git-commit-contract',
         signal: expect.any(AbortSignal) as unknown,
         author,
       },
     ],
-  });
-});
-
-test('requires a host-derived idempotency key before invoking Git', async () => {
-  let calls = 0;
-  const harness = createScriptContractHarness(gitCommitScript, {
-    executionId: 'git-commit-no-key',
-    resources: {
-      repository: {
-        name: 'repository',
-        kind: 'repository',
-        access: 'write',
-        grant: {
-          permissions: ['git.commit.write'],
-          effects: ['git.read', 'git.write'],
-        },
-        clients: {
-          git: {
-            commit: async () => {
-              calls += 1;
-              throw new Error('must not run');
-            },
-          },
-        },
-      },
-    },
-  });
-
-  const result = await harness.execute({
-    resource: 'repository',
-    remoteIdentity: 'github.com/revisium/revo-scripts',
-    branch: 'revo/task-run',
-    expectedParent: parent,
-    expectedTree: tree,
-    title: 'add bounded scripts',
-    issueAction: 'none',
-    author,
-  });
-
-  expect({ result: result.result, calls }).toEqual({
-    result: {
-      ok: false,
-      error: {
-        code: 'revo.script.idempotency.key_required',
-        message: 'This script requires an idempotency key.',
-        retryable: false,
-      },
-      attempts: 0,
-    },
-    calls: 0,
   });
 });
 
@@ -176,18 +124,17 @@ test.each([
   'renders the canonical issue tag for $name',
   async ({ remoteIdentity, issueAction, issueRef, expectedMessage }) => {
     const requests: Array<{ readonly message: string }> = [];
-    const harness = createScriptContractHarness(gitCommitScript, {
+    const harness = createGitScriptContractHarness(gitCommitScript, {
       executionId: 'git-commit-issue-tag',
-      idempotencyKey: 'run:commit:issue-tag',
       resources: {
         repository: {
           name: 'repository',
           kind: 'repository',
           access: 'write',
-          grant: { permissions: ['git.commit.write'], effects: ['git.read', 'git.write'] },
+          grant: { permissions: ['git.commit.write'], operations: ['git.read', 'git.write'] },
           clients: {
             git: {
-              commit: async (request) => {
+              commit: async (request: GitCommitRequest) => {
                 requests.push(request);
                 return {
                   remoteIdentity: request.remoteIdentity,
@@ -203,7 +150,7 @@ test.each([
       },
     });
 
-    const result = await harness.execute({
+    const result = await harness.runAttempt({
       resource: 'repository',
       remoteIdentity,
       branch: 'revo/task-run',
@@ -216,10 +163,10 @@ test.each([
     });
 
     expect({
-      result: result.result.ok,
+      result: result.result.kind,
       messages: requests.map((request) => request.message),
     }).toEqual({
-      result: true,
+      result: 'succeeded',
       messages: [expectedMessage],
     });
   },
@@ -227,15 +174,14 @@ test.each([
 
 test('rejects an issue reference when canonical issue action is none before Git', async () => {
   let calls = 0;
-  const harness = createScriptContractHarness(gitCommitScript, {
+  const harness = createGitScriptContractHarness(gitCommitScript, {
     executionId: 'git-commit-no-issue',
-    idempotencyKey: 'run:commit:no-issue',
     resources: {
       repository: {
         name: 'repository',
         kind: 'repository',
         access: 'write',
-        grant: { permissions: ['git.commit.write'], effects: ['git.read', 'git.write'] },
+        grant: { permissions: ['git.commit.write'], operations: ['git.read', 'git.write'] },
         clients: {
           git: {
             commit: async () => {
@@ -248,7 +194,7 @@ test('rejects an issue reference when canonical issue action is none before Git'
     },
   });
 
-  const result = await harness.execute({
+  const result = await harness.runAttempt({
     resource: 'repository',
     remoteIdentity: 'github.com/revisium/revo-scripts',
     branch: 'revo/task-run',
@@ -265,5 +211,5 @@ test('rejects an issue reference when canonical issue action is none before Git'
     author,
   });
 
-  expect({ result: result.result.ok, calls }).toEqual({ result: false, calls: 0 });
+  expect({ result: result.result.kind, calls }).toEqual({ result: 'failed', calls: 0 });
 });

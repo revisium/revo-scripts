@@ -63,66 +63,82 @@ test('resolves a credential and executes pull-request upsert through the bounded
   };
   let credentialDisposals = 0;
   const host: RevoScriptsHost = {
+    resources: {
+      inspect: async (resourceRef) =>
+        resourceRef === 'resource:repository'
+          ? {
+              resourceId: 'target',
+              kind: 'repository',
+              repositoryId: 'repository-123',
+              grant: {
+                permissions: ['github.pull-request.upsert'],
+                operations: ['github.read', 'github.write'],
+              },
+              providerCoordinates: { github: { owner: 'revisium', repository: 'revo-scripts' } },
+            }
+          : undefined,
+    },
     workspaces: {
-      resolve: async () => {
-        throw new Error('The GitHub provider must not resolve a workspace.');
+      inspect: async () => {
+        throw new Error('The GitHub provider must not inspect a workspace.');
+      },
+      acquire: async () => {
+        throw new Error('The GitHub provider must not acquire a workspace.');
       },
     },
     credentials: {
-      resolve: async (binding) => ({
-        alias: binding.alias,
-        provider: binding.provider,
+      inspect: async (alias) =>
+        alias === 'credential:github' ? { alias, provider: 'github' } : undefined,
+      acquire: async (alias) => ({
+        alias,
+        provider: 'github',
         secret: 'github-token-that-must-not-escape',
         dispose: async () => {
           credentialDisposals += 1;
         },
       }),
     },
-    events: { emit: async () => undefined },
   };
   const scripts = createRevoScripts({
     definitions: [githubScripts()],
     providers: fetchGitHubProviders({ fetch: fetchStub }),
     host,
   });
-  const result = await scripts.execute({
-    executionId: 'github-upsert-consumer',
-    script: { id: 'script:github/pull-request/upsert', version: 1 },
-    input: {
-      repositoryId: 'repository-123',
-      owner: 'revisium',
-      repository: 'revo-scripts',
-      head: { branch: 'revo/task', sha: headSha },
-      base: { branch: 'master' },
-      title: 'Bounded scripts',
-      body: 'Exact provider execution.',
-      draft: true,
-      issueAction: 'none',
+  const signal = new AbortController().signal;
+  const script = { id: 'script:github/pull-request/upsert', version: 1 } as const;
+  const binding = await scripts.prepareBinding(
+    {
+      script,
+      resources: { repository: { resourceRef: 'resource:repository' } },
+      credentials: { token: 'credential:github' },
     },
-    idempotencyKey: 'github-upsert-operation',
-    bindings: {
-      resources: {
-        repository: {
-          resourceId: 'target',
-          kind: 'repository',
-          repositoryId: 'repository-123',
-          access: 'publish',
-          grant: {
-            permissions: ['github.pull-request.upsert'],
-            effects: ['github.read', 'github.write'],
-          },
-          providerCoordinates: {
-            github: { owner: 'revisium', repository: 'revo-scripts' },
-          },
-        },
+    { signal },
+  );
+  const result = await scripts.executeAttempt(
+    {
+      executionId: 'github-upsert-operation',
+      attemptId: 'github-upsert-operation:attempt-1',
+      attemptOrdinal: 1,
+      script,
+      binding,
+      input: {
+        repositoryId: 'repository-123',
+        owner: 'revisium',
+        repository: 'revo-scripts',
+        head: { branch: 'revo/task', sha: headSha },
+        base: { branch: 'master' },
+        title: 'Bounded scripts',
+        body: 'Exact provider execution.',
+        draft: true,
+        issueAction: 'none',
       },
-      credentials: { token: { alias: 'revo-github', provider: 'github' } },
     },
-  });
+    { signal, events: { emit: async () => undefined } },
+  );
 
-  expect({ result, requests, credentialDisposals }).toEqual({
+  expect({ result, requests, credentialDisposals }).toMatchObject({
     result: {
-      ok: true,
+      kind: 'succeeded',
       value: {
         schemaVersion: 'github-pull-request/v1',
         repositoryId: 'repository-123',
@@ -139,7 +155,6 @@ test('resolves a credential and executes pull-request upsert through the bounded
           'github-pr-metadata/v1:sha256:b898f3ceef807331a6e1beebeaa2a0db7cf61b55e21b98a8b948f0b6f0b96f5a',
       },
       evidence: [],
-      attempts: 1,
     },
     requests: [
       {

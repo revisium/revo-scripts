@@ -1,3 +1,4 @@
+import type { JsonValue } from '../../../src/runtime/spec/json/json-value.js';
 import { pullRequest } from './github-contract-fixture.js';
 import { jsonResponse } from './github-provider-consumer-fixture.js';
 import {
@@ -12,7 +13,7 @@ export interface ReviewThreadState {
   resolveMutations: number;
 }
 
-export const respondInput = (items: readonly unknown[]) => ({
+export const respondInput = (items: readonly JsonValue[]) => ({
   schemaVersion: 'github-review-threads-respond-input/v1' as const,
   pullRequest,
   triage: { items },

@@ -9,7 +9,7 @@ import {
   type ReviewThreadState,
 } from '../../support/github/github-review-thread-operation-fixture.js';
 
-test('resolves a matching response proof and reconciles a partial resolution crash', async () => {
+test('reports a retryable failure after a partial resolution crash without repeating the mutation', async () => {
   const state: ReviewThreadState = {
     resolved: false,
     comments: [
@@ -31,28 +31,14 @@ test('resolves a matching response proof and reconciles a partial resolution cra
     },
     access: 'publish',
     permission: 'github.review-thread.resolve',
-    idempotencyKey: 'thread-resolve-operation',
+    executionId: 'thread-resolve-operation',
     fetch: statefulFetch(state, { failAfterResolve: true }),
   });
 
-  expect({ result, resolveMutations: state.resolveMutations }).toEqual({
+  expect({ result, resolveMutations: state.resolveMutations }).toMatchObject({
     result: {
-      ok: true,
-      value: {
-        schemaVersion: 'github-review-threads-resolve-result/v1',
-        pullRequest: responseProof('thread-resolve-crash').pullRequest,
-        threads: [
-          {
-            threadId: 'thread-1',
-            status: 'already-resolved',
-            replyId: 'reply-1',
-            marker: onlyThread(responseProof('thread-resolve-crash')).marker,
-            markerFingerprint: onlyThread(responseProof('thread-resolve-crash')).markerFingerprint,
-          },
-        ],
-      },
-      evidence: [],
-      attempts: 2,
+      kind: 'failed',
+      error: { code: 'revo.script.provider.transient', stage: 'provider', retryable: true },
     },
     resolveMutations: 1,
   });
@@ -74,19 +60,18 @@ test('blocks a wrong response proof before any resolution mutation', async () =>
     },
     access: 'publish',
     permission: 'github.review-thread.resolve',
-    idempotencyKey: 'thread-resolve-wrong-proof',
+    executionId: 'thread-resolve-wrong-proof',
     fetch: statefulFetch(state),
   });
 
-  expect({ result, resolveMutations: state.resolveMutations }).toEqual({
+  expect({ result, resolveMutations: state.resolveMutations }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'The selected review thread is missing the matching reply proof.',
         retryable: false,
       },
-      attempts: 1,
     },
     resolveMutations: 0,
   });

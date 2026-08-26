@@ -29,7 +29,7 @@ test('reconciles an existing exact pull request instead of creating a duplicate'
     },
     access: 'publish',
     permission: 'github.pull-request.upsert',
-    idempotencyKey: 'upsert-replay',
+    executionId: 'upsert-replay',
     fetch: async (url, init) => {
       calls += 1;
       if (requestUrl(url).endsWith('/graphql')) {
@@ -48,8 +48,8 @@ test('reconciles an existing exact pull request instead of creating a duplicate'
     },
   });
 
-  expect({ result, calls }).toEqual({
-    result: { ok: true, value: pullRequest, evidence: [], attempts: 1 },
+  expect({ result, calls }).toMatchObject({
+    result: { kind: 'succeeded', value: pullRequest, evidence: [] },
     calls: 2,
   });
 });
@@ -71,7 +71,7 @@ test('refuses a foreign pull request at the exact requested branch identity with
     },
     access: 'publish',
     permission: 'github.pull-request.upsert',
-    idempotencyKey: 'upsert-foreign',
+    executionId: 'upsert-foreign',
     fetch: async (url, init) => {
       if (requestUrl(url).endsWith('/graphql')) {
         return jsonResponse(sourceBranchResponse());
@@ -83,15 +83,14 @@ test('refuses a foreign pull request at the exact requested branch identity with
     },
   });
 
-  expect({ result, writes }).toEqual({
+  expect({ result, writes }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'A foreign pull request already uses the requested head and base.',
         retryable: false,
       },
-      attempts: 1,
     },
     writes: 0,
   });
@@ -118,7 +117,7 @@ test('blocks a stale metadata revision before it can repair a managed pull reque
     },
     access: 'publish',
     permission: 'github.pull-request.upsert',
-    idempotencyKey: 'upsert-stale',
+    executionId: 'upsert-stale',
     fetch: async (url, init) => {
       if (requestUrl(url).endsWith('/graphql')) {
         return jsonResponse(sourceBranchResponse());
@@ -130,7 +129,7 @@ test('blocks a stale metadata revision before it can repair a managed pull reque
     },
   });
 
-  expect({ code: result.ok ? undefined : result.error.code, writes }).toEqual({
+  expect({ code: result.kind === 'failed' ? result.error.code : undefined, writes }).toMatchObject({
     code: 'revo.script.idempotency.conflict',
     writes: 0,
   });
@@ -153,7 +152,7 @@ test('requires post-create readback at the exact head before reporting success',
     },
     access: 'publish',
     permission: 'github.pull-request.upsert',
-    idempotencyKey: 'upsert-readback-head-moved',
+    executionId: 'upsert-readback-head-moved',
     fetch: async (url, init) => {
       if (requestUrl(url).endsWith('/graphql')) {
         return jsonResponse(sourceBranchResponse());
@@ -171,7 +170,7 @@ test('requires post-create readback at the exact head before reporting success',
     },
   });
 
-  expect({ code: result.ok ? undefined : result.error.code, reads }).toEqual({
+  expect({ code: result.kind === 'failed' ? result.error.code : undefined, reads }).toMatchObject({
     code: 'revo.script.idempotency.conflict',
     reads: 2,
   });
@@ -194,7 +193,7 @@ test('rejects a moved source branch before creating a pull request', async () =>
     },
     access: 'publish',
     permission: 'github.pull-request.upsert',
-    idempotencyKey: 'upsert-moved-source',
+    executionId: 'upsert-moved-source',
     fetch: async (url, init) => {
       if (requestUrl(url).endsWith('/graphql')) {
         return jsonResponse({
@@ -208,15 +207,14 @@ test('rejects a moved source branch before creating a pull request', async () =>
     },
   });
 
-  expect({ result, writes }).toEqual({
+  expect({ result, writes }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'The live source branch does not match the pinned pull request head.',
         retryable: false,
       },
-      attempts: 1,
     },
     writes: 0,
   });

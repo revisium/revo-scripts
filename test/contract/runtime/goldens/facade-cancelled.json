@@ -1,0 +1,32 @@
+{
+  "result": {
+    "kind": "cancelled",
+    "evidence": [],
+    "terminalEvent": {
+      "emissionOrdinal": 2,
+      "event": {
+        "name": "revo.script.cancelled",
+        "details": {
+          "script": { "id": "script:test/facade-golden-cancelled", "version": 1 },
+          "definitionDigest": "sha256:7d3725768a14800ed505974f84d7baf8dc6db6a5f1d8c5b9661c5fc1a4fe6ee0",
+          "attemptOrdinal": 1,
+          "timestampMs": 123
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "emissionOrdinal": 1,
+      "event": {
+        "name": "revo.script.started",
+        "details": {
+          "script": { "id": "script:test/facade-golden-cancelled", "version": 1 },
+          "definitionDigest": "sha256:7d3725768a14800ed505974f84d7baf8dc6db6a5f1d8c5b9661c5fc1a4fe6ee0",
+          "attemptOrdinal": 1,
+          "timestampMs": 123
+        }
+      }
+    }
+  ]
+}

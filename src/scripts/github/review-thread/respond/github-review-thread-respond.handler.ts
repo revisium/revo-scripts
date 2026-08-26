@@ -1,7 +1,4 @@
-import type {
-  RequiredIdempotencyScriptContext,
-  RequiredIdempotencyScriptHandler,
-} from '../../../../runtime/spec/definition/index.js';
+import type { ScriptContext, ScriptHandler } from '../../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../../runtime/spec/errors/index.js';
 import type {
   GitHubReviewThreadRespondInput,
@@ -9,16 +6,16 @@ import type {
   GitHubReviewThreadRespondResult,
 } from './schemas.js';
 
-export class GitHubReviewThreadRespondHandler implements RequiredIdempotencyScriptHandler<
+export class GitHubReviewThreadRespondHandler implements ScriptHandler<
   GitHubReviewThreadRespondInput,
   GitHubReviewThreadRespondResult,
   GitHubReviewThreadRespondResources
 > {
   async execute(
     input: Readonly<GitHubReviewThreadRespondInput>,
-    context: Readonly<RequiredIdempotencyScriptContext<GitHubReviewThreadRespondResources>>,
+    context: Readonly<ScriptContext<GitHubReviewThreadRespondResources>>,
   ): Promise<{ readonly value: GitHubReviewThreadRespondResult }> {
-    const operationKey = context.idempotencyKey;
+    const operationKey = context.executionId;
     const selected = input.triage.items.map((item) => this.selection(input, item));
     const pullRequest = toProof(input);
     if (selected.length === 0) {

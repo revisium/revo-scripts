@@ -4,15 +4,15 @@ Every concrete provider adapter must keep a `README.md` beside its composition r
 
 ## Identity
 
-| Field          | Required value                   |
-| -------------- | -------------------------------- |
-| Provider id    | Stable implementation id         |
-| Contract       | Exact provider contract major    |
-| Owned effects  | Complete bounded list            |
-| Workspace      | `required` or `none`             |
-| Credentials    | Required aliases or `none`       |
-| Public factory | Exported provider-family factory |
-| Selection      | Sole implementation for contract |
+| Field            | Required value                   |
+| ---------------- | -------------------------------- |
+| Provider id      | Stable implementation id         |
+| Contract         | Exact provider contract major    |
+| Owned operations | Complete bounded list            |
+| Workspace        | `required` or `none`             |
+| Credentials      | Required aliases or `none`       |
+| Public factory   | Exported provider-family factory |
+| Selection        | Sole implementation for contract |
 
 ## Responsibility
 

@@ -1,4 +1,4 @@
-import type { ScriptEffect } from '../manifest/script-effect.js';
+import type { ScriptOperation } from '../manifest/script-operation.js';
 import type { ScriptResourceAccess } from '../manifest/script-resource-access.js';
 
 export interface ScriptResourceHandle<TClients extends object> {
@@ -7,7 +7,7 @@ export interface ScriptResourceHandle<TClients extends object> {
   readonly access: ScriptResourceAccess;
   readonly grant: Readonly<{
     permissions: readonly string[];
-    effects: readonly ScriptEffect[];
+    operations: readonly ScriptOperation[];
   }>;
   readonly clients: TClients;
 }

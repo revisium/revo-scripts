@@ -2,14 +2,7 @@ import { createHash } from 'node:crypto';
 
 import canonicalize from 'canonicalize';
 
-import type {
-  OptionalIdempotencyScriptDefinitionInput,
-  RequiredIdempotencyScriptDefinitionInput,
-  ScriptDefinition,
-  ScriptDefinitionInput,
-  UnrefinedIdempotencyScriptDefinitionInput,
-} from '../spec/definition/index.js';
-import { validateIdempotencyKey } from '../spec/execution/validate-idempotency-key.js';
+import type { ScriptDefinition, ScriptDefinitionInput } from '../spec/definition/index.js';
 import type { ScriptManifestAuthoringV1, ScriptManifestV1 } from '../spec/manifest/index.js';
 import type { ScriptResourceMap } from '../spec/resources/index.js';
 import { validateScriptManifest } from './validation/manifest/validate-manifest.js';
@@ -42,7 +35,7 @@ const snapshotManifest = (manifest: ScriptManifestAuthoringV1): ScriptManifestV1
     resources: validated.resources.map((resource) => ({ ...resource })),
     providers: validated.providers.map((provider) => ({ ...provider })),
     credentials: validated.credentials.map((credential) => ({ ...credential })),
-    effects: [...validated.effects],
+    operations: [...validated.operations],
     ...(validated.classification === undefined ? {} : { classification: validated.classification }),
     timeout: { ...validated.timeout },
     retry: {
@@ -86,46 +79,8 @@ const digestDefinition = <I, O, R extends ScriptResourceMap>(
   return `sha256:${createHash('sha256').update(canonicalJson).digest('hex')}`;
 };
 
-const executionHandler = <I, O, R extends ScriptResourceMap>(
-  input:
-    | RequiredIdempotencyScriptDefinitionInput<I, O, R>
-    | OptionalIdempotencyScriptDefinitionInput<I, O, R>
-    | UnrefinedIdempotencyScriptDefinitionInput<I, O, R>,
-): ScriptDefinition<I, O, R>['handler'] => {
-  if (input.manifest.idempotency !== 'required') {
-    return input.handler;
-  }
-
-  const handler = input.handler;
-  return {
-    execute: async (handlerInput, context) => {
-      const idempotencyKey = validateIdempotencyKey('required', context.idempotencyKey);
-
-      return handler.execute(handlerInput, {
-        ...context,
-        idempotencyKey,
-      });
-    },
-  };
-};
-
 export function defineScript<I, O, R extends ScriptResourceMap>(
-  input: RequiredIdempotencyScriptDefinitionInput<I, O, R>,
-): ScriptDefinition<I, O, R>;
-export function defineScript<I, O, R extends ScriptResourceMap>(
-  input: OptionalIdempotencyScriptDefinitionInput<I, O, R>,
-): ScriptDefinition<I, O, R>;
-export function defineScript<
-  I,
-  O,
-  R extends ScriptResourceMap,
-  M extends ScriptManifestAuthoringV1 = ScriptManifestAuthoringV1,
->(input: ScriptDefinitionInput<I, O, R, M>): ScriptDefinition<I, O, R>;
-export function defineScript<I, O, R extends ScriptResourceMap>(
-  input:
-    | RequiredIdempotencyScriptDefinitionInput<I, O, R>
-    | OptionalIdempotencyScriptDefinitionInput<I, O, R>
-    | UnrefinedIdempotencyScriptDefinitionInput<I, O, R>,
+  input: ScriptDefinitionInput<I, O, R>,
 ): ScriptDefinition<I, O, R> {
   const manifest = snapshotManifest(input.manifest);
   const implementation = { ...input.implementation };
@@ -140,6 +95,6 @@ export function defineScript<I, O, R extends ScriptResourceMap>(
   return {
     ...definitionIdentity,
     definitionDigest: digestDefinition(definitionIdentity, schemas),
-    handler: executionHandler(input),
+    handler: input.handler,
   };
 }

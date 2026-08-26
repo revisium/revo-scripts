@@ -23,7 +23,7 @@ test('requests one exact-head squash merge with source deletion and proves its r
     input: mergeInput({ ...pullRequest, draft: false }),
     access: 'publish',
     permission: 'github.pull-request.merge',
-    idempotencyKey: 'merge-operation',
+    executionId: 'merge-operation',
     fetch: async (url, init) => {
       if (requestUrl(url).endsWith('/graphql')) {
         const request = graphqlRequest(init);
@@ -65,9 +65,9 @@ test('requests one exact-head squash merge with source deletion and proves its r
     },
   });
 
-  expect({ result, pullRequestReads, writes }).toEqual({
+  expect({ result, pullRequestReads, writes }).toMatchObject({
     result: {
-      ok: true,
+      kind: 'succeeded',
       value: {
         schemaVersion: 'github-pull-request-merge-result/v1',
         repositoryId: 'repository-123',
@@ -84,7 +84,6 @@ test('requests one exact-head squash merge with source deletion and proves its r
         sourceBranchDeleted: true,
       },
       evidence: [],
-      attempts: 1,
     },
     pullRequestReads: 2,
     writes: [
@@ -108,7 +107,7 @@ test('adopts an exact already-merged pull request after a crash without another 
     input: mergeInput({ ...pullRequest, draft: false }),
     access: 'publish',
     permission: 'github.pull-request.merge',
-    idempotencyKey: 'merge-replay',
+    executionId: 'merge-replay',
     fetch: async (url, init) => {
       if (requestUrl(url).endsWith('/graphql')) {
         graphql.push(graphqlRequest(init));
@@ -132,9 +131,9 @@ test('adopts an exact already-merged pull request after a crash without another 
       containsSourceBranchQuery: query.includes('SourceBranch'),
       variables,
     })),
-  }).toEqual({
+  }).toMatchObject({
     result: {
-      ok: true,
+      kind: 'succeeded',
       value: {
         schemaVersion: 'github-pull-request-merge-result/v1',
         repositoryId: 'repository-123',
@@ -151,7 +150,6 @@ test('adopts an exact already-merged pull request after a crash without another 
         sourceBranchDeleted: true,
       },
       evidence: [],
-      attempts: 1,
     },
     graphql: [
       {
@@ -176,7 +174,7 @@ test('reconciles an undeleted exact source branch through the bounded provider c
     input: mergeInput({ ...pullRequest, draft: false }),
     access: 'publish',
     permission: 'github.pull-request.merge',
-    idempotencyKey: 'merge-branch-reconcile',
+    executionId: 'merge-branch-reconcile',
     fetch: async (url, init) => {
       if (requestUrl(url).endsWith('/graphql')) {
         const request = graphqlRequest(init);
@@ -221,10 +219,10 @@ test('reconciles an undeleted exact source branch through the bounded provider c
   });
 
   expect({
-    result: result.ok,
+    result: result.kind,
     writes,
-  }).toEqual({
-    result: true,
+  }).toMatchObject({
+    result: 'succeeded',
     writes: [
       {
         url: 'https://api.github.com/repos/revisium/revo-scripts/pulls/42/merge',
@@ -249,7 +247,7 @@ test('rejects a moved live head or an incorrect exact issue token without a merg
     input: mergeInput({ ...pullRequest, draft: false }),
     access: 'publish',
     permission: 'github.pull-request.merge',
-    idempotencyKey: 'merge-moved-head',
+    executionId: 'merge-moved-head',
     fetch: async (url, init) => {
       if (init?.method !== undefined && init.method !== 'GET') {
         writes.push({ url: requestUrl(url), method: init.method });
@@ -276,7 +274,7 @@ test('rejects a moved live head or an incorrect exact issue token without a merg
     }),
     access: 'publish',
     permission: 'github.pull-request.merge',
-    idempotencyKey: 'merge-incorrect-reference',
+    executionId: 'merge-incorrect-reference',
     fetch: async (url, init) => {
       if (init?.method !== undefined && init.method !== 'GET') {
         writes.push({ url: requestUrl(url), method: init.method });
@@ -288,10 +286,11 @@ test('rejects a moved live head or an incorrect exact issue token without a merg
   });
 
   expect({
-    moved: moved.ok ? undefined : moved.error.code,
-    incorrectReference: incorrectReference.ok ? undefined : incorrectReference.error.code,
+    moved: moved.kind === 'failed' ? moved.error.code : undefined,
+    incorrectReference:
+      incorrectReference.kind === 'failed' ? incorrectReference.error.code : undefined,
     writes,
-  }).toEqual({
+  }).toMatchObject({
     moved: 'revo.script.idempotency.conflict',
     incorrectReference: 'revo.script.idempotency.conflict',
     writes: [],

@@ -27,7 +27,7 @@ export class ScriptDeadline {
     this.rejectDeadline = rejectDeadline;
     this.timeout = setTimeout(() => {
       this.fail(
-        new ScriptFault('revo.script.timeout.deadline', 'Script wall-clock deadline expired.'),
+        new ScriptFault('revo.script.timeout.wall_clock', 'Script wall-clock deadline expired.'),
       );
     }, timeoutMs);
 

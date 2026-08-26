@@ -35,7 +35,7 @@ test('registers the Node Git provider and requires a resolved workspace', async 
           kind: 'repository',
           repositoryId: 'repository-123',
           access: 'read',
-          grant: { permissions: ['git.status.read'], effects: ['git.read'] },
+          grant: { permissions: ['git.status.read'], operations: ['git.read'] },
           providerCoordinates: {},
         },
         credentials: {},

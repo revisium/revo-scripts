@@ -2,17 +2,17 @@
 
 ## Identity
 
-| Field                                      | Value                |
-| ------------------------------------------ | -------------------- |
-| Script id                                  | `script:system/echo` |
-| Revision                                   | `1`                  |
-| Effect class                               | `pure`               |
-| Effects, permissions, resources, providers | none                 |
-| Idempotency                                | `read-only`          |
+| Field                                         | Value                |
+| --------------------------------------------- | -------------------- |
+| Script id                                     | `script:system/echo` |
+| Revision                                      | `1`                  |
+| Impact class                                  | `pure`               |
+| Operations, permissions, resources, providers | none                 |
+| Idempotency                                   | `read-only`          |
 
 ## Operation
 
-Accepts exactly `{ message: string }` with at most 65,536 characters and returns the same message in a readonly TypeScript result contract. It performs no external effect and never resolves workspaces or credentials. The `(script id, revision)` contract is immutable; an observable change requires a new integer revision, with no range, latest, tag, or fallback resolution.
+Accepts exactly `{ message: string }` with at most 65,536 characters and returns the same message in a readonly TypeScript result contract. It performs no external operation and never resolves workspaces or credentials. The `(script id, revision)` contract is immutable; an observable change requires a new integer revision.
 
 ## Files and dependencies
 
