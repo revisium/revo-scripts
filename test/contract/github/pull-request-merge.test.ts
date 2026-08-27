@@ -5,7 +5,7 @@ import type {
   GitHubPullRequestMergeRequest,
 } from '../../../src/providers/github/index.js';
 import { githubPullRequestMergeScript } from '../../../src/scripts/github/index.js';
-import { createScriptContractHarness } from '../../../src/testing/index.js';
+import { createGitHubScriptContractHarness } from '../../support/github/github-contract-fixture.js';
 import { githubResource, pullRequest } from '../../support/github/github-contract-fixture.js';
 
 const mergeCommit = 'b'.repeat(40);
@@ -96,11 +96,10 @@ const input = (overrides: Readonly<Record<string, unknown>> = {}) => ({
 });
 
 const execute = async (client: GitHubPullRequestMergeClient, value = input()) =>
-  await createScriptContractHarness(githubPullRequestMergeScript, {
+  await createGitHubScriptContractHarness(githubPullRequestMergeScript, {
     executionId: 'github-pr-merge',
-    idempotencyKey: 'run:pr:merge',
     resources: { repository: githubResource(client, 'publish') },
-  }).execute(value);
+  }).runAttempt(value);
 
 test('returns the dedicated exact-head squash merge result', async () => {
   const requests: GitHubPullRequestMergeRequest[] = [];
@@ -128,9 +127,9 @@ test('returns the dedicated exact-head squash merge result', async () => {
   expect({
     result: result.result,
     requests: requests.map(({ signal: _signal, ...request }) => request),
-  }).toEqual({
+  }).toMatchObject({
     result: {
-      ok: true,
+      kind: 'succeeded',
       value: {
         schemaVersion: 'github-pull-request-merge-result/v1',
         repositoryId: 'repository-123',
@@ -148,7 +147,6 @@ test('returns the dedicated exact-head squash merge result', async () => {
         issueRef: { owner: 'revisium', repository: 'orchestrator', number: 355, action: 'close' },
       },
       evidence: [],
-      attempts: 1,
     },
     requests: [
       {
@@ -161,7 +159,7 @@ test('returns the dedicated exact-head squash merge result', async () => {
           action: 'close',
         },
         method: 'squash',
-        operationKey: 'run:pr:merge',
+        operationKey: 'github-pr-merge',
       },
     ],
   });
@@ -190,7 +188,7 @@ test.each([
         },
       }),
     );
-    expect(requests.map((request) => request.expectedIssueRef)).toEqual([
+    expect(requests.map((request) => request.expectedIssueRef)).toMatchObject([
       issueRef === undefined ? undefined : issueRef,
     ]);
   },
@@ -256,9 +254,9 @@ test('permits only an exact sorted override audit and returns its bounded identi
     }),
   );
 
-  expect({ allowed: allowed.result, rejected: rejected.result, calls }).toEqual({
+  expect({ allowed: allowed.result, rejected: rejected.result, calls }).toMatchObject({
     allowed: {
-      ok: true,
+      kind: 'succeeded',
       value: {
         schemaVersion: 'github-pull-request-merge-result/v1',
         repositoryId: 'repository-123',
@@ -281,16 +279,14 @@ test('permits only an exact sorted override audit and returns its bounded identi
         },
       },
       evidence: [],
-      attempts: 1,
     },
     rejected: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'The override audit does not match the actionable unresolved threads.',
         retryable: false,
       },
-      attempts: 1,
     },
     calls: 1,
   });
@@ -333,15 +329,14 @@ test.each([
     },
     input({ readiness: { ...input().readiness, ...readiness } }),
   );
-  expect({ result: result.result, calls }).toEqual({
+  expect({ result: result.result, calls }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'The readiness snapshot contains a non-bypassable merge blocker.',
         retryable: false,
       },
-      attempts: 1,
     },
     calls: 0,
   });
@@ -368,15 +363,14 @@ test('compares readiness and gate ordering as instants across timestamp offsets'
     }),
   );
 
-  expect({ result: result.result, calls }).toEqual({
+  expect({ result: result.result, calls }).toMatchObject({
     result: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'Merge approval artifacts do not match the pinned pull request revision.',
         retryable: false,
       },
-      attempts: 1,
     },
     calls: 0,
   });
@@ -400,24 +394,22 @@ test('blocks artifact mismatches and invalid provider proof before reporting suc
     }),
   );
   const invalidProof = await execute(client);
-  expect({ mismatch: mismatch.result, invalidProof: invalidProof.result, calls }).toEqual({
+  expect({ mismatch: mismatch.result, invalidProof: invalidProof.result, calls }).toMatchObject({
     mismatch: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.idempotency.conflict',
         message: 'Merge approval artifacts do not match the pinned pull request revision.',
         retryable: false,
       },
-      attempts: 1,
     },
     invalidProof: {
-      ok: false,
+      kind: 'failed',
       error: {
         code: 'revo.script.provider.invalid_response',
         message: 'GitHub did not prove the merged pull request and source branch state.',
         retryable: false,
       },
-      attempts: 1,
     },
     calls: 1,
   });

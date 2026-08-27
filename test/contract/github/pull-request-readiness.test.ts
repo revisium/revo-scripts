@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 
 import type { GitHubPullRequestReadinessClient } from '../../../src/providers/github/index.js';
 import { githubPullRequestReadinessScript } from '../../../src/scripts/github/index.js';
-import { createScriptContractHarness } from '../../../src/testing/index.js';
+import { createGitHubScriptContractHarness } from '../../support/github/github-contract-fixture.js';
 import { githubResource, pullRequest } from '../../support/github/github-contract-fixture.js';
 
 test('returns explicit readiness blockers for the pinned head', async () => {
@@ -22,15 +22,15 @@ test('returns explicit readiness blockers for the pinned head', async () => {
       checks: [{ name: 'verify', required: true, status: 'failure' }],
     }),
   };
-  const harness = createScriptContractHarness(githubPullRequestReadinessScript, {
+  const harness = createGitHubScriptContractHarness(githubPullRequestReadinessScript, {
     executionId: 'github-pr-readiness',
     resources: { repository: githubResource(client, 'read') },
   });
 
-  const execution = await harness.execute(pullRequest);
+  const execution = await harness.runAttempt(pullRequest);
 
-  expect(execution.result).toEqual({
-    ok: true,
+  expect(execution.result).toMatchObject({
+    kind: 'succeeded',
     value: {
       schemaVersion: 'github-readiness/v1',
       repositoryId: pullRequest.repositoryId,
@@ -54,7 +54,6 @@ test('returns explicit readiness blockers for the pinned head', async () => {
       classification: 'ci_changes',
     },
     evidence: [],
-    attempts: 1,
   });
 });
 
@@ -135,26 +134,30 @@ test.each([
       ...snapshot,
     }),
   };
-  const harness = createScriptContractHarness(githubPullRequestReadinessScript, {
+  const harness = createGitHubScriptContractHarness(githubPullRequestReadinessScript, {
     executionId: `github-pr-readiness:${expected}`,
     resources: { repository: githubResource(client, 'read') },
   });
 
-  const execution = await harness.execute(pullRequest);
+  const execution = await harness.runAttempt(pullRequest);
 
-  expect(execution.result.ok).toEqual(true);
-  if (!execution.result.ok) {
+  expect(execution.result.kind).toEqual('succeeded');
+  if (execution.result.kind !== 'succeeded') {
     throw new Error('Expected readiness execution to succeed.');
   }
+  const value = await githubPullRequestReadinessScript.resultSchema.validate(
+    execution.result.value,
+  );
+  if (!value.ok) {
+    throw new Error('Expected the readiness result contract.');
+  }
   expect({
-    headCommit: execution.result.value.headCommit,
-    classification: execution.result.value.classification,
+    headCommit: value.value.headCommit,
+    classification: value.value.classification,
     evidence: execution.result.evidence,
-    attempts: execution.result.attempts,
   }).toEqual({
     headCommit: 'b'.repeat(40),
     classification: expected,
     evidence: [],
-    attempts: 1,
   });
 });

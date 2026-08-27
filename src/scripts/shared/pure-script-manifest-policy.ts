@@ -2,26 +2,26 @@ import type { ScriptManifestV1 } from '../../runtime/spec/manifest/index.js';
 
 type PureScriptManifestPolicy = Pick<
   ScriptManifestV1,
-  | 'effectClass'
+  | 'impactClass'
   | 'permissions'
   | 'resources'
   | 'providers'
   | 'credentials'
-  | 'effects'
+  | 'operations'
   | 'timeout'
   | 'retry'
-  | 'idempotency'
   | 'redaction'
   | 'events'
->;
+> &
+  Readonly<{ idempotency: 'read-only' }>;
 
 export const pureScriptManifestPolicy = (): PureScriptManifestPolicy => ({
-  effectClass: 'pure',
+  impactClass: 'pure',
   permissions: [],
   resources: [],
   providers: [],
   credentials: [],
-  effects: [],
+  operations: [],
   timeout: { wallClockMs: 1_000 },
   retry: { mode: 'never', maxAttempts: 1, backoffMs: [] },
   idempotency: 'read-only',

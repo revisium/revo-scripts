@@ -53,7 +53,7 @@ test('defines one read-only script snapshot with a stable identity digest', () =
       version: '1.0.0',
       buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000040',
     },
-    definitionDigest: 'sha256:9263afa450331156030b0da31137c8a060ddb5b2fcd4e55bfb909a8ed8aa0ade',
+    definitionDigest: 'sha256:f2b38df4e1f5cb1702eb7338e98f249cd2d27ffeff0e98c4a0efdaa950d1de01',
     handler,
   });
   expect(definition.manifest).not.toBe(manifest);
@@ -112,13 +112,214 @@ test('pins the executable build digest into the definition digest', () => {
   });
 });
 
+test('canonicalizes omitted empty manifest policies before snapshot and digest', () => {
+  const { redaction, events, ...manifestWithoutEmptyPolicies } = manifest;
+  expect({ redaction, events }).toEqual({
+    redaction: {
+      inputPaths: [],
+      resultPaths: [],
+      errorPaths: [],
+      eventPaths: [],
+    },
+    events: { allowed: [], detailPaths: [] },
+  });
+
+  const implementation = {
+    id: '@revisium/revo-scripts/test/echo',
+    version: '1.0.0',
+    buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000045',
+  } as const;
+  const omitted = defineScript({
+    manifest: manifestWithoutEmptyPolicies,
+    inputSchema,
+    resultSchema,
+    implementation,
+    handler,
+  });
+  const explicit = defineScript({
+    manifest,
+    inputSchema,
+    resultSchema,
+    implementation,
+    handler,
+  });
+
+  expect({
+    manifestsEqual: omitted.manifest === explicit.manifest,
+    omittedManifest: omitted.manifest,
+    explicitManifest: explicit.manifest,
+    omittedDigest: omitted.definitionDigest,
+    explicitDigest: explicit.definitionDigest,
+  }).toEqual({
+    manifestsEqual: false,
+    omittedManifest: manifest,
+    explicitManifest: manifest,
+    omittedDigest: explicit.definitionDigest,
+    explicitDigest: explicit.definitionDigest,
+  });
+});
+
+test('rejects null rather than silently disabling an authored redaction policy', () => {
+  const runtimeManifest = {
+    ...manifest,
+    redaction: { ...manifest.redaction, inputPaths: ['/secret'] },
+  };
+  const definitionInput = {
+    manifest: runtimeManifest,
+    inputSchema,
+    resultSchema,
+    implementation: {
+      id: '@revisium/revo-scripts/test/echo',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000047',
+    } as const,
+    handler,
+  };
+
+  expect(defineScript(definitionInput).manifest.redaction.inputPaths).toEqual(['/secret']);
+  expect(Reflect.set(runtimeManifest, 'redaction', null)).toBe(true);
+  expect(captureFault(() => defineScript(definitionInput))).toEqual({
+    code: 'revo.script.validation.manifest',
+    message: 'Script manifest is invalid.',
+    retryable: false,
+    details: {
+      issues: [
+        {
+          path: '/redaction',
+          message: 'Invalid input: expected object, received null',
+        },
+      ],
+    },
+  });
+});
+
+test.each([
+  {
+    name: 'null events',
+    field: 'events',
+    value: null,
+    issues: [
+      {
+        path: '/events',
+        message: 'Invalid input: expected object, received null',
+      },
+    ],
+  },
+  {
+    name: 'incomplete redaction object',
+    field: 'redaction',
+    value: { inputPaths: ['/secret'] },
+    issues: [
+      {
+        path: '/redaction/resultPaths',
+        message: 'Invalid input: expected array, received undefined',
+      },
+      {
+        path: '/redaction/errorPaths',
+        message: 'Invalid input: expected array, received undefined',
+      },
+      {
+        path: '/redaction/eventPaths',
+        message: 'Invalid input: expected array, received undefined',
+      },
+    ],
+  },
+  {
+    name: 'malformed events object',
+    field: 'events',
+    value: { allowed: 'script.event', detailPaths: [] },
+    issues: [
+      {
+        path: '/events/allowed',
+        message: 'Invalid input: expected array, received string',
+      },
+    ],
+  },
+] as const)(
+  'rejects a runtime $name with stable manifest diagnostics',
+  ({ field, value, issues }) => {
+    const runtimeManifest = { ...manifest };
+    expect(Reflect.set(runtimeManifest, field, value)).toBe(true);
+
+    expect(
+      captureFault(() =>
+        defineScript({
+          manifest: runtimeManifest,
+          inputSchema,
+          resultSchema,
+          implementation: {
+            id: '@revisium/revo-scripts/test/echo',
+            version: '1.0.0',
+            buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000048',
+          },
+          handler,
+        }),
+      ),
+    ).toEqual({
+      code: 'revo.script.validation.manifest',
+      message: 'Script manifest is invalid.',
+      retryable: false,
+      details: { issues },
+    });
+  },
+);
+
+test('passes execution identity through the one authoring context', async () => {
+  const receivedIds: string[] = [];
+  const definition = defineScript({
+    manifest: {
+      ...manifest,
+      id: 'script:test/required-handler',
+      summary: 'Exercises the single authoring context.',
+      impactClass: 'write',
+      permissions: ['git.test.write'],
+      resources: [{ name: 'repository', kind: 'repository', access: 'write' }],
+      operations: ['git.write'],
+      idempotency: 'required',
+    },
+    inputSchema,
+    resultSchema,
+    implementation: {
+      id: '@revisium/revo-scripts/test/required-handler',
+      version: '1.0.0',
+      buildDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000046',
+    },
+    handler: {
+      execute: async (input, context) => {
+        receivedIds.push(context.executionId);
+        return { value: { echoed: input.message } };
+      },
+    },
+  });
+  const baseContext = {
+    executionId: 'direct-handler',
+    attemptOrdinal: 1,
+    resources: {
+      repository: {
+        name: 'repository',
+        kind: 'repository',
+        access: 'write',
+        grant: { permissions: ['git.test.write'], operations: ['git.write'] },
+        clients: {},
+      },
+    },
+    signal: new AbortController().signal,
+    emit: async () => undefined,
+  } as const;
+
+  await expect(definition.handler.execute({ message: 'present' }, baseContext)).resolves.toEqual({
+    value: { echoed: 'present' },
+  });
+  expect(receivedIds).toEqual(['direct-handler']);
+});
+
 test('rejects duplicate bounded manifest entries with stable diagnostics', () => {
   const invalidManifest = {
     ...manifest,
-    effectClass: 'read',
+    impactClass: 'read',
     permissions: ['git.status.read', 'git.status.read'],
     resources: [{ name: 'repository', kind: 'repository', access: 'read' }],
-    effects: ['git.read', 'git.read'],
+    operations: ['git.read', 'git.read'],
   } as const satisfies ScriptManifestV1;
 
   const fault = captureFault(() =>
@@ -146,20 +347,20 @@ test('rejects duplicate bounded manifest entries with stable diagnostics', () =>
           message: 'Permission identifiers must be unique.',
         },
         {
-          path: '/effects/1',
-          message: 'Effects must be unique.',
+          path: '/operations/1',
+          message: 'Operations must be unique.',
         },
       ],
     },
   });
 });
 
-test('rejects incoherent effect, retry, and idempotency policies', () => {
+test('rejects incoherent operation, retry, and idempotency policies', () => {
   const invalidManifest = {
     ...manifest,
     permissions: ['git.status.read'],
     resources: [{ name: 'repository', kind: 'repository', access: 'read' }],
-    effects: ['git.read'],
+    operations: ['git.read'],
     retry: { mode: 'never', maxAttempts: 2, backoffMs: [10] },
     idempotency: 'required',
   } as const satisfies ScriptManifestV1;
@@ -193,8 +394,8 @@ test('rejects incoherent effect, retry, and idempotency policies', () => {
           message: 'Pure scripts must not declare resources.',
         },
         {
-          path: '/effects',
-          message: 'Pure scripts must not declare effects.',
+          path: '/operations',
+          message: 'Pure scripts must not declare operations.',
         },
         {
           path: '/retry',
@@ -202,7 +403,7 @@ test('rejects incoherent effect, retry, and idempotency policies', () => {
         },
         {
           path: '/idempotency',
-          message: 'Required idempotency must declare a mutation effect.',
+          message: 'Required idempotency must declare a mutation operation.',
         },
       ],
     },

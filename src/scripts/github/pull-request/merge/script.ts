@@ -5,12 +5,10 @@ import { githubPullRequestMergeManifest } from './manifest.js';
 import {
   githubPullRequestMergeInputSchema,
   githubPullRequestMergeResultSchema,
+  type GitHubPullRequestMergeInput,
+  type GitHubPullRequestMergeResources,
+  type GitHubPullRequestMergeResult,
 } from './schemas.js';
-import type {
-  GitHubPullRequestMergeInput,
-  GitHubPullRequestMergeResources,
-  GitHubPullRequestMergeResult,
-} from './types.js';
 
 export const githubPullRequestMergeScript = defineScript<
   GitHubPullRequestMergeInput,
@@ -20,6 +18,6 @@ export const githubPullRequestMergeScript = defineScript<
   manifest: githubPullRequestMergeManifest,
   inputSchema: githubPullRequestMergeInputSchema,
   resultSchema: githubPullRequestMergeResultSchema,
-  implementation: builtInImplementation('script:github/pull-request/merge', '1.0.0'),
+  implementation: builtInImplementation(githubPullRequestMergeManifest.id, '1.0.0'),
   handler: new GitHubPullRequestMergeHandler(),
 });

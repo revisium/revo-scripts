@@ -1,0 +1,6 @@
+{
+  "kind": "uncertain",
+  "trigger": "cancellation",
+  "stage": "handler",
+  "evidence": []
+}

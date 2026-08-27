@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
+import type { GitHubReviewThreadResolveClient } from '../../../../providers/github/index.js';
 import { createScriptSchema } from '../../../../runtime/definition/schema/create-script-schema.js';
+import type { ScriptResourceHandle } from '../../../../runtime/spec/resources/index.js';
+import type { ScriptSchemaOutput } from '../../../../runtime/spec/schema/index.js';
 import { githubPullRequestShape } from '../../shared/schemas.js';
 const responses = z.strictObject({
   schemaVersion: z.literal('github-review-threads-respond-result/v1'),
@@ -65,3 +68,13 @@ export const githubReviewThreadResolveResultSchema = createScriptSchema({
   }),
   jsonSchema: 'output',
 });
+
+export type GitHubReviewThreadResolveInput = ScriptSchemaOutput<
+  typeof githubReviewThreadResolveInputSchema
+>;
+export type GitHubReviewThreadResolveResult = ScriptSchemaOutput<
+  typeof githubReviewThreadResolveResultSchema
+>;
+export type GitHubReviewThreadResolveResources = Readonly<{
+  repository: ScriptResourceHandle<Readonly<{ github: GitHubReviewThreadResolveClient }>>;
+}>;

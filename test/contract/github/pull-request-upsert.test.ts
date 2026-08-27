@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 
 import type { GitHubPullRequestUpsertClient } from '../../../src/providers/github/index.js';
 import { githubPullRequestUpsertScript } from '../../../src/scripts/github/index.js';
-import { createScriptContractHarness } from '../../../src/testing/index.js';
+import { createGitHubScriptContractHarness } from '../../support/github/github-contract-fixture.js';
 import { githubResource, pullRequest } from '../../support/github/github-contract-fixture.js';
 
 test('upserts an exact pull request and returns its pinned identity', async () => {
@@ -18,13 +18,12 @@ test('upserts an exact pull request and returns its pinned identity', async () =
       };
     },
   };
-  const harness = createScriptContractHarness(githubPullRequestUpsertScript, {
+  const harness = createGitHubScriptContractHarness(githubPullRequestUpsertScript, {
     executionId: 'github-pr-upsert',
-    idempotencyKey: 'run:pr:upsert',
     resources: { repository: githubResource(client, 'publish') },
   });
 
-  const execution = await harness.execute({
+  const execution = await harness.runAttempt({
     repositoryId: pullRequest.repositoryId,
     owner: pullRequest.owner,
     repository: pullRequest.repository,
@@ -36,8 +35,8 @@ test('upserts an exact pull request and returns its pinned identity', async () =
     issueAction: 'none',
   });
 
-  expect({ result: execution.result, requests }).toEqual({
-    result: { ok: true, value: pullRequest, evidence: [], attempts: 1 },
+  expect({ result: execution.result, requests }).toMatchObject({
+    result: { kind: 'succeeded', value: pullRequest, evidence: [] },
     requests: [
       {
         head: pullRequest.head,
@@ -45,7 +44,7 @@ test('upserts an exact pull request and returns its pinned identity', async () =
         title: 'Bounded scripts',
         body: 'Implements exact operations.',
         draft: true,
-        operationKey: 'run:pr:upsert',
+        operationKey: 'github-pr-upsert',
         marker: {
           headSha: 'a'.repeat(40),
           title: 'Bounded scripts',
@@ -94,13 +93,12 @@ test.each([
         };
       },
     };
-    const harness = createScriptContractHarness(githubPullRequestUpsertScript, {
+    const harness = createGitHubScriptContractHarness(githubPullRequestUpsertScript, {
       executionId: 'github-pr-upsert-issue-linkage',
-      idempotencyKey: 'run:pr:upsert:issue-linkage',
       resources: { repository: githubResource(client, 'publish') },
     });
 
-    const execution = await harness.execute({
+    const execution = await harness.runAttempt({
       repositoryId: pullRequest.repositoryId,
       owner: pullRequest.owner,
       repository: pullRequest.repository,
@@ -113,15 +111,17 @@ test.each([
       issueRef,
     });
 
-    expect({ ok: execution.result.ok, bodies }).toEqual({ ok: true, bodies: [expectedBody] });
+    expect({ result: execution.result.kind, bodies }).toEqual({
+      result: 'succeeded',
+      bodies: [expectedBody],
+    });
   },
 );
 
 test('refuses an issue reference for PR issue action none before provider mutation', async () => {
   let calls = 0;
-  const harness = createScriptContractHarness(githubPullRequestUpsertScript, {
+  const harness = createGitHubScriptContractHarness(githubPullRequestUpsertScript, {
     executionId: 'github-pr-upsert-no-issue',
-    idempotencyKey: 'run:pr:upsert:no-issue',
     resources: {
       repository: githubResource(
         {
@@ -135,7 +135,7 @@ test('refuses an issue reference for PR issue action none before provider mutati
     },
   });
 
-  const execution = await harness.execute({
+  const execution = await harness.runAttempt({
     repositoryId: pullRequest.repositoryId,
     owner: pullRequest.owner,
     repository: pullRequest.repository,
@@ -153,5 +153,5 @@ test('refuses an issue reference for PR issue action none before provider mutati
     },
   });
 
-  expect({ ok: execution.result.ok, calls }).toEqual({ ok: false, calls: 0 });
+  expect({ result: execution.result.kind, calls }).toEqual({ result: 'failed', calls: 0 });
 });

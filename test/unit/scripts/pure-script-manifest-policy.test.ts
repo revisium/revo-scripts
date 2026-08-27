@@ -3,12 +3,12 @@ import { expect, test } from 'vitest';
 import { pureScriptManifestPolicy } from '../../../src/scripts/shared/pure-script-manifest-policy.js';
 
 const expectedPolicy = {
-  effectClass: 'pure',
+  impactClass: 'pure',
   permissions: [],
   resources: [],
   providers: [],
   credentials: [],
-  effects: [],
+  operations: [],
   timeout: { wallClockMs: 1_000 },
   retry: { mode: 'never', maxAttempts: 1, backoffMs: [] },
   idempotency: 'read-only',

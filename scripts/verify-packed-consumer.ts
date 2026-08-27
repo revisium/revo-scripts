@@ -31,13 +31,28 @@ const runtimeConsumer = `
 import assert from 'node:assert/strict';
 
 import {
+  AttemptCancellationResultSchema,
   builtInScriptCatalog,
   createRevoScripts,
-  gitScripts,
+  ScriptAttemptResultSchema,
+  ScriptReconciliationResultSchema,
   systemScripts,
 } from '@revisium/revo-scripts';
-import { nodeGitProviders } from '@revisium/revo-scripts/providers/git';
 import { systemEchoScript } from '@revisium/revo-scripts/system';
+
+const terminalEvent = (name, details = {}) => ({
+  emissionOrdinal: 1,
+  event: {
+    name,
+    details: {
+      script: { id: 'script:test/packed-terminal', version: 1 },
+      definitionDigest: 'sha256:${'0'.repeat(64)}',
+      attemptOrdinal: 1,
+      timestampMs: 0,
+      ...details,
+    },
+  },
+});
 
 const echoCatalogEntry = builtInScriptCatalog().find(
   ({ script }) => script.id === 'script:system/echo' && script.version === 1,
@@ -51,134 +66,147 @@ const echoScripts = createRevoScripts({
   definitions: [systemScripts()],
   providers: [],
   host: {
-    workspaces: { resolve: async () => { throw new Error('Echo resolves no workspace.'); } },
-    credentials: { resolve: async () => { throw new Error('Echo resolves no credential.'); } },
-    events: { emit: async () => undefined },
+    resources: { inspect: async () => undefined },
+    workspaces: {
+      inspect: async () => undefined,
+      acquire: async () => { throw new Error('Echo acquires no workspace.'); },
+    },
+    credentials: {
+      inspect: async () => undefined,
+      acquire: async () => { throw new Error('Echo acquires no credential.'); },
+    },
     clock: { now: () => 1_000, sleep: async () => undefined },
   },
 });
-assert.deepEqual(await echoScripts.execute({
-  executionId: 'packed-consumer-echo',
+const echoBinding = await echoScripts.prepareBinding({
   script: { id: 'script:system/echo', version: 1 },
+  resources: {},
+  credentials: {},
+}, { signal: new AbortController().signal });
+const echoAttempt = {
+  executionId: 'packed-consumer-echo',
+  attemptId: 'packed-consumer-echo:1',
+  attemptOrdinal: 1,
+  script: echoBinding.script,
+  binding: echoBinding,
   input: { message: 'packed consumer' },
-  bindings: { resources: {}, credentials: {} },
-}), {
-  ok: true,
-  value: { message: 'packed consumer' },
-  evidence: [],
-  attempts: 1,
+};
+const observedLiveEventNames = [];
+const echoResult = await echoScripts.executeAttempt(echoAttempt, {
+  signal: new AbortController().signal,
+  events: { emit: async (emission) => { observedLiveEventNames.push(emission.event.name); } },
 });
+assert.equal(echoResult.kind, 'succeeded');
+assert.deepEqual(echoResult.value, { message: 'packed consumer' });
+assert.deepEqual(echoResult.evidence, []);
+assert.equal(echoResult.terminalEvent.event.name, 'revo.script.succeeded');
+assert.equal(echoResult.terminalEvent.event.details.evidenceCount, 0);
+assert.deepEqual(observedLiveEventNames, ['revo.script.started']);
+assert.deepEqual(
+  await echoScripts.reconcileAttempt(echoAttempt, { signal: new AbortController().signal }),
+  { kind: 'terminal', result: echoResult },
+);
+assert.deepEqual(
+  await echoScripts.cancelAttempt(
+    { executionId: echoAttempt.executionId, attemptId: echoAttempt.attemptId },
+    { signal: new AbortController().signal },
+  ),
+  { kind: 'alreadyTerminal', result: echoResult },
+);
+assert.deepEqual(
+  await echoScripts.cancelAttempt(
+    { executionId: 'packed-consumer-unknown', attemptId: 'packed-consumer-unknown:1' },
+    { signal: new AbortController().signal },
+  ),
+  { kind: 'unknown' },
+);
+assert.deepEqual(
+  await echoScripts.reconcileAttempt(
+    {
+      ...echoAttempt,
+      executionId: 'packed-consumer-unknown',
+      attemptId: 'packed-consumer-unknown:1',
+    },
+    { signal: new AbortController().signal },
+  ),
+  { kind: 'unknown' },
+);
+assert.deepEqual(
+  echoScripts.listManifests().map(({ id, version }) => ({ id, version })),
+  [{ id: 'script:system/echo', version: 1 }],
+);
+assert.deepEqual(echoScripts.listProviderImplementations(), []);
 
-const headSha = '0123456789abcdef0123456789abcdef01234567';
-const treeSha = '89abcdef0123456789abcdef0123456789abcdef';
-const processRequests = [];
-const events = [];
-const scripts = createRevoScripts({
-  definitions: [gitScripts()],
-  providers: nodeGitProviders({
-    processExecutor: {
-      execute: async (request) => {
-        processRequests.push(request);
-        const operation = request.args.join(' ');
-        const stdout = operation === 'status --porcelain=v2 --branch -z'
-          ? '? untracked.txt\\0'
-          : operation === 'rev-parse HEAD'
-            ? \`\${headSha}\\n\`
-            : operation === 'write-tree'
-              ? \`\${treeSha}\\n\`
-              : '';
-        return {
-          exitCode: 0,
-          stdout,
-          stderr: '',
-        };
-      },
+for (const result of [
+  {
+    kind: 'succeeded',
+    value: { message: 'packed consumer' },
+    evidence: [],
+    terminalEvent: terminalEvent('revo.script.succeeded', { evidenceCount: 0 }),
+  },
+  {
+    kind: 'failed',
+    error: {
+      code: 'revo.script.provider.rejected',
+      message: 'Provider rejected the operation.',
+      retryable: false,
+      stage: 'provider',
+      details: null,
+      causes: [],
     },
-  }),
-  host: {
-    workspaces: {
-      resolve: async (workspaceId) => ({
-        workspaceId,
-        repositoryId: 'repository-123',
-        absolutePath: '/trusted/packed-consumer-worktree',
-      }),
+    evidence: [],
+    terminalEvent: terminalEvent('revo.script.failed', {
+      code: 'revo.script.provider.rejected', stage: 'provider', retryable: false,
+    }),
+  },
+  { kind: 'cancelled', evidence: [], terminalEvent: terminalEvent('revo.script.cancelled') },
+  {
+    kind: 'timedOut',
+    error: {
+      code: 'revo.script.timeout.wall_clock',
+      message: 'Script wall-clock deadline expired.',
+      retryable: false,
+      stage: 'timeout',
+      details: null,
+      causes: [],
     },
-    credentials: {
-      resolve: async () => {
-        throw new Error('Git status must not resolve credentials.');
-      },
-    },
-    events: {
-      emit: async (event) => {
-        events.push(event);
-      },
-    },
-    clock: {
-      now: () => 1_000,
-      sleep: async () => undefined,
+    evidence: [],
+    terminalEvent: terminalEvent('revo.script.timed_out', {
+      code: 'revo.script.timeout.wall_clock',
+    }),
+  },
+  { kind: 'uncertain', trigger: 'timeout', stage: 'handler', evidence: [] },
+]) {
+  assert.equal((await ScriptAttemptResultSchema.validate(result)).ok, true);
+}
+for (const result of [
+  { kind: 'acknowledged' },
+  {
+    kind: 'alreadyTerminal',
+    result: { kind: 'cancelled', evidence: [], terminalEvent: terminalEvent('revo.script.cancelled') },
+  },
+  { kind: 'uncertain', result: { kind: 'uncertain', trigger: 'timeout', stage: 'handler', evidence: [] } },
+  { kind: 'notFound' },
+  { kind: 'unknown' },
+]) {
+  assert.equal((await AttemptCancellationResultSchema.validate(result)).ok, true);
+}
+for (const result of [
+  {
+    kind: 'terminal',
+    result: {
+      kind: 'succeeded',
+      value: { message: 'packed consumer' },
+      evidence: [],
+      terminalEvent: terminalEvent('revo.script.succeeded', { evidenceCount: 0 }),
     },
   },
-});
-const result = await scripts.execute({
-  executionId: 'packed-consumer',
-  script: { id: 'script:git/status', version: 1 },
-  input: {
-    resource: 'repository',
-    baseCapture: \`git-commit:\${headSha}\`,
-    headCapture: \`git-tree:\${treeSha}\`,
-  },
-  bindings: {
-    resources: {
-      repository: {
-        resourceId: 'target',
-        kind: 'repository',
-        repositoryId: 'repository-123',
-        workspaceId: 'workspace-456',
-        access: 'read',
-        grant: {
-          permissions: ['git.status.read'],
-          effects: ['filesystem.read', 'git.read'],
-        },
-        providerCoordinates: {},
-      },
-    },
-    credentials: {},
-  },
-});
-
-assert.deepEqual(result, {
-  ok: true,
-  value: {
-    schemaVersion: 'workspace-change/v1',
-    baseCapture: \`git-commit:\${headSha}\`,
-    headCapture: \`git-tree:\${treeSha}\`,
-    changedPaths: [{ path: 'untracked.txt', status: 'untracked' }],
-    clean: false,
-  },
-  evidence: [],
-  attempts: 1,
-});
-assert.deepEqual(processRequests.map(({ command, args, cwd, maxOutputBytes }) => ({
-  command,
-  args,
-  cwd,
-  maxOutputBytes,
-})), [
-  ['status', '--porcelain=v2', '--branch', '-z'],
-  ['rev-parse', 'HEAD'],
-  ['read-tree', 'HEAD'],
-  ['add', '-A'],
-  ['write-tree'],
-].map((args) => ({
-  command: 'git',
-  args,
-  cwd: '/trusted/packed-consumer-worktree',
-  maxOutputBytes: 1_048_576,
-})));
-assert.deepEqual(events.map((event) => event.name), [
-  'revo.script.started',
-  'revo.script.succeeded',
-]);
+  { kind: 'uncertain', result: { kind: 'uncertain', trigger: 'timeout', stage: 'handler', evidence: [] } },
+  { kind: 'notFound' },
+  { kind: 'unknown' },
+]) {
+  assert.equal((await ScriptReconciliationResultSchema.validate(result)).ok, true);
+}
 
 await assert.rejects(
   import('@revisium/revo-scripts/dist/application/create-revo-scripts.js'),
@@ -193,9 +221,15 @@ import {
   gitScripts,
   systemScripts,
   type BuiltInScriptDescriptor,
-  type RevoScriptExecutionRequest,
+  type RevoScripts,
+  type ScriptAttemptResult,
 } from '@revisium/revo-scripts';
 import type { RevoScriptsHost } from '@revisium/revo-scripts/host';
+import type { GitCommitInput } from '@revisium/revo-scripts/git';
+import type {
+  GitHubPullRequestMergeInput,
+  GitHubPullRequestMergeResult,
+} from '@revisium/revo-scripts/github';
 import {
   nodeGitProviders,
   type ProcessExecutor,
@@ -208,12 +242,32 @@ import {
 
 declare const host: RevoScriptsHost;
 declare const processExecutor: ProcessExecutor;
+declare const gitCommitInput: GitCommitInput;
+declare const mergeInput: GitHubPullRequestMergeInput;
 
 const catalog: readonly BuiltInScriptDescriptor[] = builtInScriptCatalog();
 const echoInput: EchoInput = { message: 'type consumer' };
 const echoResult: EchoResult = echoInput;
+type MergeApprovalKind = GitHubPullRequestMergeInput['approvalSubject']['kind'];
+type MergeResultIssueAction = NonNullable<GitHubPullRequestMergeResult['issueRef']>['action'];
+// @ts-expect-error The packed merge input declaration rejects non-merge approval subjects.
+const invalidMergeApprovalKind: MergeApprovalKind = 'plan';
+// @ts-expect-error The packed merge result declaration cannot emit the input-only none action.
+const invalidMergeResultIssueAction: MergeResultIssueAction = 'none';
+// @ts-expect-error Packed Git commit declarations keep nested author fields readonly.
+gitCommitInput.author.name = 'Mutated author';
+// @ts-expect-error Packed Git commit declarations keep the nested author object readonly.
+gitCommitInput.author = { name: 'Mutated', email: 'mutated@example.com', timestamp: 'now' };
+// @ts-expect-error Packed merge declarations keep nested readiness arrays readonly.
+mergeInput.readiness.checks.push({ name: 'mutated', required: false, status: 'success' });
+// @ts-expect-error Packed merge declarations keep nested readiness objects readonly.
+mergeInput.readiness.completeness.checks = 'truncated';
 void catalog;
 void echoResult;
+void invalidMergeApprovalKind;
+void invalidMergeResultIssueAction;
+void gitCommitInput;
+void mergeInput;
 void systemEchoScript;
 void systemScripts();
 
@@ -222,31 +276,44 @@ const scripts = createRevoScripts({
   providers: nodeGitProviders({ processExecutor }),
   host,
 });
-const request: RevoScriptExecutionRequest = {
+const bindingInput = {
+  script: { id: 'script:git/status' as const, version: 1 },
+  resources: { repository: { resourceRef: 'resource:repository-123' } },
+  credentials: {},
+};
+declare const scriptsFacade: RevoScripts;
+const binding = await scriptsFacade.prepareBinding(bindingInput, { signal: new AbortController().signal });
+const request = {
   executionId: 'type-consumer',
-  script: { id: 'script:git/status', version: 1 },
+  attemptId: 'type-consumer:1',
+  attemptOrdinal: 1,
+  script: binding.script,
   input: {
     resource: 'repository',
     baseCapture: 'git-commit:0123456789abcdef0123456789abcdef01234567',
     headCapture: 'git-tree:89abcdef0123456789abcdef0123456789abcdef',
   },
-  bindings: {
-    resources: {
-      repository: {
-        resourceId: 'target',
-        kind: 'repository',
-        repositoryId: 'repository-123',
-        workspaceId: 'workspace-456',
-        access: 'read',
-        grant: { permissions: ['git.status.read'], effects: ['filesystem.read', 'git.read'] },
-        providerCoordinates: {},
-      },
-    },
-    credentials: {},
-  },
+  binding,
 };
-
-void scripts.execute(request);
+const attempt: Promise<ScriptAttemptResult> = scriptsFacade.executeAttempt(request, {
+  signal: new AbortController().signal,
+  events: { emit: async () => undefined },
+});
+const describeAttemptResult = (result: ScriptAttemptResult): string => {
+  switch (result.kind) {
+    case 'succeeded':
+    case 'failed':
+    case 'cancelled':
+    case 'timedOut':
+      return result.terminalEvent.event.name;
+    case 'uncertain':
+      return result.stage;
+  }
+};
+declare const resultForExhaustiveness: ScriptAttemptResult;
+void describeAttemptResult(resultForExhaustiveness);
+void scripts;
+void attempt;
 `;
 
 const consumerTsconfig = {

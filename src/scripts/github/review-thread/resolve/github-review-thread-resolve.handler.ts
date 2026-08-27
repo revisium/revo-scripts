@@ -4,7 +4,7 @@ import type {
   GitHubReviewThreadResolveInput,
   GitHubReviewThreadResolveResources,
   GitHubReviewThreadResolveResult,
-} from './types.js';
+} from './schemas.js';
 
 export class GitHubReviewThreadResolveHandler implements ScriptHandler<
   GitHubReviewThreadResolveInput,
@@ -15,12 +15,6 @@ export class GitHubReviewThreadResolveHandler implements ScriptHandler<
     input: Readonly<GitHubReviewThreadResolveInput>,
     context: Readonly<ScriptContext<GitHubReviewThreadResolveResources>>,
   ): Promise<{ readonly value: GitHubReviewThreadResolveResult }> {
-    if (context.idempotencyKey === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.key_required',
-        'Script execution requires an idempotency key.',
-      );
-    }
     const proof = input.responses.pullRequest;
     if (
       proof.owner !== input.pullRequest.owner ||

@@ -5,12 +5,10 @@ import { githubReviewThreadRespondManifest } from './manifest.js';
 import {
   githubReviewThreadRespondInputSchema,
   githubReviewThreadRespondResultSchema,
+  type GitHubReviewThreadRespondInput,
+  type GitHubReviewThreadRespondResources,
+  type GitHubReviewThreadRespondResult,
 } from './schemas.js';
-import type {
-  GitHubReviewThreadRespondInput,
-  GitHubReviewThreadRespondResources,
-  GitHubReviewThreadRespondResult,
-} from './types.js';
 
 export const githubReviewThreadRespondScript = defineScript<
   GitHubReviewThreadRespondInput,
@@ -20,6 +18,6 @@ export const githubReviewThreadRespondScript = defineScript<
   manifest: githubReviewThreadRespondManifest,
   inputSchema: githubReviewThreadRespondInputSchema,
   resultSchema: githubReviewThreadRespondResultSchema,
-  implementation: builtInImplementation('script:github/review-threads/respond', '1.0.0'),
+  implementation: builtInImplementation(githubReviewThreadRespondManifest.id, '1.0.0'),
   handler: new GitHubReviewThreadRespondHandler(),
 });

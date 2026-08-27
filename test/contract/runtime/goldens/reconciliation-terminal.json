@@ -1,0 +1,21 @@
+{
+  "kind": "terminal",
+  "result": {
+    "kind": "succeeded",
+    "value": { "echoed": "golden" },
+    "evidence": [],
+    "terminalEvent": {
+      "emissionOrdinal": 2,
+      "event": {
+        "name": "revo.script.succeeded",
+        "details": {
+          "script": { "id": "script:test/uncertain-goldens", "version": 1 },
+          "definitionDigest": "sha256:04a8f7f38d318929dfd365d2f5176622c8b72418e5b1703c6859b9e20393f935",
+          "attemptOrdinal": 1,
+          "timestampMs": 123,
+          "evidenceCount": 0
+        }
+      }
+    }
+  }
+}

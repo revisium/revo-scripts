@@ -1,6 +1,6 @@
 import type { ScriptContext, ScriptHandler } from '../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../runtime/spec/errors/index.js';
-import type { GitCommitInput, GitCommitResources, GitCommitResult } from './types.js';
+import type { GitCommitInput, GitCommitResources, GitCommitResult } from './schemas.js';
 
 export class GitCommitHandler implements ScriptHandler<
   GitCommitInput,
@@ -11,13 +11,6 @@ export class GitCommitHandler implements ScriptHandler<
     input: Readonly<GitCommitInput>,
     context: Readonly<ScriptContext<GitCommitResources>>,
   ): Promise<{ readonly value: GitCommitResult }> {
-    if (context.idempotencyKey === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.key_required',
-        'Script execution requires an idempotency key.',
-      );
-    }
-
     if (input.resource !== context.resources.repository.name) {
       throw new ScriptFault(
         'revo.script.idempotency.conflict',
@@ -30,7 +23,7 @@ export class GitCommitHandler implements ScriptHandler<
       expectedParent: input.expectedParent,
       expectedTree: input.expectedTree,
       message: this.message(input),
-      operationKey: context.idempotencyKey,
+      operationKey: context.executionId,
       author: input.author,
       signal: context.signal,
     });

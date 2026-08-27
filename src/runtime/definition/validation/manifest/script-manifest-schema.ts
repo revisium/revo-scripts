@@ -34,7 +34,7 @@ export const scriptManifestSchema: z.ZodType<ScriptManifestV1> = z.strictObject(
     256,
     'Result schema id must contain at most 256 Unicode code points.',
   ),
-  effectClass: z.enum(['pure', 'read', 'write', 'publish', 'admin']),
+  impactClass: z.enum(['pure', 'read', 'write', 'publish', 'admin']),
   permissions: z
     .array(
       boundedString(256, 'Permission id must contain at most 256 Unicode code points.').regex(
@@ -97,7 +97,7 @@ export const scriptManifestSchema: z.ZodType<ScriptManifestV1> = z.strictObject(
       }),
     )
     .max(16, 'A manifest may declare at most 16 credentials.'),
-  effects: z
+  operations: z
     .array(
       z.enum([
         'filesystem.read',
@@ -109,7 +109,7 @@ export const scriptManifestSchema: z.ZodType<ScriptManifestV1> = z.strictObject(
         'github.write',
       ]),
     )
-    .max(64, 'A manifest may declare at most 64 effects.'),
+    .max(64, 'A manifest may declare at most 64 operations.'),
   timeout: z.strictObject({
     wallClockMs: z
       .number()

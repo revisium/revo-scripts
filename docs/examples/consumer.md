@@ -1,89 +1,48 @@
-# Expanded consumer example
+# Consumer example
 
-This document keeps the larger integration details out of the root README. It is illustrative but uses the public
-facade and the same request/result contracts as production consumers.
-
-## Host bindings
-
-The host resolves opaque resource and credential aliases only after the package validates the selected manifest. A
-repository binding grants a bounded access level and provider effects; a credential binding names an alias and provider.
-The resolved absolute path and token remain private to the package-owned adapter.
+The consumer supplies opaque profile assignments and trusted host resolvers. It
+does not build provider clients, read a secret, schedule retries, or select a
+script implementation.
 
 ```ts
 const scripts = createRevoScripts({
-  workspaces: workspaceResolver,
-  credentials: credentialResolver,
-  events: eventSink,
-  clock,
+  host: { resources, workspaces, credentials, clock },
 });
 
-const result = await scripts.execute({
-  executionId: 'run-42:readiness:1',
-  idempotencyKey: 'run-42:readiness',
-  script: {
-    id: 'script:github/pull-request/readiness',
-    version: 1,
-  },
-  input: {
-    schemaVersion: 'github-pull-request/v1',
-    repositoryId: 'repository-123',
-    owner: 'revisium',
-    repository: 'revo-scripts',
-    number: 42,
-    pullRequestId: 'PR_kwDOExample',
-    url: 'https://github.com/revisium/revo-scripts/pull/42',
-    head: {
-      branch: 'feat/integer-script-version',
-      sha: '0123456789abcdef0123456789abcdef01234567',
-    },
-    base: { branch: 'master' },
-    providerRevision: `github-pr-metadata/v1:sha256:${'a'.repeat(64)}`,
-    state: 'open',
-    draft: false,
-  },
-  bindings: {
+const binding = await scripts.prepareBinding(
+  {
+    script: { id: 'script:git/status', version: 1 },
     resources: {
       repository: {
-        resourceId: 'target',
-        kind: 'repository',
-        repositoryId: 'repository-123',
-        access: 'read',
-        grant: { permissions: ['github.pull-request.readiness'], effects: ['github.read'] },
-        providerCoordinates: { github: { owner: 'revisium', repository: 'revo-scripts' } },
+        resourceRef: 'resource:repository-123',
+        workspaceRef: 'workspace:456',
       },
     },
-    credentials: { token: { alias: 'github-read-account', provider: 'github' } },
+    credentials: {},
   },
-  signal: new AbortController().signal,
-});
+  { signal },
+);
+
+const result = await scripts.executeAttempt(
+  {
+    executionId: 'run-42:status',
+    attemptId: 'run-42:status:1',
+    attemptOrdinal: 1,
+    script: binding.script,
+    binding,
+    input: statusInput,
+  },
+  { signal, events: attemptEventSink },
+);
 ```
 
-The positive integer revision is exact. The package resolves the immutable definition and its sole provider
-implementation for each manifest contract; consumers do not compile plans, pass definition digests, or select
-provider implementations.
+The prepared binding is the durable admission snapshot. `executeAttempt` makes
+one physical call and returns a structured outcome. On a retryable failure, the
+consumer uses the returned policy and result to decide whether to persist and
+start a new attempt with the same `executionId` and a new `attemptId`.
 
-## Operations and results
-
-Git status returns bounded commit/tree captures and changed paths. Git commit and push use exact parent/head fences
-and return a typed `git-change/v1` result. GitHub pull-request upsert, mark-ready, readiness, review-thread reply or
-resolution, and merge each have their own input/result schema and stale-state policy. Merge additionally requires an
-exact post-gate readiness artifact and returns a merge receipt.
-
-Every result is either `{ ok: true, value, evidence, attempts }` or `{ ok: false, error, attempts }`. The package never
-adds pipeline ids, node cursors, workspace paths, tokens, or artifact storage identities to a domain result.
-
-## Failures and recovery
-
-Consumers handle stable namespaced failure codes and decide whether a pipeline should stop, request a human decision,
-or schedule another node attempt. The script itself never advances a pipeline cursor or opens a human gate. Typed
-idempotency contracts let the central runtime reconcile a replay without duplicating a provider effect.
-
-## Approval subjects, artifacts, and events
-
-`script:approval/subject` builds a bounded approval payload; the host owns the actual human gate. Provider results and
-evidence can be persisted by the host in its artifact envelope, but artifact storage is not owned by this package.
-Lifecycle and custom events are emitted through the injected `EventSink`; secrets, tokens, paths, and raw provider
-payloads are redacted before they leave package-owned boundaries.
-
-For exact schemas, permissions, provider requirements, redaction rules, and recovery behavior, use the [runtime v1
-specification](../specs/script-runtime-v1.spec.md) and the README card beside each script/provider implementation.
+`attemptEventSink` is scoped to the physical attempt. It receives redacted,
+bounded `revo.script.started` and declared custom events in one ordinal
+sequence. A proven terminal result includes `terminalEvent`; the consumer
+persists and publishes the terminal result/event pair atomically instead of
+expecting a terminal event from this sink.

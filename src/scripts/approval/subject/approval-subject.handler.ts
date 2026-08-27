@@ -3,7 +3,7 @@ import type {
   ApprovalSubjectInput,
   ApprovalSubjectResources,
   ApprovalSubjectResult,
-} from './types.js';
+} from './schemas.js';
 
 export class ApprovalSubjectHandler implements ScriptHandler<
   ApprovalSubjectInput,

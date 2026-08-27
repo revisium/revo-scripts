@@ -86,17 +86,22 @@ The runtime foundation requires tests for:
 
 - closed manifest validation and stable diagnostics;
 - input and result schema validation;
-- effect, permission, resource, retry, and idempotency coherence;
+- impact class, operation, permission, resource, retry, and idempotency coherence;
 - deterministic definition digest generation;
-- build-generated definition identity freshness and digest participation;
+- build-generated definition identity plus generator-maintained provider implementation pin freshness, digest
+  participation, and closure isolation;
+- equality of canonical manifests and definition digests for omitted versus explicit empty authoring policies;
+- rejection of `null` and present malformed authoring policies before redaction or event intent can be weakened;
 - duplicate registration, sealing, exact lookup, and missing-definition failures;
 - coexistence and exact lookup of two immutable integer revisions of one script id;
 - readonly handler input and one-handler invocation per attempt;
+- required-write preflight with zero attempts and a type-refined required idempotency key at handler entry;
 - wall-clock timeout and abort propagation;
 - a never-settling handler or event sink remains bounded by the platform wall-clock deadline;
 - bounded retry of typed transient failures only;
 - structured conversion of unknown failures;
-- lifecycle and custom event allowlists;
+- live started/custom event allowlists, sealed terminal-event/result coupling,
+  and absence of terminal names from the live sink;
 - redaction before events or failures leave the runtime;
 - input, result, event, error, and evidence payload bounds.
 
@@ -113,23 +118,21 @@ Every built-in script has contract tests proving:
 
 - its manifest and schemas are valid and closed;
 - documented examples validate against the same schemas;
-- declared permissions, resources, provider contracts, effects, timeout, retry, idempotency, events, and redaction
+- declared permissions, resources, provider contracts, operations, timeout, retry, idempotency, events, and redaction
   match observed use;
-- prepared resource, permission, and effect grants satisfy the manifest before handler invocation;
-- missing provider clients fail before the handler performs an effect;
+- prepared resource, permission, and operation grants satisfy the manifest before handler invocation;
+- missing provider clients fail before the handler performs an operation;
 - success returns the documented bounded result;
 - provider failures map to stable namespaced errors without leaking secrets;
-- undeclared events and insufficient prepared effect grants are rejected;
+- undeclared events and insufficient prepared operation grants are rejected;
 - read-only operations perform no mutation;
 - mutation operations reject stale preconditions;
-- operations with required idempotency reconcile a replay and a crash-after-effect window without duplicating an
-  external effect.
+- operations with durable host recovery preserve an uncertain crash window without blindly duplicating external work.
 
 Git commit, Git push, GitHub pull-request, review-thread, and merge suites make the mutation requirements executable.
-They prove stale precondition rejection, exact-head behavior, replay reconciliation, and no duplicate external effect.
-`verifyRequiredIdempotencyContracts` derives required writes from the registry. Each scenario executes the whole
-operation twice with one key, discards the first host result after the effect, asserts the typed adopted result, and
-counts exactly one provider mutation.
+They prove stale precondition rejection, exact-head behavior, replay reconciliation, and no duplicate external write.
+The durable host owns replay and retry scheduling. Package contracts prove one physical attempt, returned retryability,
+and explicit `unknown` reconciliation rather than claiming a reconstructed provider outcome.
 
 ## Git status proof
 
@@ -153,7 +156,7 @@ timeout, and redaction partitions.
 
 Every package-owned provider requires tests proving:
 
-- unknown definition id/revision and invalid input, binding, access, permission, or effect grants resolve no privileged
+- unknown definition id/revision and invalid input, binding, access, permission, or operation grants resolve no privileged
   host value;
 - only manifest-declared workspace and credential bindings are resolved;
 - every provider client is attached only to the resource named by its manifest requirement;
@@ -169,12 +172,18 @@ Every package-owned provider requires tests proving:
 - Fetch readiness observes branch protection plus the credential-scoped applied repository and organization rulesets,
   preserving complete, unavailable, and truncated required-check identity evidence;
 - provider contract majors are selected solely by manifest requirements;
+- every supported permission partition constructs only its operation-specific bounded client, while zero, multiple,
+  unsupported, and unrelated-only partitions keep the stable capability fault;
+- the generator-maintained provider implementation pin covers the provider class's emitted transitive closure, keeps
+  its private family factory outside that closure, fails on missing, duplicate, or malformed named pins, remains
+  idempotent across repeated generation, does not mutate source in check mode, and changes independently of other
+  adapters and definitions;
 - startup rejects a second registered implementation for the same provider contract;
-- provider selection never introduces implicit latest selection or fallback.
+- provider selection uses the exact manifest contract and never chooses an implementation implicitly.
 
 The consumer compatibility suite requires at least two arbitrary definitions in one provider family and proves that:
 
-- both execute through the same `createRevoScripts().execute(...)` path;
+- both execute through the same prepare-then-one-attempt facade;
 - the application layer, host services, and provider registry contain no concrete script-id branch;
 - adding the second definition requires no per-operation host capability or registration call;
 - adding a new script under an existing provider contract requires no consumer executor change;

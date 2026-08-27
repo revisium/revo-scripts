@@ -1,6 +1,6 @@
 import type { ScriptContext, ScriptHandler } from '../../../runtime/spec/definition/index.js';
 import { ScriptFault } from '../../../runtime/spec/errors/index.js';
-import type { GitPushInput, GitPushResources, GitPushResult } from './types.js';
+import type { GitPushInput, GitPushResources, GitPushResult } from './schemas.js';
 
 export class GitPushHandler implements ScriptHandler<
   GitPushInput,
@@ -11,18 +11,11 @@ export class GitPushHandler implements ScriptHandler<
     input: Readonly<GitPushInput>,
     context: Readonly<ScriptContext<GitPushResources>>,
   ): Promise<{ readonly value: GitPushResult }> {
-    if (context.idempotencyKey === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.key_required',
-        'Script execution requires an idempotency key.',
-      );
-    }
-
     const request = {
       remoteIdentity: input.change.remoteIdentity,
       branch: input.change.branch,
       headCommit: input.change.headCommit,
-      operationKey: context.idempotencyKey,
+      operationKey: context.executionId,
       signal: context.signal,
     };
     const published = await context.resources.repository.clients.git.push(

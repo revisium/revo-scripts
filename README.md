@@ -17,7 +17,7 @@
 ## About
 
 `@revisium/revo-scripts` defines and executes one bounded operation. It owns versioned script definitions, schema
-validation, provider adapters, permissions and effects, timeout and retry policy, idempotency, event redaction, and
+validation, provider adapters, permissions and operations, timeout and retry policy, idempotency, event redaction, and
 structured results. The current built-ins cover system echo, Git, GitHub pull requests, review threads, merge, and
 approval subject operations.
 
@@ -36,66 +36,93 @@ supplies only its host ports.
 import { createRevoScripts } from '@revisium/revo-scripts';
 
 const scripts = createRevoScripts({
-  workspaces: workspaceResolver,
-  credentials: credentialResolver,
-  events: eventSink,
-  clock,
+  host: {
+    resources: resourceResolver,
+    workspaces: workspaceResolver,
+    credentials: credentialResolver,
+    clock,
+  },
 });
 
-const result = await scripts.execute({
-  executionId: 'run-123:git-status:1',
-  idempotencyKey: 'run-123:git-status',
-  script: {
-    id: 'script:git/status',
-    version: 1,
-  },
-  input: {
-    resource: 'repository',
-    baseCapture: `git-commit:${'0'.repeat(40)}`,
-    headCapture: `git-tree:${'1'.repeat(40)}`,
-  },
-  bindings: {
+const binding = await scripts.prepareBinding(
+  {
+    script: {
+      id: 'script:git/status',
+      version: 1,
+    },
     resources: {
-      repository: {
-        resourceId: 'target',
-        kind: 'repository',
-        repositoryId: 'repository-123',
-        workspaceId: 'workspace-456',
-        access: 'read',
-        grant: { permissions: ['git.status.read'], effects: ['filesystem.read', 'git.read'] },
-        providerCoordinates: {},
-      },
+      repository: { resourceRef: 'resource:repository-123', workspaceRef: 'workspace:456' },
     },
     credentials: {},
   },
-  signal: new AbortController().signal,
-});
+  { signal },
+);
 
-if (result.ok) {
+const result = await scripts.executeAttempt(
+  {
+    executionId: 'run-123:git-status',
+    attemptId: 'run-123:git-status:1',
+    attemptOrdinal: 1,
+    script: binding.script,
+    binding,
+    input: {
+      resource: 'repository',
+      baseCapture: `git-commit:${'0'.repeat(40)}`,
+      headCapture: `git-tree:${'1'.repeat(40)}`,
+    },
+  },
+  { signal, events: attemptEventSink },
+);
+
+if (result.kind === 'succeeded') {
   consumeStatus(result.value);
-} else {
+} else if (result.kind === 'failed' || result.kind === 'timedOut') {
   reportFailure(result.error.code, result.error.message);
+} else if (result.kind === 'uncertain') {
+  persistUncertainAttempt(result);
+}
+
+if (result.kind !== 'uncertain') {
+  // Persist the proven outcome and this event in one durable transaction.
+  persistTerminalAttempt({ result, terminalEvent: result.terminalEvent });
 }
 ```
 
-`RevoScriptExecutionRequest` and the exact binding rules are defined in the [runtime specification](docs/specs/script-runtime-v1.spec.md).
+`ScriptBindingInput`, `PreparedScriptBinding`, and `ScriptAttemptInput` are defined in the [runtime specification](docs/specs/script-runtime-v1.spec.md).
 The consumer passes data and grants; it does not construct a Git client, choose a provider implementation, or branch on
 `script:git/status`.
 
-For mutation operations, the input includes the relevant stale-state fence and idempotency key. The central pipeline
+For mutation operations, the input includes the relevant stale-state fence. The central pipeline
 may decide what to do after the returned result, but the script performs only its one bounded operation.
+
+An `uncertain` result is deliberately not terminal. It means the package could not prove that the physical attempt
+stopped within the fixed grace period, so the host preserves the exact identity and later calls `reconcileAttempt`
+instead of starting a duplicate. `cancelAttempt` and `reconcileAttempt` return a terminal outcome only when it is
+known; otherwise they return the current `uncertain` observation or conservative `unknown`.
+
+`attemptEventSink` receives live `revo.script.started` and declared custom
+events only. A terminal result instead carries its final `terminalEvent`; the
+consumer must persist and publish that result/event pair atomically. A late
+`reconcileAttempt` terminal result carries the same sealed event and never
+publishes it through the old live sink.
 
 ## Data-driven scripts
 
 - Scripts use positive integer revisions. Each exact `(id, revision)` is immutable.
-- A definition contains a manifest, input/result schemas, permissions/effects, and provider requirements.
+- A definition contains a manifest, input/result schemas, permissions/operations, and provider requirements.
 - The pipeline selects an exact script id/version and passes input, bindings, and grants.
 - The consumer uses one generic executor for every script; it has no per-script executor or dispatch branch.
 - Provider contracts, adapters, validation, retries, redaction, and execution belong to this npm package.
 - A new script on an existing provider family requires a package change, package release, and new exact script reference,
   but not a generic consumer executor change.
 - A new provider contract, transport, or privileged behavior requires package implementation and a new release.
-- Automatic filesystem/plugin discovery is not part of the contract.
+- The installed built-in inventory is explicit and does not depend on filesystem scanning.
+
+Built-in public Input/Result aliases are deeply readonly projections of the same runtime schemas used for validation;
+they are not separately maintained shape copies. `defineScript` accepts an authoring manifest that may omit empty
+`redaction` and `events` policies, then exposes a complete canonical `ScriptManifestV1` with those empty collections
+present. Handlers receive one `executionId`: it is the stable operation and idempotency identity. The durable host
+creates an `attemptId` for each physical attempt and decides whether a retry is appropriate.
 
 ## Built-ins and discovery
 
@@ -117,6 +144,8 @@ The complete installed built-in set is:
 new frozen array of frozen descriptor snapshots; its script identity and implementation provenance objects are also
 frozen. Each descriptor contains the exact script id/version plus the implementation id, implementation SemVer, and a
 `sha256:` build digest generated from the compiled JavaScript dependency closure of that built-in definition.
+The family modules and catalog derive from one explicit package-owned inventory; discovery never scans the filesystem
+or imports additional modules for side operations.
 
 Use `systemScripts()` to register the system family explicitly. The `@revisium/revo-scripts/system` entrypoint exports
 `systemEchoScript` and its `EchoInput`, `EchoResult`, and `EchoResources` types.
@@ -138,13 +167,28 @@ export interface BuiltInScriptDescriptor {
 }
 
 export interface RevoScripts {
-  execute(request: RevoScriptExecutionRequest): Promise<ScriptExecutionResult<unknown>>;
+  prepareBinding(
+    input: ScriptBindingInput,
+    context: AttemptContext,
+  ): Promise<PreparedScriptBinding>;
+  executeAttempt(
+    input: ScriptAttemptInput,
+    context: ScriptAttemptExecutionContext,
+  ): Promise<ScriptAttemptResult>;
+  cancelAttempt(
+    input: ScriptAttemptRef,
+    context: AttemptContext,
+  ): Promise<AttemptCancellationResult>;
+  reconcileAttempt(
+    input: ScriptAttemptInput,
+    context: AttemptContext,
+  ): Promise<ScriptReconciliationResult>;
   listManifests(): readonly ScriptManifestV1[];
   listProviderImplementations(): readonly ScriptProviderDescriptor[];
 }
 ```
 
-`RevoScriptsOptions`, `RevoScriptExecutionRequest`, `ScriptExecutionResult`, manifests, and provider
+`RevoScriptsOptions`, attempt contracts, manifests, and provider
 descriptors are public typed contracts. Their exact fields and invariants live in the [runtime specification](docs/specs/script-runtime-v1.spec.md)
 and the corresponding [source contracts](src/application/contracts/). The root entrypoint also curates the low-level
 definition, registry, and execution contracts; `package.json` is authoritative for every public subpath.
@@ -155,20 +199,24 @@ definition, registry, and execution contracts; `package.json` is authoritative f
 pipeline exact id/version + input + grants
                     |
                     v
-createRevoScripts().execute(request)
-  -> exact definition/provider validation
-  -> host binding resolution
+createRevoScripts().prepareBinding(input)
+  -> exact definition/provider and host metadata validation
+  -> portable prepared binding snapshot
+createRevoScripts().executeAttempt(input)
+  -> JIT host handle acquisition
   -> bounded provider client
   -> one handler operation
   -> typed result or structured failure
+createRevoScripts().cancelAttempt(ref) / reconcileAttempt(input)
+  -> known terminal result, current uncertainty, or conservative unknown
 ```
 
-The package does not own pipeline cursors, retries across pipeline nodes, human gates, workspace allocation, credential
+The package does not own pipeline cursors, retry scheduling across pipeline nodes, human gates, workspace allocation, credential
 policy, DBOS, Prisma, NestJS, or artifact persistence. Handlers receive only bounded typed provider clients and never
 receive raw paths, tokens, process executors, generic HTTP clients, or mutable global logging.
 
 Script revisions are not SemVer. The consumer supplies one positive exact integer; the package performs no range,
-`latest`, tag, SemVer parsing, or fallback lookup. Any observable definition change requires a larger revision while
+`latest`, tag, or SemVer lookup. Any observable definition change requires a larger revision while
 the npm package and implementation provenance continue to use separately named SemVer versions.
 
 ## Documentation

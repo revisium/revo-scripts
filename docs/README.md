@@ -18,6 +18,12 @@ artifact, approval, and event examples that are intentionally omitted from the r
   owns a public script SDK, one-script runtime, bounded built-ins, and their production provider adapters while keeping
   runtime, host ports, application composition, provider infrastructure, and concrete scripts in separate ownership
   areas.
+- [ADR-0002: One attempt and durable-host boundary](./adr/0002-one-attempt-durable-host-boundary.md) defines the
+  prepare/attempt/cancel/reconcile cutover and durable retry ownership.
+- [ADR-0003: Uncertain-attempt supervision](./adr/0003-uncertain-attempt-supervision.md) defines the fixed grace,
+  bounded local state, duplicate identity rule, late reconciliation, and no-event uncertain outcome.
+- [ADR-0004: Terminal events are sealed results](./adr/0004-terminal-events-are-sealed-results.md) defines the
+  atomic terminal result/event handoff to the durable host and keeps terminal names out of the live event sink.
 - [Script runtime v1](./specs/script-runtime-v1.spec.md) defines the exact target manifest, definition, registry,
   consumer facade, host binding, internal provider selection, execution, integer revision, error, event, and extension
   contracts.

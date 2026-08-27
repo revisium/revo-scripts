@@ -4,7 +4,7 @@ import type {
   GitHubPullRequestReadinessInput,
   GitHubPullRequestReadinessResources,
   GitHubPullRequestReadinessResult,
-} from './types.js';
+} from './schemas.js';
 
 export class GitHubPullRequestReadinessHandler implements ScriptHandler<
   GitHubPullRequestReadinessInput,

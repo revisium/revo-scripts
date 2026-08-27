@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
+import type { GitStatusClient } from '../../../providers/git/contracts/git-status-client.js';
 import { createScriptSchema } from '../../../runtime/definition/schema/create-script-schema.js';
+import type { ScriptResourceHandle } from '../../../runtime/spec/resources/index.js';
+import type { ScriptSchemaOutput } from '../../../runtime/spec/schema/index.js';
 
 const objectId = '[0-9a-f]{40}|[0-9a-f]{64}';
 
@@ -30,3 +33,10 @@ export const gitStatusResultSchema = createScriptSchema({
   }),
   jsonSchema: 'output',
 });
+
+/** The captures are re-observed before this snapshot is returned. */
+export type GitStatusInput = ScriptSchemaOutput<typeof gitStatusInputSchema>;
+export type GitStatusResult = ScriptSchemaOutput<typeof gitStatusResultSchema>;
+export type GitStatusResources = Readonly<{
+  repository: ScriptResourceHandle<Readonly<{ git: GitStatusClient }>>;
+}>;

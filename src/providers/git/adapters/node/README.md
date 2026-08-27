@@ -1,14 +1,14 @@
 # Node Git provider
 
-| Field          | Value                                                          |
-| -------------- | -------------------------------------------------------------- |
-| Provider id    | `provider:git/node`                                            |
-| Contract       | `revo.provider.git/v1`                                         |
-| Owned effects  | `filesystem.read`, `git.read`, `git.write`, `git.remote-write` |
-| Workspace      | required                                                       |
-| Credentials    | none                                                           |
-| Public factory | `nodeGitProviders`                                             |
-| Selection      | sole `revo.provider.git/v1` implementation                     |
+| Field            | Value                                                          |
+| ---------------- | -------------------------------------------------------------- |
+| Provider id      | `provider:git/node`                                            |
+| Contract         | `revo.provider.git/v1`                                         |
+| Owned operations | `filesystem.read`, `git.read`, `git.write`, `git.remote-write` |
+| Workspace        | required                                                       |
+| Credentials      | none                                                           |
+| Public factory   | `nodeGitProviders`                                             |
+| Selection        | sole `revo.provider.git/v1` implementation                     |
 
 ## Responsibility
 
@@ -29,9 +29,16 @@ index tree capture; commit uses `commit-tree` and compare-and-swap `update-ref`;
 and never rewrites history. Commit authorship and timestamp come from validated script input rather than mutable Git
 configuration, making the object identity reproducible after a crash.
 
+The private `nodeGitProviders` family factory owns the ordinary-source implementation digest pin and injects it into
+the internal provider constructor. `build:identity:generate` hashes the provider class's emitted transitive closure
+with deterministic path/length framing, then replaces exactly that named factory pin. The factory and pin are outside
+the hashed closure, so the digest does not hash itself. `build:identity:check` recomputes and compares without writing;
+tests prove Git changes do not alter the Fetch GitHub identity.
+
 ## Verification
 
 - Adapter behavior: `test/unit/providers/`
+- Identity freshness and adapter isolation: `test/contract/runtime/build-digest-check.test.ts`
 - Real local Git contracts: `test/integration/providers/node-git-provider.test.ts` and
   `test/integration/providers/node-git-mutations.test.ts`
 - Full repository gate: `pnpm verify`

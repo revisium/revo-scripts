@@ -4,7 +4,7 @@ import type {
   GitHubReviewThreadRespondInput,
   GitHubReviewThreadRespondResources,
   GitHubReviewThreadRespondResult,
-} from './types.js';
+} from './schemas.js';
 
 export class GitHubReviewThreadRespondHandler implements ScriptHandler<
   GitHubReviewThreadRespondInput,
@@ -15,13 +15,7 @@ export class GitHubReviewThreadRespondHandler implements ScriptHandler<
     input: Readonly<GitHubReviewThreadRespondInput>,
     context: Readonly<ScriptContext<GitHubReviewThreadRespondResources>>,
   ): Promise<{ readonly value: GitHubReviewThreadRespondResult }> {
-    if (context.idempotencyKey === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.key_required',
-        'Script execution requires an idempotency key.',
-      );
-    }
-    const operationKey = context.idempotencyKey;
+    const operationKey = context.executionId;
     const selected = input.triage.items.map((item) => this.selection(input, item));
     const pullRequest = toProof(input);
     if (selected.length === 0) {

@@ -52,7 +52,7 @@ export const validateCollectionPolicy = (
     '/permissions',
     'Permission identifiers must be unique.',
   ),
-  ...findDuplicateIssues(manifest.effects, '/effects', 'Effects must be unique.'),
+  ...findDuplicateIssues(manifest.operations, '/operations', 'Operations must be unique.'),
   ...findDuplicateIssues(
     manifest.resources.map((resource) => resource.name),
     '/resources',

@@ -83,7 +83,7 @@ current-versus-target source-of-truth rules in `REPOSITORY.md` instead of inferr
 
 - Public entrypoints are declared explicitly in `package.json`; filesystem layout alone never makes a module public.
 - Public TypeScript changes require runtime tests where behavior exists, type-surface coverage, declaration validation, export validation, and updated README examples.
-- Keep ESM-only behavior intentional. Do not add CommonJS compatibility, root barrels, fallback exports, or duplicate entrypoints without an approved compatibility requirement.
+- Keep ESM-only behavior intentional. Do not add CommonJS compatibility, root barrels, alternate exports, or duplicate entrypoints without an approved compatibility requirement.
 - Runtime dependencies require a demonstrated package responsibility and dependency-DAG review.
 - Do not publish from a local machine or add publishing credentials to repository files.
 

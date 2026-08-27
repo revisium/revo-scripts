@@ -9,6 +9,6 @@ credential; only the adapter sees its secret. Each execution receives one operat
 manifest permission, never from a concrete script id.
 
 The package registers exactly one implementation for `revo.provider.github/v1`. A duplicate contract registration
-fails startup, and execution selects it from the manifest contract without consumer pins or fallback.
+fails startup, and execution selects it from the manifest contract without consumer pins.
 
 Verification: `test/contract/github/`, `test/integration/providers/fetch-github-*.test.ts`, and `pnpm verify`.

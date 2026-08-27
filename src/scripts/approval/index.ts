@@ -9,4 +9,4 @@ export type {
   ApprovalEvidenceReference,
   ApprovalSubjectInput,
   ApprovalSubjectResult,
-} from './subject/types.js';
+} from './subject/schemas.js';

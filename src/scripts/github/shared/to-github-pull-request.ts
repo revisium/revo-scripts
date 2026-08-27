@@ -1,5 +1,5 @@
 import type { GitHubPullRequestSnapshot } from '../../../providers/github/index.js';
-import type { GitHubPullRequestV1 } from './types.js';
+import type { GitHubPullRequestV1 } from './schemas.js';
 
 export const toGitHubPullRequest = (
   repositoryId: string,

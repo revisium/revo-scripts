@@ -5,7 +5,7 @@ import type {
   GitHubPullRequestUpsertInput,
   GitHubPullRequestUpsertResources,
   GitHubPullRequestUpsertResult,
-} from './types.js';
+} from './schemas.js';
 
 export class GitHubPullRequestUpsertHandler implements ScriptHandler<
   GitHubPullRequestUpsertInput,
@@ -16,12 +16,6 @@ export class GitHubPullRequestUpsertHandler implements ScriptHandler<
     input: Readonly<GitHubPullRequestUpsertInput>,
     context: Readonly<ScriptContext<GitHubPullRequestUpsertResources>>,
   ): Promise<{ readonly value: GitHubPullRequestUpsertResult }> {
-    if (context.idempotencyKey === undefined) {
-      throw new ScriptFault(
-        'revo.script.idempotency.key_required',
-        'Script execution requires an idempotency key.',
-      );
-    }
     const body = this.body(input);
     const request = {
       head: input.head,
@@ -29,7 +23,7 @@ export class GitHubPullRequestUpsertHandler implements ScriptHandler<
       title: input.title,
       body,
       draft: input.draft,
-      operationKey: context.idempotencyKey,
+      operationKey: context.executionId,
       marker: {
         headSha: input.head.sha,
         title: input.title,

@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 
 import type { GitHubReviewThreadRespondClient } from '../../../src/providers/github/index.js';
 import { githubReviewThreadRespondScript } from '../../../src/scripts/github/index.js';
-import { createScriptContractHarness } from '../../../src/testing/index.js';
+import { createGitHubScriptContractHarness } from '../../support/github/github-contract-fixture.js';
 import { githubResource, pullRequest } from '../../support/github/github-contract-fixture.js';
 import {
   githubReviewThreadMarker,
@@ -30,13 +30,12 @@ test('responds to a selected batch in triage order and returns only provider pro
         };
       }),
   };
-  const harness = createScriptContractHarness(githubReviewThreadRespondScript, {
+  const harness = createGitHubScriptContractHarness(githubReviewThreadRespondScript, {
     executionId: 'github-thread-respond',
-    idempotencyKey: 'run:thread:respond',
     resources: { repository: githubResource(client, 'publish') },
   });
 
-  const execution = await harness.execute({
+  const execution = await harness.runAttempt({
     schemaVersion: 'github-review-threads-respond-input/v1',
     pullRequest,
     triage: {
@@ -48,21 +47,21 @@ test('responds to a selected batch in triage order and returns only provider pro
   });
 
   const fixMarker = githubReviewThreadMarker({
-    operationKey: 'run:thread:respond',
+    operationKey: 'github-thread-respond',
     pullRequestNumber: pullRequest.number,
     headCommit: pullRequest.head.sha,
     threadId: 'thread-fix',
     replyBody: 'Addressed in the pinned head.',
   });
   const wontfixMarker = githubReviewThreadMarker({
-    operationKey: 'run:thread:respond',
+    operationKey: 'github-thread-respond',
     pullRequestNumber: pullRequest.number,
     headCommit: pullRequest.head.sha,
     threadId: 'thread-wontfix',
     replyBody: "Won't fix.",
   });
-  expect(execution.result).toEqual({
-    ok: true,
+  expect(execution.result).toMatchObject({
+    kind: 'succeeded',
     value: {
       schemaVersion: 'github-review-threads-respond-result/v1',
       pullRequest: {
@@ -91,7 +90,6 @@ test('responds to a selected batch in triage order and returns only provider pro
       ],
     },
     evidence: [],
-    attempts: 1,
   });
 });
 
@@ -103,43 +101,26 @@ test('rejects duplicate selections before any provider call', async () => {
       return [];
     },
   };
-  const harness = createScriptContractHarness(githubReviewThreadRespondScript, {
+  const harness = createGitHubScriptContractHarness(githubReviewThreadRespondScript, {
     executionId: 'github-thread-respond-duplicates',
-    idempotencyKey: 'run:thread:respond:duplicates',
     resources: { repository: githubResource(client, 'publish') },
   });
 
-  const execution = await harness.execute({
-    schemaVersion: 'github-review-threads-respond-input/v1',
-    pullRequest,
-    triage: {
-      items: [
-        { threadId: 'thread-1', decision: 'fix' },
-        { threadId: 'thread-1', decision: 'wontfix' },
-      ],
-    },
-  });
-
-  expect({ result: execution.result, calls }).toEqual({
-    result: {
-      ok: false,
-      error: {
-        code: 'revo.script.validation.input',
-        message: 'Script input is invalid.',
-        retryable: false,
-        details: {
-          issues: [
-            {
-              path: ['triage', 'items', 1, 'threadId'],
-              message: 'Review-thread triage items must have unique thread ids.',
-            },
-          ],
-        },
+  await expect(
+    harness.runAttempt({
+      schemaVersion: 'github-review-threads-respond-input/v1',
+      pullRequest,
+      triage: {
+        items: [
+          { threadId: 'thread-1', decision: 'fix' },
+          { threadId: 'thread-1', decision: 'wontfix' },
+        ],
       },
-      attempts: 0,
-    },
-    calls: 0,
+    }),
+  ).resolves.toMatchObject({
+    result: { kind: 'failed', error: { code: 'revo.script.validation.input' } },
   });
+  expect(calls).toEqual(0);
 });
 
 test('rejects question triage without an active continuation resolution', async () => {
@@ -150,38 +131,21 @@ test('rejects question triage without an active continuation resolution', async 
       return [];
     },
   };
-  const harness = createScriptContractHarness(githubReviewThreadRespondScript, {
+  const harness = createGitHubScriptContractHarness(githubReviewThreadRespondScript, {
     executionId: 'github-thread-respond-empty',
-    idempotencyKey: 'run:thread:respond:empty',
     resources: { repository: githubResource(client, 'publish') },
   });
 
-  const execution = await harness.execute({
-    schemaVersion: 'github-review-threads-respond-input/v1',
-    pullRequest,
-    triage: { items: [{ threadId: 'thread-question', decision: 'question' }] },
+  await expect(
+    harness.runAttempt({
+      schemaVersion: 'github-review-threads-respond-input/v1',
+      pullRequest,
+      triage: { items: [{ threadId: 'thread-question', decision: 'question' }] },
+    }),
+  ).resolves.toMatchObject({
+    result: { kind: 'failed', error: { code: 'revo.script.validation.input' } },
   });
-
-  expect({ result: execution.result, calls }).toEqual({
-    result: {
-      ok: false,
-      error: {
-        code: 'revo.script.validation.input',
-        message: 'Script input is invalid.',
-        retryable: false,
-        details: {
-          issues: [
-            {
-              path: ['questionResolution'],
-              message: 'Question triage requires an active continuation resolution.',
-            },
-          ],
-        },
-      },
-      attempts: 0,
-    },
-    calls: 0,
-  });
+  expect(calls).toEqual(0);
 });
 
 test('renders a resolved question from the canonical continuation note', async () => {
@@ -208,13 +172,12 @@ test('renders a resolved question from the canonical continuation note', async (
       });
     },
   };
-  const harness = createScriptContractHarness(githubReviewThreadRespondScript, {
+  const harness = createGitHubScriptContractHarness(githubReviewThreadRespondScript, {
     executionId: 'github-thread-question-resolution',
-    idempotencyKey: 'run:thread:question-resolution',
     resources: { repository: githubResource(client, 'publish') },
   });
 
-  const execution = await harness.execute({
+  const execution = await harness.runAttempt({
     schemaVersion: 'github-review-threads-respond-input/v1',
     pullRequest,
     triage: { items: [{ threadId: 'thread-question', decision: 'question' }] },
@@ -232,8 +195,8 @@ test('renders a resolved question from the canonical continuation note', async (
     },
   });
 
-  expect({ result: execution.result.ok, items }).toEqual({
-    result: true,
+  expect({ result: execution.result.kind, items }).toEqual({
+    result: 'succeeded',
     items: [
       {
         threadId: 'thread-question',
