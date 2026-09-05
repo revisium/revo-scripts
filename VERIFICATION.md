@@ -22,14 +22,14 @@ The command must pass without warnings. It includes:
 1. Oxfmt formatting verification.
 2. Strict TypeScript 7 typechecking.
 3. Type-aware Oxlint with compiler diagnostics and unused-suppression detection.
-4. Focused unit, contract, consumer/provider integration, and package source tests.
+4. Unit, contract, consumer/provider integration, and package source tests, run once with coverage.
 5. LCOV coverage generation.
 6. Declared coverage thresholds for owned production source.
 7. Oxlint architecture boundaries and dependency-cycle detection.
 8. ESM JavaScript and declaration build.
 9. `publint` package metadata and export validation.
 10. `@arethetypeswrong/cli` validation under the intentional ESM-only profile.
-11. npm package-content dry-run validation.
+11. Content validation of the same lifecycle-built tarball used by publint, attw, and the consumer.
 12. Packed-tarball consumer typecheck, runtime execution, and deep-import denial.
 
 Runtime and built-in script changes also follow the test ownership and proof rules in
@@ -58,8 +58,8 @@ Run these when their surface changes:
 
 - GitHub workflows: `actionlint`.
 - Shell scripts: `bash -n scripts/*.sh`.
-- Package artifact or release workflow: run `corepack pnpm pack --pack-destination <temporary-directory>`,
-  `npm pack --dry-run --json`, and `npm publish --dry-run --tag alpha`; inspect the listed contents and metadata.
+- Package artifact: run `corepack pnpm verify:package`; it builds and checks one tarball through all package gates.
+- Release metadata or publication workflow: also run `npm publish --dry-run --tag alpha` and inspect publication metadata.
 - Dependency changes: `corepack pnpm audit --prod`; inspect lockfile changes and install-script policy.
 - Public API changes: add runtime behavior tests where applicable, type-surface tests, package export checks, and README examples.
 - Architecture or dependency-direction changes: run `corepack pnpm verify:architecture` and review changes to

@@ -11,7 +11,7 @@ This file is the repository-local contract for coding agents. When this reposito
 - Protected base branch: `master`.
 - Primary local gate: `pnpm verify`.
 - Static analysis: SonarCloud through the scripts and workflow committed here.
-- Current implementation: public SDK, one-script runtime, testing kit, and read-only Git status proof.
+- Current implementation and supported operations: see `README.md` and the public export map in `package.json`.
 - The package remains unpublished; publishing and downstream integration require separate approval.
 
 ## Required reading
