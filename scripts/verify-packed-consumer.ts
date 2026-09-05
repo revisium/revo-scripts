@@ -316,6 +316,51 @@ void scripts;
 void attempt;
 `;
 
+interface PackFile {
+  path: string;
+}
+
+interface PackManifest {
+  files: PackFile[];
+}
+
+const isPackManifest = (value: unknown): value is PackManifest =>
+  isRecord(value) &&
+  Array.isArray(value.files) &&
+  value.files.every((file: unknown) => isRecord(file) && typeof file.path === 'string');
+
+const validatePack = (manifest: unknown, packageJson: unknown): void => {
+  assert.ok(isPackManifest(manifest));
+  assert.ok(isRecord(packageJson) && isRecord(packageJson.exports));
+  const paths = manifest.files.map((file) => file.path).sort();
+  const requiredPaths = ['LICENSE', 'README.md', 'package.json'];
+  for (const entry of Object.values(packageJson.exports)) {
+    assert.ok(isRecord(entry));
+    for (const target of Object.values(entry)) {
+      assert.equal(typeof target, 'string');
+      assert.ok(typeof target === 'string' && target.startsWith('./dist/'));
+      requiredPaths.push(target.slice(2));
+    }
+  }
+  for (const requiredPath of requiredPaths) {
+    assert.ok(paths.includes(requiredPath), `Package is missing ${requiredPath}`);
+  }
+
+  const stalePaths = paths.filter((path) =>
+    /^(?:dist\/(?:core|spec|definition|registry|execution|validation|facade))(?:\/|$)/.test(path),
+  );
+  assert.deepEqual(stalePaths, [], `Package contains stale build paths: ${stalePaths.join(', ')}`);
+
+  const unexpectedPaths = paths.filter(
+    (path) =>
+      !['LICENSE', 'README.md', 'package.json'].includes(path) &&
+      !/^dist\/.*\.(?:d\.ts|d\.ts\.map|js|js\.map)$/.test(path),
+  );
+
+  assert.deepEqual(unexpectedPaths, [], `Unexpected package files: ${unexpectedPaths.join(', ')}`);
+  console.log(`Package content validation passed (${paths.length} files).`);
+};
+
 const consumerTsconfig = {
   compilerOptions: {
     target: 'ES2024',
@@ -342,19 +387,15 @@ const consumerNodeModules = join(consumerDirectory, 'node_modules');
 try {
   await mkdir(packDirectory);
   await mkdir(consumerDirectory);
-  const packOutput = execFileSync(
-    'npm',
-    ['pack', '--json', '--ignore-scripts', '--pack-destination', packDirectory],
-    {
-      cwd: root,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        npm_config_cache: join(temporaryRoot, 'npm-cache'),
-        npm_config_loglevel: 'silent',
-      },
+  const packOutput = execFileSync('npm', ['pack', '--json', '--pack-destination', packDirectory], {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      npm_config_cache: join(temporaryRoot, 'npm-cache'),
+      npm_config_loglevel: 'silent',
     },
-  );
+  });
   const parsedPackOutput: unknown = JSON.parse(packOutput);
 
   assert.ok(Array.isArray(parsedPackOutput) && parsedPackOutput.length === 1);
@@ -364,6 +405,15 @@ try {
   const tarball = join(packDirectory, packResult.filename);
   const rawPackageJson: unknown = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
   assert.ok(isRecord(rawPackageJson) && isRecord(rawPackageJson.dependencies));
+  validatePack(packResult, rawPackageJson);
+  execFileSync(
+    join(root, 'node_modules/.bin/publint'),
+    ['run', tarball, '--strict', '--pack=false'],
+    { stdio: 'inherit' },
+  );
+  execFileSync(join(root, 'node_modules/.bin/attw'), [tarball, '--profile', 'esm-only'], {
+    stdio: 'inherit',
+  });
   const packageDependencies = Object.keys(rawPackageJson.dependencies);
   const installedPackage = packagePath(consumerNodeModules, '@revisium/revo-scripts');
 
